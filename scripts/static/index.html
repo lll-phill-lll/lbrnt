@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Labyrinth GUI</title>
+  <style>
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; margin: 0; display: flex; height: 100vh; }
+    .sidebar { width: 320px; border-right: 1px solid #ddd; padding: 12px; box-sizing: border-box; overflow: auto; }
+    .content { flex: 1; display: flex; flex-direction: column; }
+    .toolbar { padding: 8px 12px; border-bottom: 1px solid #eee; display: flex; gap: 8px; align-items: center; }
+    .viewer { flex: 1; overflow: auto; background: #fafafa; display: flex; justify-content: center; align-items: center; }
+    #svgHolder { width: 100%; height: 100%; display: flex; justify-content: center; align-items: center; }
+    button { cursor: pointer; }
+    .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; width: 160px; }
+    .row { display: flex; gap: 6px; align-items: center; margin-bottom: 8px; }
+    .section { margin-bottom: 16px; }
+    .log { height: 160px; overflow: auto; background: #111; color: #eee; padding: 8px; border-radius: 6px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }
+    label { display: block; margin-bottom: 4px; font-weight: 600; }
+    input, select { width: 100%; padding: 6px 8px; box-sizing: border-box; }
+    .muted { color: #666; font-size: 12px; }
+  </style>
+  <script>
+    async function fetchText(url, options) {
+      const res = await fetch(url, options);
+      if (!res.ok) throw new Error(await res.text());
+      return await res.text();
+    }
+    async function fetchJson(url, options) {
+      const res = await fetch(url, options);
+      const data = await res.json();
+      if (!res.ok || !data.ok) throw new Error(data.error || data.stderr || 'Ошибка');
+      return data;
+    }
+    async function refreshSvg() {
+      try {
+        const svg = await fetchText('/api/svg');
+        document.getElementById('svgHolder').innerHTML = svg;
+      } catch (e) {
+        log('[SVG] ' + e.message);
+      }
+    }
+    function form(params) {
+      return new URLSearchParams(params);
+    }
+    function log(line) {
+      const el = document.getElementById('log');
+      el.textContent += (line + '\\n');
+      el.scrollTop = el.scrollHeight;
+    }
+    async function refreshPlayers() {
+      try {
+        const data = await fetchJson('/api/players');
+        const sel = document.getElementById('player');
+        const current = sel.value;
+        sel.innerHTML = '';
+        data.players.forEach(n => {
+          const opt = document.createElement('option');
+          opt.value = n; opt.textContent = n;
+          sel.appendChild(opt);
+        });
+        if (data.players.includes(current)) sel.value = current;
+      } catch {}
+    }
+    async function doMove(dir) {
+      const name = document.getElementById('player').value.trim();
+      if (!name) return alert('Выберите игрока');
+      try {
+        const data = await fetchJson('/api/move', { method: 'POST', headers: {'Content-Type':'application/x-www-form-urlencoded'}, body: form({name, dir}) });
+        log('[MOVE] ' + (data.stdout || 'ok'));
+        await refreshSvg(); await refreshPlayers();
+      } catch (e) { log('[MOVE:ERR] ' + e.message); }
+    }
+    async function doAttack(dir) {
+      const name = document.getElementById('player').value.trim();
+      if (!name) return alert('Выберите игрока');
+      try {
+        const data = await fetchJson('/api/attack', { method: 'POST', headers: {'Content-Type':'application/x-www-form-urlencoded'}, body: form({name, dir}) });
+        log('[ATTACK] ' + (data.stdout || 'ok'));
+        await refreshSvg(); await refreshPlayers();
+      } catch (e) { log('[ATTACK:ERR] ' + e.message); }
+    }
+    async function doUseItem(dir) {
+      const name = document.getElementById('player').value.trim();
+      if (!name) return alert('Выберите игрока');
+      const item = document.getElementById('item').value;
+      try {
+        const data = await fetchJson('/api/use-item', { method: 'POST', headers: {'Content-Type':'application/x-www-form-urlencoded'}, body: form({name, item, dir}) });
+        log('[USE ' + item + '] ' + (data.stdout || 'ok'));
+        await refreshSvg(); await refreshPlayers();
+      } catch (e) { log('[USE:ERR] ' + e.message); }
+    }
+    async function doAddPlayerRandom() {
+      const name = document.getElementById('newPlayer').value.trim();
+      if (!name) return alert('Введите имя');
+      try {
+        const data = await fetchJson('/api/add-player-random', { method: 'POST', headers: {'Content-Type':'application/x-www-form-urlencoded'}, body: form({name}) });
+        log('[ADDR] ' + (data.stdout || 'ok'));
+        document.getElementById('newPlayer').value = '';
+        await refreshSvg(); await refreshPlayers();
+      } catch (e) { log('[ADDR:ERR] ' + e.message); }
+    }
+    async function doGenerate() {
+      const width = document.getElementById('gW').value;
+      const height = document.getElementById('gH').value;
+      const openness = document.getElementById('gO').value;
+      const seed = document.getElementById('gS').value;
+      try {
+        const data = await fetchJson('/api/generate', { method: 'POST', headers: {'Content-Type':'application/x-www-form-urlencoded'}, body: form({width, height, openness, seed}) });
+        log('[GEN] ' + (data.stdout || 'ok'));
+        await refreshSvg(); await refreshPlayers();
+      } catch (e) { log('[GEN:ERR] ' + e.message); }
+    }
+    async function doPreset() {
+      const width = document.getElementById('gW').value;
+      const height = document.getElementById('gH').value;
+      const openness = document.getElementById('gO').value;
+      const seed = document.getElementById('gS').value;
+      const names = document.getElementById('gNames').value;
+      try {
+        const data = await fetchJson('/api/preset', { method: 'POST', headers: {'Content-Type':'application/x-www-form-urlencoded'}, body: form({width, height, openness, seed, names}) });
+        log('[PRESET] ' + (data.stdout || 'ok'));
+        await refreshSvg(); await refreshPlayers();
+      } catch (e) { log('[PRESET:ERR] ' + e.message); }
+    }
+    function installKeyControls() {
+      window.addEventListener('keydown', async (e) => {
+        const name = document.getElementById('player').value.trim();
+        if (!name) return;
+        const map = { ArrowUp: 'up', ArrowDown: 'down', ArrowLeft: 'left', ArrowRight: 'right' };
+        const dir = map[e.key];
+        if (!dir) return;
+        if (e.altKey || e.ctrlKey) {
+          e.preventDefault();
+          await doUseItem(dir);
+          return;
+        }
+        if (e.shiftKey) {
+          e.preventDefault();
+          await doAttack(dir);
+          return;
+        }
+        e.preventDefault();
+        await doMove(dir);
+      }, { passive: false });
+    }
+    window.addEventListener('DOMContentLoaded', async () => {
+      await refreshSvg();
+      await refreshPlayers();
+      installKeyControls();
+    });
+  </script>
+</head>
+<body>
+  <div class="sidebar">
+    <div class="section">
+      <label>Текущий игрок</label>
+      <div class="row">
+        <select id="player" style="flex:1"></select>
+        <button onclick="refreshPlayers()" title="Обновить список">⟳</button>
+      </div>
+      <div class="row" style="justify-content: space-between;">
+        <div>
+          <div class="muted">Движение</div>
+          <div class="grid">
+            <span></span> <button onclick="doMove('up')">↑</button> <span></span>
+            <button onclick="doMove('left')">←</button> <span></span> <button onclick="doMove('right')">→</button>
+            <span></span> <button onclick="doMove('down')">↓</button> <span></span>
+          </div>
+        </div>
+        <div>
+          <div class="muted">Атака</div>
+          <div class="grid">
+            <span></span> <button onclick="doAttack('up')">↑</button> <span></span>
+            <button onclick="doAttack('left')">←</button> <span></span> <button onclick="doAttack('right')">→</button>
+            <span></span> <button onclick="doAttack('down')">↓</button> <span></span>
+          </div>
+        </div>
+      </div>
+      <div class="row">
+        <select id="item">
+          <option value="flashlight">flashlight</option>
+          <option value="knife">knife</option>
+          <option value="shotgun">shotgun</option>
+          <option value="rifle">rifle</option>
+        </select>
+        <button onclick="doUseItem('up')">↑</button>
+        <button onclick="doUseItem('left')">←</button>
+        <button onclick="doUseItem('down')">↓</button>
+        <button onclick="doUseItem('right')">→</button>
+      </div>
+    </div>
+
+    <div class="section">
+      <label>Случайный игрок</label>
+      <div class="row">
+        <input id="newPlayer" placeholder="Имя" />
+        <button onclick="doAddPlayerRandom()">Добавить</button>
+      </div>
+    </div>
+
+    <div class="section">
+      <label>Генерация карты</label>
+      <div class="row"><input id="gW" type="number" value="12" placeholder="width" /></div>
+      <div class="row"><input id="gH" type="number" value="12" placeholder="height" /></div>
+      <div class="row"><input id="gO" type="number" step="0.1" value="0.5" placeholder="openness" /></div>
+      <div class="row"><input id="gS" type="number" value="42" placeholder="seed" /></div>
+      <div class="row"><input id="gNames" value="Rus2m,M1sha,Dasha,Orino" placeholder="имена через запятую" /></div>
+      <div class="row" style="gap:6px;">
+        <button onclick="doGenerate()">Сгенерировать</button>
+        <button onclick="doPreset()">Быстрый старт</button>
+      </div>
+    </div>
+
+    <div class="section">
+      <label>Логи</label>
+      <div id="log" class="log"></div>
+    </div>
+  </div>
+  <div class="content">
+    <div class="toolbar">
+      <button onclick="refreshSvg()">Обновить SVG</button>
+      <span class="muted">Файл: maze.svg / state.txt</span>
+    </div>
+    <div class="viewer">
+      <div id="svgHolder"></div>
+    </div>
+  </div>
+</body>
+</html>
+
+
