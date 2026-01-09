@@ -40,13 +40,19 @@ void HospitalLocation::onPlaced(Game& /*game*/, LabyrinthMap& map) {
 	std::shuffle(candidates.begin(), candidates.end(), gen);
 	for (auto& cand : candidates) (void)cand;
 	// Use shared placement helper
-	LocationUtils::pick_and_place_location_cluster(map, CellContent::Hospital, patterns, gen, cells_);
+	std::vector<std::pair<size_t,size_t>> dummy;
+	LocationUtils::pick_and_place_location_cluster(map, CellContent::Hospital, patterns, gen, dummy);
 }
 
-bool HospitalLocation::teleportToHospital(Game& game, LabyrinthMap& /*map*/, const std::string& victim) {
-	if (cells_.empty()) return false;
-	auto [hx, hy] = cells_.front();
-	game.players[victim] = {hx, hy};
-	return true;
+bool HospitalLocation::teleportToHospital(Game& game, LabyrinthMap& map, const std::string& victim) {
+	for (size_t y = 0; y < map.height; ++y) {
+		for (size_t x = 0; x < map.width; ++x) {
+			if (map.get_cell(x, y) == CellContent::Hospital) {
+				game.players[victim] = {x, y};
+				return true;
+			}
+		}
+	}
+	return false;
 }
 

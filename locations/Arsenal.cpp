@@ -31,7 +31,8 @@ void ArsenalLocation::onPlaced(Game& /*game*/, LabyrinthMap& map) {
 		{{1,0},{0,1},{1,1},{2,1},{1,2}},
 	};
 	std::mt19937 gen{rand_u32()};
-	LocationUtils::pick_and_place_location_cluster(map, CellContent::Arsenal, patterns, gen, cells_);
+	std::vector<std::pair<size_t,size_t>> dummy;
+	LocationUtils::pick_and_place_location_cluster(map, CellContent::Arsenal, patterns, gen, dummy);
 }
 
 

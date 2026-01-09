@@ -2,6 +2,7 @@
 #include <fstream>
 #include <sstream>
 #include <random>
+#include "locations/Location.hpp"
 
 static const char* dir_to_cstr(Direction d) {
 	switch (d) {

@@ -8,8 +8,6 @@ struct HospitalLocation : public Location {
 	void onExit(Game& game, LabyrinthMap& map, const std::string& playerName, size_t x, size_t y, std::vector<std::string>& messages) override;
 	// Teleport victim to a hospital cell (returns true if teleported)
 	bool teleportToHospital(Game& game, LabyrinthMap& map, const std::string& victim);
-private:
-	std::vector<std::pair<size_t,size_t>> cells_;
 };
 
 
