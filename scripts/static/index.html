@@ -5,9 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Labyrinth GUI</title>
   <style>
+    :root { --sidebar-width: 320px; --logs-height: 220px; }
     body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; margin: 0; display: flex; flex-direction: column; height: 100vh; }
     .mainrow { display: flex; flex: 1; min-height: 0; }
-    .sidebar { width: 320px; border-right: 1px solid #ddd; padding: 12px; box-sizing: border-box; overflow: auto; }
+    .sidebar { width: var(--sidebar-width); border-right: 1px solid #ddd; padding: 12px; box-sizing: border-box; overflow: auto; }
     .content { flex: 1; display: flex; flex-direction: column; }
     .toolbar { padding: 8px 12px; border-bottom: 1px solid #eee; display: flex; gap: 8px; align-items: center; }
     .viewer { flex: 1; overflow: auto; background: #fafafa; display: flex; justify-content: center; align-items: center; }
@@ -16,10 +17,12 @@
     .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; width: 160px; }
     .row { display: flex; gap: 6px; align-items: center; margin-bottom: 8px; }
     .section { margin-bottom: 16px; }
-    .log { height: 160px; overflow: auto; background: #111; color: #eee; padding: 8px; border-radius: 6px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; white-space: pre-wrap; }
+    .log { overflow: auto; background: #111; color: #eee; padding: 8px; border-radius: 6px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; white-space: pre-wrap; }
     label { display: block; margin-bottom: 4px; font-weight: 600; }
     input, select { width: 100%; padding: 6px 8px; box-sizing: border-box; }
     .muted { color: #666; font-size: 12px; }
+    .vsplit { width: 6px; cursor: col-resize; background: #f6f6f6; border-right: 1px solid #e5e5e5; border-left: 1px solid #e5e5e5; }
+    .hsplit { height: 6px; cursor: row-resize; background: #f6f6f6; border-top: 1px solid #e5e5e5; border-bottom: 1px solid #e5e5e5; }
   </style>
   <script>
     async function fetchText(url, options) {
@@ -232,6 +235,76 @@
       await refreshPlayers();
       await refreshTurn();
       installKeyControls();
+      // Resizers
+      const rootStyle = document.documentElement.style;
+      // Vertical split (sidebar width)
+      (function () {
+        const vs = document.getElementById('vsplit');
+        const sidebar = document.querySelector('.sidebar');
+        let startX = 0, startW = 0, dragging = false;
+        function onMove(e) {
+          if (!dragging) return;
+          const dx = e.clientX - startX;
+          let w = startW + dx;
+          const min = 200, max = Math.max(260, window.innerWidth - 300);
+          if (w < min) w = min;
+          if (w > max) w = max;
+          rootStyle.setProperty('--sidebar-width', w + 'px');
+          sidebar.style.width = w + 'px';
+          e.preventDefault();
+        }
+        function onUp() {
+          dragging = false;
+          window.removeEventListener('mousemove', onMove);
+          window.removeEventListener('mouseup', onUp);
+          document.body.style.userSelect = '';
+          document.body.style.cursor = '';
+        }
+        vs.addEventListener('mousedown', (e) => {
+          dragging = true;
+          startX = e.clientX;
+          startW = sidebar.getBoundingClientRect().width;
+          window.addEventListener('mousemove', onMove);
+          window.addEventListener('mouseup', onUp);
+          document.body.style.userSelect = 'none';
+          document.body.style.cursor = 'col-resize';
+          e.preventDefault();
+        });
+      })();
+      // Horizontal split (logs height)
+      (function () {
+        const hs = document.getElementById('hsplit');
+        const logs = document.querySelector('.logsbar');
+        let startY = 0, startH = 0, dragging = false;
+        function onMove(e) {
+          if (!dragging) return;
+          const dy = e.clientY - startY;
+          let h = startH - dy; // drag down -> smaller logs
+          const min = 120, max = Math.max(180, window.innerHeight - 240);
+          if (h < min) h = min;
+          if (h > max) h = max;
+          rootStyle.setProperty('--logs-height', h + 'px');
+          logs.style.height = h + 'px';
+          e.preventDefault();
+        }
+        function onUp() {
+          dragging = false;
+          window.removeEventListener('mousemove', onMove);
+          window.removeEventListener('mouseup', onUp);
+          document.body.style.userSelect = '';
+          document.body.style.cursor = '';
+        }
+        hs.addEventListener('mousedown', (e) => {
+          dragging = true;
+          startY = e.clientY;
+          startH = logs.getBoundingClientRect().height;
+          window.addEventListener('mousemove', onMove);
+          window.addEventListener('mouseup', onUp);
+          document.body.style.userSelect = 'none';
+          document.body.style.cursor = 'row-resize';
+          e.preventDefault();
+        });
+      })();
     });
   </script>
 </head>
@@ -290,6 +363,7 @@
     </div>
 
   </div>
+  <div class="vsplit" id="vsplit"></div>
   <div class="content">
     <div class="toolbar">
       <button onclick="refreshSvg()">Обновить SVG</button>
@@ -300,7 +374,8 @@
     </div>
   </div>
   </div>
-  <div class="logsbar" style="border-top:1px solid #eee; height:220px; display:flex; flex-direction:column;">
+  <div class="hsplit" id="hsplit"></div>
+  <div class="logsbar" style="height: var(--logs-height); display:flex; flex-direction:column;">
     <div style="display:flex; gap:8px; padding:8px; height:100%; box-sizing:border-box;">
       <div style="flex:1; display:flex; flex-direction:column; gap:4px; min-width:0;">
         <div class="muted">stdout</div>
