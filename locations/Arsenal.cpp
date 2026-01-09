@@ -7,12 +7,28 @@
 
 void ArsenalLocation::onEnter(Game& game, LabyrinthMap& /*map*/, const std::string& playerName, size_t /*x*/, size_t /*y*/, std::vector<std::string>& messages) {
 	messages.push_back("Вы нашли арсенал.");
-	// Repair knife to 1 charge if broken or zero
-	int cur = game.inventories[playerName].getCharges("knife");
-	if (cur <= 0) {
-		game.inventories[playerName].setCharges("knife", 1);
-		game.broken_knife.erase(playerName);
-		messages.push_back("Ваш нож починен.");
+	// Repair all items present in inventory to at least 1 charge
+	auto it = game.inventories.find(playerName);
+	if (it == game.inventories.end()) return;
+	auto& inv = it->second;
+	for (auto& kv : inv.item_charges) {
+		const std::string& itemId = kv.first;
+		int& charges = kv.second;
+		if (charges <= 0) {
+			charges = 1;
+			if (itemId == "knife") {
+				game.broken_knife.erase(playerName);
+				messages.push_back("Ваш нож починен.");
+			} else if (itemId == "rifle") {
+				messages.push_back("Ружьё перезаряжено.");
+			} else if (itemId == "shotgun") {
+				messages.push_back("Дробовик перезаряжен.");
+			} else if (itemId == "flashlight") {
+				messages.push_back("Фонарь заряжен.");
+			} else {
+				messages.push_back("Предмет перезаряжен: " + itemId);
+			}
+		}
 	}
 }
 

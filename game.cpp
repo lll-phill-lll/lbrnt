@@ -143,7 +143,26 @@ MoveOutcome Game::move_player(const std::string& name, Direction dir, LabyrinthM
 		ground_items.erase(itItems);
 	}
 	for (const auto& kv : players) {
-		if (kv.first != name && manhattan(new_pos, kv.second) <= 1) {
+		if (kv.first == name) continue;
+		auto other = kv.second;
+		size_t dx = (new_pos.first > other.first) ? (new_pos.first - other.first) : (other.first - new_pos.first);
+		size_t dy = (new_pos.second > other.second) ? (new_pos.second - other.second) : (other.second - new_pos.second);
+		if (dx + dy != 1) continue; // only adjacent, not same cell
+		bool visible = false;
+		if (other.first + 1 == new_pos.first && other.second == new_pos.second) {
+			// other is left of new_pos -> check can move left from new_pos
+			visible = map.can_move_left(new_pos.first, new_pos.second);
+		} else if (other.first == new_pos.first + 1 && other.second == new_pos.second) {
+			// other is right of new_pos
+			visible = map.can_move_right(new_pos.first, new_pos.second);
+		} else if (other.second + 1 == new_pos.second && other.first == new_pos.first) {
+			// other is above new_pos
+			visible = map.can_move_up(new_pos.first, new_pos.second);
+		} else if (other.second == new_pos.second + 1 && other.first == new_pos.first) {
+			// other is below new_pos
+			visible = map.can_move_down(new_pos.first, new_pos.second);
+		}
+		if (visible) {
 			out.messages.push_back("Вы чувствуете чьё-то дыхание поблизости.");
 			break;
 		}
