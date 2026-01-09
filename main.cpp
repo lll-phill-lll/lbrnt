@@ -5,10 +5,19 @@
 #include <filesystem>
 #include <fstream>
 #include <random>
+#include <sstream>
 
 // Simple stderr logger for service messages
 static void log_err(const std::string& msg) {
 	std::cerr << msg << "\n";
+}
+
+// User-facing formatted output: [Player]: then tab-indented messages
+static void print_user_messages(const std::string& player, const std::vector<std::string>& messages) {
+	std::cout << "[" << player << "]:" << "\n";
+	for (const auto& m : messages) {
+		std::cout << "\t" << m << "\n";
+	}
 }
 
 static void usage() {
@@ -169,11 +178,28 @@ int main(int argc, char** argv) {
 		else { usage(); return 1; }
 		AppState st; std::string err;
 		if (!AppState::load(st, state, err)) { std::cerr << err << "\n"; return 2; }
+		// detailed stderr log baseline
+		std::pair<size_t,size_t> oldpos{0,0};
+		bool had_old = false;
+		{
+			auto itp = st.game.players.find(name);
+			if (itp != st.game.players.end()) { oldpos = itp->second; had_old = true; }
+		}
 		auto out = st.game.move_player(name, dir, st.map);
 		st.log.push_back(LogEntry{LogType::Move, name, dir, 0, 0});
 		if (!AppState::save(st, state, err)) { std::cerr << err << "\n"; return 2; }
-		// Do not print position to stdout; only feedback messages
-		for (auto& m : out.messages) std::cout << m << "\n";
+		// stderr detailed log
+		if (had_old) {
+			std::ostringstream es;
+			es << "MOVE " << name << " from " << oldpos.first << "," << oldpos.second
+			   << " to " << out.position.first << "," << out.position.second
+			   << (out.moved ? " [moved]" : " [blocked]");
+			log_err(es.str());
+		} else {
+			log_err(std::string("MOVE ") + name + " (no previous position)");
+		}
+		// stdout user messages
+		print_user_messages(name, out.messages);
 		return 0;
 	}
 	if (cmd == "use-item") {
@@ -193,7 +219,14 @@ int main(int argc, char** argv) {
 		if (!AppState::load(st, state, err)) { std::cerr << err << "\n"; return 2; }
 		auto out = st.game.use_item(name, item, dir, st.map);
 		if (!AppState::save(st, state, err)) { std::cerr << err << "\n"; return 2; }
-		for (auto& m : out.messages) std::cout << m << "\n";
+		// stderr detailed log
+		{
+			std::ostringstream es;
+			es << "USE " << name << " item=" << item << " dir=" << sdir << (out.used ? " [applied]" : " [failed]");
+			log_err(es.str());
+		}
+		// stdout user messages
+		print_user_messages(name, out.messages);
 		return 0;
 	}
 	if (cmd == "add-item") {
@@ -260,7 +293,14 @@ int main(int argc, char** argv) {
 		auto out = st.game.attack(name, dir, st.map);
 		st.log.push_back(LogEntry{LogType::Attack, name, dir, 0, 0});
 		if (!AppState::save(st, state, err)) { std::cerr << err << "\n"; return 2; }
-		for (auto& m : out.messages) std::cout << m << "\n";
+		// stderr detailed log
+		{
+			std::ostringstream es;
+			es << "ATTACK " << name << " dir=" << sdir << (out.attacked ? " [done]" : " [failed]");
+			log_err(es.str());
+		}
+		// stdout user messages
+		print_user_messages(name, out.messages);
 		return 0;
 	}
 	if (cmd == "replay-export") {

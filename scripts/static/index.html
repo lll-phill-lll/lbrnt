@@ -5,8 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Labyrinth GUI</title>
   <style>
-    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; margin: 0; display: flex; height: 100vh; }
-    .sidebar { width: 480px; border-right: 1px solid #ddd; padding: 12px; box-sizing: border-box; overflow: auto; }
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; margin: 0; display: flex; flex-direction: column; height: 100vh; }
+    .mainrow { display: flex; flex: 1; min-height: 0; }
+    .sidebar { width: 320px; border-right: 1px solid #ddd; padding: 12px; box-sizing: border-box; overflow: auto; }
     .content { flex: 1; display: flex; flex-direction: column; }
     .toolbar { padding: 8px 12px; border-bottom: 1px solid #eee; display: flex; gap: 8px; align-items: center; }
     .viewer { flex: 1; overflow: auto; background: #fafafa; display: flex; justify-content: center; align-items: center; }
@@ -223,6 +224,7 @@
   </script>
 </head>
 <body>
+  <div class="mainrow">
   <div class="sidebar">
     <div class="section">
       <label>Текущий игрок</label>
@@ -275,19 +277,6 @@
       </div>
     </div>
 
-    <div class="section">
-      <label>Логи</label>
-      <div style="display:flex; flex-direction:column; gap:8px;">
-        <div style="display:flex; flex-direction:column; gap:4px;">
-          <div class="muted">stdout</div>
-          <div id="logOut" class="log"></div>
-        </div>
-        <div style="display:flex; flex-direction:column; gap:4px;">
-          <div class="muted">stderr</div>
-          <div id="logErr" class="log"></div>
-        </div>
-      </div>
-    </div>
   </div>
   <div class="content">
     <div class="toolbar">
@@ -296,6 +285,19 @@
     </div>
     <div class="viewer">
       <div id="svgHolder"></div>
+    </div>
+  </div>
+  </div>
+  <div class="logsbar" style="border-top:1px solid #eee; height:220px; display:flex; flex-direction:column;">
+    <div style="display:flex; gap:8px; padding:8px; height:100%; box-sizing:border-box;">
+      <div style="flex:1; display:flex; flex-direction:column; gap:4px; min-width:0;">
+        <div class="muted">stdout</div>
+        <div id="logOut" class="log" style="flex:1;"></div>
+      </div>
+      <div style="flex:1; display:flex; flex-direction:column; gap:4px; min-width:0;">
+        <div class="muted">stderr</div>
+        <div id="logErr" class="log" style="flex:1;"></div>
+      </div>
     </div>
   </div>
 </body>
