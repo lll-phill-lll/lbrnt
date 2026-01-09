@@ -16,6 +16,10 @@ app = Flask(
     static_url_path="/static",
 )
 
+@app.after_request
+def add_no_store(resp):
+    resp.headers["Cache-Control"] = "no-store"
+    return resp
 
 def run_lab(args):
     """Run labyrinth CLI with given args."""
@@ -40,6 +44,45 @@ def read_svg_text():
             return None
     with open(SVG, "r", encoding="utf-8") as f:
         return f.read()
+
+def parse_turn_info():
+    """Parse turn info from state.txt (TURNS block)."""
+    info = {"enforce": False, "index": 0, "order": [], "current": None, "next": None}
+    if not os.path.exists(STATE):
+        return info
+    try:
+        with open(STATE, "r", encoding="utf-8") as f:
+            lines = [l.rstrip("\n") for l in f]
+        # find TURNS line
+        pos = None
+        for i, line in enumerate(lines):
+            if line.startswith("TURNS "):
+                pos = i
+                break
+        if pos is None:
+            return info
+        parts = lines[pos].split()
+        # TURNS enf idx cnt
+        if len(parts) < 4:
+            return info
+        enf = int(parts[1])
+        idx = int(parts[2])
+        cnt = int(parts[3])
+        order = []
+        for j in range(cnt):
+            if pos + 1 + j < len(lines):
+                order.append(lines[pos + 1 + j].strip())
+        info["enforce"] = (enf != 0)
+        info["index"] = idx if 0 <= idx < len(order) else 0
+        info["order"] = order
+        info["current"] = order[info["index"]] if order else None
+        if order:
+            info["next"] = order[(info["index"] + 1) % len(order)]
+        else:
+            info["next"] = None
+    except Exception:
+        pass
+    return info
 
 
 def parse_players():
@@ -79,7 +122,11 @@ def api_svg():
     svg = read_svg_text()
     if svg is None:
         return jsonify({"ok": False, "error": "SVG not available (no state)"}), 400
-    return Response(svg, mimetype="image/svg+xml")
+    return Response(svg, mimetype="image/svg+xml", headers={"Cache-Control": "no-store"})
+
+@app.get("/api/turn")
+def api_turn():
+    return jsonify({"ok": True, "turn": parse_turn_info()})
 
 
 @app.get("/api/players")
@@ -107,6 +154,7 @@ def api_generate():
         "stdout": out,
         "stderr": err,
         "players": parse_players(),
+        "turn": parse_turn_info(),
     }), (200 if code == 0 and ok else 400)
 
 
@@ -122,6 +170,7 @@ def api_add_player_random():
         "stdout": out,
         "stderr": err,
         "players": parse_players(),
+        "turn": parse_turn_info(),
     }), (200 if code == 0 and ok else 400)
 
 
@@ -138,6 +187,7 @@ def api_move():
         "stdout": out,
         "stderr": err,
         "players": parse_players(),
+        "turn": parse_turn_info(),
     }), (200 if code == 0 and ok else 400)
 
 
@@ -154,6 +204,7 @@ def api_attack():
         "stdout": out,
         "stderr": err,
         "players": parse_players(),
+        "turn": parse_turn_info(),
     }), (200 if code == 0 and ok else 400)
 
 
@@ -171,6 +222,7 @@ def api_use_item():
         "stdout": out,
         "stderr": err,
         "players": parse_players(),
+        "turn": parse_turn_info(),
     }), (200 if code == 0 and ok else 400)
 
 
@@ -223,6 +275,7 @@ def api_preset():
         "stdout": "\n".join(outs),
         "stderr": "\n".join(errs),
         "players": parse_players(),
+        "turn": parse_turn_info(),
     }), (200 if ok else 400)
 
 

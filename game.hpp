@@ -26,6 +26,10 @@ struct Game {
 	std::unordered_map<std::string, std::pair<size_t,size_t>> players;
 	std::unordered_set<std::string> players_with_treasure;
 	bool finished{false};
+	// Turn order
+	bool enforce_turns{false};
+	std::vector<std::string> turn_order; // fixed order when enforced
+	size_t turn_index{0};                 // index in turn_order
 	// inventory: broken knife set; if name is in set -> knife broken, else active
 	std::unordered_set<std::string> broken_knife;
 	// stable per-player color hex (e.g., "#1f77b4")

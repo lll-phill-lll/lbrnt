@@ -143,6 +143,11 @@ std::string render_svg(const AppState& st, float cell_px, float margin_px) {
 	}
 	// players (support multiple per cell - draw smaller circles in cluster)
 	{
+		// Build turn order index for stable ordering when enforced
+		std::unordered_map<std::string, size_t> orderIndex;
+		if (st.game.enforce_turns && !st.game.turn_order.empty()) {
+			for (size_t i = 0; i < st.game.turn_order.size(); ++i) orderIndex[st.game.turn_order[i]] = i;
+		}
 		std::map<long long, std::vector<std::pair<std::string,std::string>>> groups;
 		for (const auto& kv : st.game.players) {
 			long long key = (long long)kv.second.second * 1000000LL + (long long)kv.second.first;
@@ -151,13 +156,24 @@ std::string render_svg(const AppState& st, float cell_px, float margin_px) {
 			if (itc != st.game.player_color.end()) col = itc->second;
 			groups[key].push_back({kv.first, col});
 		}
+		std::string current_actor;
+		if (st.game.enforce_turns && !st.game.turn_order.empty() && st.game.turn_index < st.game.turn_order.size()) {
+			current_actor = st.game.turn_order[st.game.turn_index];
+		}
 		for (const auto& g : groups) {
 			size_t gy = (size_t)(g.first / 1000000LL);
 			size_t gx = (size_t)(g.first % 1000000LL);
 			float base_x = margin_px + gx * cell_px + cell_px * 0.5f;
 			float base_y = margin_px + gy * cell_px + cell_px * 0.5f;
 			auto vec = g.second;
-			std::sort(vec.begin(), vec.end(), [](const auto& a, const auto& b){ return a.first < b.first; });
+			std::sort(vec.begin(), vec.end(), [&](const auto& a, const auto& b){
+				auto ia = orderIndex.find(a.first);
+				auto ib = orderIndex.find(b.first);
+				if (ia != orderIndex.end() && ib != orderIndex.end()) return ia->second < ib->second;
+				if (ia != orderIndex.end() && ib == orderIndex.end()) return true;
+				if (ia == orderIndex.end() && ib != orderIndex.end()) return false;
+				return a.first < b.first;
+			});
 			size_t n = vec.size();
 			// offsets and sizes
 			std::vector<std::pair<float,float>> offs;
@@ -182,6 +198,11 @@ std::string render_svg(const AppState& st, float cell_px, float margin_px) {
 				const std::string& col = vec[i].second;
 				oss << "<circle cx=\"" << cx << "\" cy=\"" << cy << "\" r=\"" << rr
 				    << "\" fill=\"" << col << "\" opacity=\"0.9\"/>\n";
+				// highlight current actor
+				if (!current_actor.empty() && name == current_actor) {
+					oss << "<circle cx=\"" << cx << "\" cy=\"" << cy << "\" r=\"" << (rr + sw*0.8f)
+					    << "\" fill=\"none\" stroke=\"#ff9800\" stroke-width=\"" << (sw*1.6f) << "\"/>\n";
+				}
 				char label = name.empty() ? 'P' : static_cast<char>(::toupper(name[0]));
 				oss << "<text x=\"" << cx << "\" y=\"" << (cy + txdy) << "\" fill=\"#ffffff\" font-size=\""
 				    << (n <= 1 ? cell_px*0.45f : cell_px*0.34f) << "\" font-family=\"monospace\" text-anchor=\"middle\" dominant-baseline=\"central\">"
@@ -200,10 +221,25 @@ std::string render_svg(const AppState& st, float cell_px, float margin_px) {
 	float row_h = cell_px * 1.2f;
 	float ycur = panel_top + cell_px * 1.4f;
 	// stable order by player name
+	std::string current_actor_panel;
+	if (st.game.enforce_turns && !st.game.turn_order.empty() && st.game.turn_index < st.game.turn_order.size()) {
+		current_actor_panel = st.game.turn_order[st.game.turn_index];
+	}
 	std::vector<std::string> names;
-	names.reserve(st.game.players.size());
-	for (const auto& kv : st.game.players) names.push_back(kv.first);
-	std::sort(names.begin(), names.end());
+	if (st.game.enforce_turns && !st.game.turn_order.empty()) {
+		// Use fixed turn order for panel; filter to currently present players
+		for (const auto& n : st.game.turn_order) {
+			if (st.game.players.count(n)) names.push_back(n);
+		}
+		// Append any stragglers (unlikely), alphabetically
+		for (const auto& kv : st.game.players) {
+			if (std::find(names.begin(), names.end(), kv.first) == names.end()) names.push_back(kv.first);
+		}
+	} else {
+		names.reserve(st.game.players.size());
+		for (const auto& kv : st.game.players) names.push_back(kv.first);
+		std::sort(names.begin(), names.end());
+	}
 	for (const auto& name : names) {
 		auto itp = st.game.players.find(name);
 		if (itp == st.game.players.end()) continue;
@@ -214,6 +250,10 @@ std::string render_svg(const AppState& st, float cell_px, float margin_px) {
 		float cy = ycur + row_h * 0.5f;
 		oss << "<circle cx=\"" << cx << "\" cy=\"" << cy << "\" r=\"" << (cell_px*0.35f)
 		    << "\" fill=\"" << col << "\" opacity=\"0.9\"/>\n";
+		if (!current_actor_panel.empty() && name == current_actor_panel) {
+			oss << "<circle cx=\"" << cx << "\" cy=\"" << cy << "\" r=\"" << (cell_px*0.35f + sw*0.8f)
+			    << "\" fill=\"none\" stroke=\"#ff9800\" stroke-width=\"" << (sw*1.6f) << "\"/>\n";
+		}
 		char label = name.empty() ? 'P' : static_cast<char>(::toupper(name[0]));
 		oss << "<text x=\"" << cx << "\" y=\"" << (cy + cell_px*0.02f) << "\" fill=\"#ffffff\" font-size=\""
 		    << (cell_px*0.5f) << "\" font-family=\"monospace\" text-anchor=\"middle\" dominant-baseline=\"central\">"

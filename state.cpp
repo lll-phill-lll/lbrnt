@@ -88,6 +88,9 @@ bool AppState::save(const AppState& st, const std::string& path, std::string& er
 		int broken = st.game.broken_knife.count(kv.first) ? 1 : 0;
 		f << kv.first << " " << kv.second.first << " " << kv.second.second << " " << has_t << " " << broken << "\n";
 	}
+	// Turns
+	f << "TURNS " << (st.game.enforce_turns ? 1 : 0) << " " << st.game.turn_index << " " << st.game.turn_order.size() << "\n";
+	for (const auto& n : st.game.turn_order) f << n << "\n";
 	// per-player item charges
 	size_t total_items = 0;
 	for (const auto& pkv : st.game.inventories) total_items += pkv.second.item_charges.size();
@@ -174,6 +177,8 @@ bool AppState::save(const AppState& st, const std::string& path, std::string& er
 			int broken = copy.base_game.broken_knife.count(kv.first) ? 1 : 0;
 			f << kv.first << " " << kv.second.first << " " << kv.second.second << " " << has_t << " " << broken << "\n";
 		}
+		f << "BTURNS " << (copy.base_game.enforce_turns ? 1 : 0) << " " << copy.base_game.turn_index << " " << copy.base_game.turn_order.size() << "\n";
+		for (const auto& n : copy.base_game.turn_order) f << n << "\n";
 		f << "BPCOLORS " << copy.base_game.player_color.size() << "\n";
 		for (const auto& kv : copy.base_game.player_color) {
 			f << kv.first << " " << kv.second << "\n";
@@ -273,8 +278,17 @@ bool AppState::load(AppState& st, const std::string& path, std::string& err) {
 		if (has_t) st.game.players_with_treasure.insert(name);
 		if (broken) st.game.broken_knife.insert(name);
 	}
-	// Optional items/colors sections
+	// Optional turns/items/colors sections
 	if (!(f >> token)) { err = "Ожидался FINISHED или PCOLORS/ITEMS"; return false; }
+	if (token == "TURNS") {
+		int enf=0; size_t idx=0, cnt=0;
+		if (!(f >> enf >> idx >> cnt)) { err = "Некорректный TURNS"; return false; }
+		st.game.enforce_turns = (enf!=0);
+		st.game.turn_index = idx;
+		st.game.turn_order.clear();
+		for (size_t i=0;i<cnt;++i) { std::string n; f >> n; st.game.turn_order.push_back(n); }
+		if (!(f >> token)) { err = "Ожидался FINISHED или PCOLORS/ITEMS"; return false; }
+	}
 	if (token == "ITEMS") {
 		size_t k = 0; if (!(f >> k)) { err = "Некорректный ITEMS"; return false; }
 		st.game.inventories.clear();
@@ -360,8 +374,16 @@ bool AppState::load(AppState& st, const std::string& path, std::string& err) {
 			if (!(f >> bn)) { err = "Некорректный BPLAYERS"; return false; }
 			st.base_game = Game{};
 			for (size_t i = 0; i < bn; ++i) { std::string name; size_t px,py; int ht, br; f >> name >> px >> py >> ht >> br; st.base_game.players[name]={px,py}; if (ht) st.base_game.players_with_treasure.insert(name); if (br) st.base_game.broken_knife.insert(name); }
+			if (!(f >> btoken)) { err = "Ожидался BTURNS или BPCOLORS"; return false; }
+			if (btoken == "BTURNS") {
+				int enf=0; size_t idx=0, cnt=0; if (!(f >> enf >> idx >> cnt)) { err = "Некорректный BTURNS"; return false; }
+				st.base_game.enforce_turns = (enf!=0);
+				st.base_game.turn_index = idx;
+				for (size_t i=0;i<cnt;++i) { std::string n; f >> n; st.base_game.turn_order.push_back(n); }
+				if (!(f >> btoken)) { err = "Ожидался BPCOLORS"; return false; }
+			}
 			size_t bm=0;
-			if (!(f >> btoken) || btoken != "BPCOLORS") { err = "Ожидался BPCOLORS"; return false; }
+			if (btoken != "BPCOLORS") { err = "Ожидался BPCOLORS"; return false; }
 			if (!(f >> bm)) { err = "Некорректный BPCOLORS"; return false; }
 			for (size_t i = 0; i < bm; ++i) { std::string name, color; f >> name >> color; st.base_game.player_color[name]=color; }
 			// optional base items

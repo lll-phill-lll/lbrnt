@@ -5,6 +5,8 @@
 #include "items/Rifle.hpp"
 #include "items/Flashlight.hpp"
 #include "locations/Location.hpp"
+#include "generator.hpp"
+#include <random>
 
 static size_t manhattan(std::pair<size_t,size_t> a, std::pair<size_t,size_t> b) {
 	size_t dx = a.first > b.first ? a.first - b.first : b.first - a.first;
@@ -12,6 +14,38 @@ static size_t manhattan(std::pair<size_t,size_t> a, std::pair<size_t,size_t> b) 
 	return dx + dy;
 }
 
+static void ensure_turns_initialized(Game& g) {
+	if (!g.enforce_turns) return;
+	if (!g.turn_order.empty()) return;
+	std::vector<std::string> names;
+	names.reserve(g.players.size());
+	for (const auto& kv : g.players) names.push_back(kv.first);
+	std::mt19937 gen{rand_u32()};
+	std::shuffle(names.begin(), names.end(), gen);
+	g.turn_order = std::move(names);
+	g.turn_index = 0;
+}
+static bool is_players_turn(Game& g, const std::string& name) {
+	if (!g.enforce_turns) return true;
+	ensure_turns_initialized(g);
+	if (g.turn_order.empty()) return true;
+	return g.turn_order[g.turn_index] == name;
+}
+static void advance_turn(Game& g) {
+	if (!g.enforce_turns) return;
+	if (g.turn_order.empty()) return;
+	std::vector<std::string> filtered;
+	filtered.reserve(g.turn_order.size());
+	for (const auto& n : g.turn_order) {
+		if (g.players.count(n)) filtered.push_back(n);
+	}
+	if (filtered.empty()) { g.turn_order.clear(); g.turn_index = 0; return; }
+	std::string current = g.turn_order[g.turn_index];
+	size_t idx = 0;
+	for (size_t i=0;i<filtered.size();++i) if (filtered[i]==current) { idx=i; break; }
+	g.turn_order = std::move(filtered);
+	g.turn_index = (idx + 1) % g.turn_order.size();
+}
 bool Game::add_player(const std::string& name, std::pair<size_t,size_t> at, const LabyrinthMap& map, std::string& err) {
 	if (!map.in_bounds(static_cast<long>(at.first), static_cast<long>(at.second))) {
 		err = "Координаты вне карты";
@@ -22,6 +56,13 @@ bool Game::add_player(const std::string& name, std::pair<size_t,size_t> at, cons
 	broken_knife.erase(name);
 	// initially only knife is available: 1 charge
 	inventories[name].setCharges("knife", 1);
+	// if turn order already exists, insert new player at random position
+	if (enforce_turns && !turn_order.empty()) {
+		std::mt19937 gen{rand_u32()};
+		std::uniform_int_distribution<size_t> dist(0, turn_order.size());
+		size_t pos = dist(gen);
+		turn_order.insert(turn_order.begin() + pos, name);
+	}
 	// assign stable color if not set
 	if (!player_color.count(name)) {
 		static const char* palette[] = {
@@ -48,6 +89,10 @@ MoveOutcome Game::move_player(const std::string& name, Direction dir, LabyrinthM
 	auto it = players.find(name);
 	if (it == players.end()) {
 		out.messages.push_back("Нет такого игрока");
+		return out;
+	}
+	if (!is_players_turn(*this, name)) {
+		out.messages.push_back("Сейчас не ваш ход");
 		return out;
 	}
 	auto pos = it->second;
@@ -90,6 +135,7 @@ MoveOutcome Game::move_player(const std::string& name, Direction dir, LabyrinthM
 		out.moved = false;
 		out.position = pos;
 		out.messages.push_back("Врезался в стену");
+		advance_turn(*this);
 		return out;
 	}
 	std::pair<size_t,size_t> new_pos{static_cast<size_t>(nx), static_cast<size_t>(ny)};
@@ -98,6 +144,7 @@ MoveOutcome Game::move_player(const std::string& name, Direction dir, LabyrinthM
 	players[name] = new_pos;
 	out.moved = true;
 	out.position = new_pos;
+	out.messages.push_back("Прошел");
 
 	CellContent newCell = map.get_cell(new_pos.first, new_pos.second);
 	// If moved between different location types, call onExit for previous
@@ -167,12 +214,17 @@ MoveOutcome Game::move_player(const std::string& name, Direction dir, LabyrinthM
 			break;
 		}
 	}
+	advance_turn(*this);
 	return out;
 }
 
 AttackOutcome Game::attack(const std::string& name, Direction dir, LabyrinthMap& map) {
 	// Backward compatibility: attack = use knife
 	AttackOutcome out;
+	if (!is_players_turn(*this, name)) {
+		out.messages.push_back("Сейчас не ваш ход");
+		return out;
+	}
 	auto use = use_item(name, std::string("knife"), dir, map);
 	out.attacked = use.used;
 	out.messages = std::move(use.messages);
@@ -183,6 +235,10 @@ UseOutcome Game::use_item(const std::string& name, const std::string& itemId, Di
 	UseOutcome out;
 	auto itp = players.find(name);
 	if (itp == players.end()) { out.messages.push_back("Нет такого игрока"); return out; }
+	if (!is_players_turn(*this, name)) {
+		out.messages.push_back("Сейчас не ваш ход");
+		return out;
+	}
 	// Create requested item
 	std::unique_ptr<Item> item;
 	if (itemId == "knife") item = std::make_unique<Knife>();
@@ -193,6 +249,7 @@ UseOutcome Game::use_item(const std::string& name, const std::string& itemId, Di
 	// Delegate charge logic to item
 	extern bool item_use(Game& game, Item& item, LabyrinthMap& map, const std::string& playerName, Direction dir, std::vector<std::string>& messages);
 	out.used = item_use(*this, *item, map, name, dir, out.messages);
+	advance_turn(*this);
 	return out;
 }
 

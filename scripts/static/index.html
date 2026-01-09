@@ -6,7 +6,7 @@
   <title>Labyrinth GUI</title>
   <style>
     body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; margin: 0; display: flex; height: 100vh; }
-    .sidebar { width: 320px; border-right: 1px solid #ddd; padding: 12px; box-sizing: border-box; overflow: auto; }
+    .sidebar { width: 480px; border-right: 1px solid #ddd; padding: 12px; box-sizing: border-box; overflow: auto; }
     .content { flex: 1; display: flex; flex-direction: column; }
     .toolbar { padding: 8px 12px; border-bottom: 1px solid #eee; display: flex; gap: 8px; align-items: center; }
     .viewer { flex: 1; overflow: auto; background: #fafafa; display: flex; justify-content: center; align-items: center; }
@@ -15,7 +15,7 @@
     .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; width: 160px; }
     .row { display: flex; gap: 6px; align-items: center; margin-bottom: 8px; }
     .section { margin-bottom: 16px; }
-    .log { height: 160px; overflow: auto; background: #111; color: #eee; padding: 8px; border-radius: 6px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }
+    .log { height: 160px; overflow: auto; background: #111; color: #eee; padding: 8px; border-radius: 6px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; white-space: pre-wrap; }
     label { display: block; margin-bottom: 4px; font-weight: 600; }
     input, select { width: 100%; padding: 6px 8px; box-sizing: border-box; }
     .muted { color: #666; font-size: 12px; }
@@ -32,6 +32,14 @@
       if (!res.ok || !data.ok) throw new Error(data.error || data.stderr || 'Ошибка');
       return data;
     }
+    // Ensure actions execute sequentially for consistent logging/UI updates
+    let actionQueue = Promise.resolve();
+    function enqueue(action) {
+      actionQueue = actionQueue.then(action).catch(e => {
+        logErr('[ERR] ' + (e?.message || String(e)));
+      });
+      return actionQueue;
+    }
     async function refreshSvg() {
       try {
         const svg = await fetchText('/api/svg');
@@ -43,10 +51,48 @@
     function form(params) {
       return new URLSearchParams(params);
     }
-    function log(line) {
-      const el = document.getElementById('log');
-      el.textContent += (line + '\\n');
+    function normalizeNewlines(s) {
+      let t = String(s ?? '');
+      t = t.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+      // Repeatedly unescape literal "\n" until none left
+      while (t.indexOf('\\n') !== -1) {
+        t = t.replace(/\\n/g, '\n');
+      }
+      return t;
+    }
+    function appendLog(elId, line) {
+      const el = document.getElementById(elId);
+      el.textContent += ((line));
       el.scrollTop = el.scrollHeight;
+    }
+    function logOut(line) { appendLog('logOut', line); }
+    function logErr(line) { appendLog('logErr', line); }
+    function logLines(elId, prefix, text) {
+      const t = normalizeNewlines(text);
+      const parts = t.split('\\n');
+      for (let i = 0; i < parts.length; i++) {
+        const pfx = (i === 0 && prefix) ? (prefix + ' ') : '';
+        appendLog(elId, pfx + parts[i]);
+      }
+    }
+    function logStdout(prefix, text) { logLines('logOut', prefix, text); }
+    function logStderr(prefix, text) { logLines('logErr', prefix, text); }
+    function applyTurn(turn) {
+      if (!turn || !turn.current) return;
+      const sel = document.getElementById('player');
+      // Only change if such player exists in the list
+      for (let i = 0; i < sel.options.length; i++) {
+        if (sel.options[i].value === turn.current) {
+          sel.value = turn.current;
+          break;
+        }
+      }
+    }
+    async function refreshTurn() {
+      try {
+        const data = await fetchJson('/api/turn');
+        applyTurn(data.turn);
+      } catch {}
     }
     async function refreshPlayers() {
       try {
@@ -65,51 +111,71 @@
     async function doMove(dir) {
       const name = document.getElementById('player').value.trim();
       if (!name) return alert('Выберите игрока');
-      try {
-        const data = await fetchJson('/api/move', { method: 'POST', headers: {'Content-Type':'application/x-www-form-urlencoded'}, body: form({name, dir}) });
-        log('[MOVE] ' + (data.stdout || 'ok'));
-        await refreshSvg(); await refreshPlayers();
-      } catch (e) { log('[MOVE:ERR] ' + e.message); }
+      return enqueue(async () => {
+        try {
+          const data = await fetchJson('/api/move', { method: 'POST', headers: {'Content-Type':'application/x-www-form-urlencoded'}, body: form({name, dir}) });
+          if (data.stdout) logStdout('[MOVE]', data.stdout);
+          if (data.stderr) logStderr('[MOVE]', data.stderr);
+          if (data.turn) applyTurn(data.turn);
+        } catch (e) { logErr('[MOVE:ERR] ' + e.message); }
+        await refreshSvg(); await refreshPlayers(); await refreshTurn();
+      });
     }
     async function doAttack(dir) {
       const name = document.getElementById('player').value.trim();
       if (!name) return alert('Выберите игрока');
-      try {
-        const data = await fetchJson('/api/attack', { method: 'POST', headers: {'Content-Type':'application/x-www-form-urlencoded'}, body: form({name, dir}) });
-        log('[ATTACK] ' + (data.stdout || 'ok'));
-        await refreshSvg(); await refreshPlayers();
-      } catch (e) { log('[ATTACK:ERR] ' + e.message); }
+      return enqueue(async () => {
+        try {
+          const data = await fetchJson('/api/attack', { method: 'POST', headers: {'Content-Type':'application/x-www-form-urlencoded'}, body: form({name, dir}) });
+          if (data.stdout) logStdout('[ATTACK]', data.stdout);
+          if (data.stderr) logStderr('[ATTACK]', data.stderr);
+          if (data.turn) applyTurn(data.turn);
+        } catch (e) { logErr('[ATTACK:ERR] ' + e.message); }
+        await refreshSvg(); await refreshPlayers(); await refreshTurn();
+      });
     }
     async function doUseItem(dir) {
       const name = document.getElementById('player').value.trim();
       if (!name) return alert('Выберите игрока');
       const item = document.getElementById('item').value;
-      try {
-        const data = await fetchJson('/api/use-item', { method: 'POST', headers: {'Content-Type':'application/x-www-form-urlencoded'}, body: form({name, item, dir}) });
-        log('[USE ' + item + '] ' + (data.stdout || 'ok'));
-        await refreshSvg(); await refreshPlayers();
-      } catch (e) { log('[USE:ERR] ' + e.message); }
+      return enqueue(async () => {
+        try {
+          const data = await fetchJson('/api/use-item', { method: 'POST', headers: {'Content-Type':'application/x-www-form-urlencoded'}, body: form({name, item, dir}) });
+          if (data.stdout) logStdout('[USE ' + item + ']', data.stdout);
+          if (data.stderr) logStderr('[USE ' + item + ']', data.stderr);
+          if (data.turn) applyTurn(data.turn);
+        } catch (e) { logErr('[USE:ERR] ' + e.message); }
+        await refreshSvg(); await refreshPlayers(); await refreshTurn();
+      });
     }
     async function doAddPlayerRandom() {
       const name = document.getElementById('newPlayer').value.trim();
       if (!name) return alert('Введите имя');
-      try {
-        const data = await fetchJson('/api/add-player-random', { method: 'POST', headers: {'Content-Type':'application/x-www-form-urlencoded'}, body: form({name}) });
-        log('[ADDR] ' + (data.stdout || 'ok'));
-        document.getElementById('newPlayer').value = '';
-        await refreshSvg(); await refreshPlayers();
-      } catch (e) { log('[ADDR:ERR] ' + e.message); }
+      return enqueue(async () => {
+        try {
+          const data = await fetchJson('/api/add-player-random', { method: 'POST', headers: {'Content-Type':'application/x-www-form-urlencoded'}, body: form({name}) });
+          if (data.stdout) logStdout('[ADDR]', data.stdout);
+          if (data.stderr) logStderr('[ADDR]', data.stderr);
+          document.getElementById('newPlayer').value = '';
+          if (data.turn) applyTurn(data.turn);
+        } catch (e) { logErr('[ADDR:ERR] ' + e.message); }
+        await refreshSvg(); await refreshPlayers(); await refreshTurn();
+      });
     }
     async function doGenerate() {
       const width = document.getElementById('gW').value;
       const height = document.getElementById('gH').value;
       const openness = document.getElementById('gO').value;
       const seed = document.getElementById('gS').value;
-      try {
-        const data = await fetchJson('/api/generate', { method: 'POST', headers: {'Content-Type':'application/x-www-form-urlencoded'}, body: form({width, height, openness, seed}) });
-        log('[GEN] ' + (data.stdout || 'ok'));
-        await refreshSvg(); await refreshPlayers();
-      } catch (e) { log('[GEN:ERR] ' + e.message); }
+      return enqueue(async () => {
+        try {
+          const data = await fetchJson('/api/generate', { method: 'POST', headers: {'Content-Type':'application/x-www-form-urlencoded'}, body: form({width, height, openness, seed}) });
+          if (data.stdout) logStdout('[GEN]', data.stdout);
+          if (data.stderr) logStderr('[GEN]', data.stderr);
+          if (data.turn) applyTurn(data.turn);
+        } catch (e) { logErr('[GEN:ERR] ' + e.message); }
+        await refreshSvg(); await refreshPlayers(); await refreshTurn();
+      });
     }
     async function doPreset() {
       const width = document.getElementById('gW').value;
@@ -117,11 +183,15 @@
       const openness = document.getElementById('gO').value;
       const seed = document.getElementById('gS').value;
       const names = document.getElementById('gNames').value;
-      try {
-        const data = await fetchJson('/api/preset', { method: 'POST', headers: {'Content-Type':'application/x-www-form-urlencoded'}, body: form({width, height, openness, seed, names}) });
-        log('[PRESET] ' + (data.stdout || 'ok'));
-        await refreshSvg(); await refreshPlayers();
-      } catch (e) { log('[PRESET:ERR] ' + e.message); }
+      return enqueue(async () => {
+        try {
+          const data = await fetchJson('/api/preset', { method: 'POST', headers: {'Content-Type':'application/x-www-form-urlencoded'}, body: form({width, height, openness, seed, names}) });
+          if (data.stdout) logStdout('[PRESET]', data.stdout);
+          if (data.stderr) logStderr('[PRESET]', data.stderr);
+          if (data.turn) applyTurn(data.turn);
+        } catch (e) { logErr('[PRESET:ERR] ' + e.message); }
+        await refreshSvg(); await refreshPlayers(); await refreshTurn();
+      });
     }
     function installKeyControls() {
       window.addEventListener('keydown', async (e) => {
@@ -147,6 +217,7 @@
     window.addEventListener('DOMContentLoaded', async () => {
       await refreshSvg();
       await refreshPlayers();
+      await refreshTurn();
       installKeyControls();
     });
   </script>
@@ -166,14 +237,6 @@
             <span></span> <button onclick="doMove('up')">↑</button> <span></span>
             <button onclick="doMove('left')">←</button> <span></span> <button onclick="doMove('right')">→</button>
             <span></span> <button onclick="doMove('down')">↓</button> <span></span>
-          </div>
-        </div>
-        <div>
-          <div class="muted">Атака</div>
-          <div class="grid">
-            <span></span> <button onclick="doAttack('up')">↑</button> <span></span>
-            <button onclick="doAttack('left')">←</button> <span></span> <button onclick="doAttack('right')">→</button>
-            <span></span> <button onclick="doAttack('down')">↓</button> <span></span>
           </div>
         </div>
       </div>
@@ -214,7 +277,16 @@
 
     <div class="section">
       <label>Логи</label>
-      <div id="log" class="log"></div>
+      <div style="display:flex; flex-direction:column; gap:8px;">
+        <div style="display:flex; flex-direction:column; gap:4px;">
+          <div class="muted">stdout</div>
+          <div id="logOut" class="log"></div>
+        </div>
+        <div style="display:flex; flex-direction:column; gap:4px;">
+          <div class="muted">stderr</div>
+          <div id="logErr" class="log"></div>
+        </div>
+      </div>
     </div>
   </div>
   <div class="content">
