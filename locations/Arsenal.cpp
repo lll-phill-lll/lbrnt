@@ -8,9 +8,9 @@
 void ArsenalLocation::onEnter(Game& game, LabyrinthMap& /*map*/, const std::string& playerName, size_t /*x*/, size_t /*y*/, std::vector<std::string>& messages) {
 	messages.push_back("Вы нашли арсенал.");
 	// Repair knife to 1 charge if broken or zero
-	int& k = game.item_charges[playerName]["knife"];
-	if (k <= 0) {
-		k = 1;
+	int cur = game.inventories[playerName].getCharges("knife");
+	if (cur <= 0) {
+		game.inventories[playerName].setCharges("knife", 1);
 		game.broken_knife.erase(playerName);
 		messages.push_back("Ваш нож починен.");
 	}

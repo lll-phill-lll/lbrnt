@@ -1,5 +1,6 @@
 #pragma once
 #include "map.hpp"
+#include "items.hpp"
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
@@ -31,8 +32,8 @@ struct Game {
 	std::unordered_map<std::string, std::string> player_color;
 	// ground loot: treasure count per cell key = y*1e6 + x
 	std::unordered_map<long long, int> loot_treasure;
-	// per-player item charges: itemId -> remaining charges
-	std::unordered_map<std::string, std::unordered_map<std::string,int>> item_charges;
+	// per-player inventory
+	std::unordered_map<std::string, Inventory> inventories;
 	// ground items: per cell -> map of itemId to charges granted on pickup
 	std::unordered_map<long long, std::unordered_map<std::string,int>> ground_items;
 

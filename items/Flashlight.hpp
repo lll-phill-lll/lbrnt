@@ -6,6 +6,8 @@ struct Flashlight : public Item {
 	void apply(Game& game, LabyrinthMap& map, const std::string& playerName, Direction dir, std::vector<std::string>& messages) override;
 	int chargesPerUse() const override { return 1; }
 	int defaultInitialCharges() const override { return 0; }
+	bool persistsWhenDepleted() const override { return false; }
+	void onDepleted(Game& game, LabyrinthMap& map, const std::string& playerName, std::vector<std::string>& messages) override;
 };
 
 

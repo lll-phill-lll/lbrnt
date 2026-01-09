@@ -21,7 +21,7 @@ bool Game::add_player(const std::string& name, std::pair<size_t,size_t> at, cons
 	// initially knife is active
 	broken_knife.erase(name);
 	// initially only knife is available: 1 charge
-	item_charges[name]["knife"] = 1;
+	inventories[name].setCharges("knife", 1);
 	// assign stable color if not set
 	if (!player_color.count(name)) {
 		static const char* palette[] = {
@@ -131,10 +131,9 @@ MoveOutcome Game::move_player(const std::string& name, Direction dir, LabyrinthM
 			const std::string& itemId = kv.first;
 			int grant = kv.second;
 			if (grant <= 0) continue;
-			item_charges[name][itemId] += grant;
-			if (itemId == "knife") {
-				if (item_charges[name][itemId] > 0) broken_knife.erase(name);
-			}
+			int cur = inventories[name].getCharges(itemId);
+			inventories[name].setCharges(itemId, cur + grant);
+			if (itemId == "knife" && inventories[name].getCharges("knife") > 0) broken_knife.erase(name);
 			if (itemId == "flashlight") out.messages.push_back("Подобран фонарь");
 			else if (itemId == "rifle") out.messages.push_back("Подобрано ружьё");
 			else if (itemId == "shotgun") out.messages.push_back("Подобран дробовик");
@@ -172,25 +171,9 @@ UseOutcome Game::use_item(const std::string& name, const std::string& itemId, Di
 	else if (itemId == "rifle") item = std::make_unique<Rifle>();
 	else if (itemId == "flashlight") item = std::make_unique<Flashlight>();
 	else { out.messages.push_back("Неизвестный предмет"); return out; }
-	// initialize charges lazily
-	int& charges = item_charges[name][item->id()];
-	if (charges == 0) charges = item->defaultInitialCharges();
-	int spend = item->chargesPerUse();
-	if (charges < spend) {
-		if (itemId == "knife") out.messages.push_back("Нож сломан");
-		else out.messages.push_back("Предмет исчерпан");
-		return out;
-	}
-	// apply effect
-	item->apply(*this, map, name, dir, out.messages);
-	// spend charges upon use (use may miss; still consumed)
-	charges -= spend;
-	// sync compatibility for knife indicator
-	if (itemId == "knife") {
-		if (charges <= 0) broken_knife.insert(name);
-		else broken_knife.erase(name);
-	}
-	out.used = true;
+	// Delegate charge logic to item
+	extern bool item_use(Game& game, Item& item, LabyrinthMap& map, const std::string& playerName, Direction dir, std::vector<std::string>& messages);
+	out.used = item_use(*this, *item, map, name, dir, out.messages);
 	return out;
 }
 

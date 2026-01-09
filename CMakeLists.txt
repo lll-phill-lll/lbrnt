@@ -17,6 +17,7 @@ add_executable(labyrinth
 	state.cpp
 	viz.hpp
 	viz.cpp
+	items/Item.cpp
 	items/Item.hpp
 	items/Knife.hpp
 	items/Knife.cpp

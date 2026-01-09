@@ -90,10 +90,10 @@ bool AppState::save(const AppState& st, const std::string& path, std::string& er
 	}
 	// per-player item charges
 	size_t total_items = 0;
-	for (const auto& pkv : st.game.item_charges) total_items += pkv.second.size();
+	for (const auto& pkv : st.game.inventories) total_items += pkv.second.item_charges.size();
 	f << "ITEMS " << total_items << "\n";
-	for (const auto& pkv : st.game.item_charges) {
-		for (const auto& iv : pkv.second) {
+	for (const auto& pkv : st.game.inventories) {
+		for (const auto& iv : pkv.second.item_charges) {
 			f << pkv.first << " " << iv.first << " " << iv.second << "\n";
 		}
 	}
@@ -180,10 +180,10 @@ bool AppState::save(const AppState& st, const std::string& path, std::string& er
 		}
 		// base per-player items
 		size_t b_total_items = 0;
-		for (const auto& pkv : copy.base_game.item_charges) b_total_items += pkv.second.size();
+		for (const auto& pkv : copy.base_game.inventories) b_total_items += pkv.second.item_charges.size();
 		f << "BITEMS " << b_total_items << "\n";
-		for (const auto& pkv : copy.base_game.item_charges) {
-			for (const auto& iv : pkv.second) {
+		for (const auto& pkv : copy.base_game.inventories) {
+			for (const auto& iv : pkv.second.item_charges) {
 				f << pkv.first << " " << iv.first << " " << iv.second << "\n";
 			}
 		}
@@ -277,10 +277,10 @@ bool AppState::load(AppState& st, const std::string& path, std::string& err) {
 	if (!(f >> token)) { err = "Ожидался FINISHED или PCOLORS/ITEMS"; return false; }
 	if (token == "ITEMS") {
 		size_t k = 0; if (!(f >> k)) { err = "Некорректный ITEMS"; return false; }
-		st.game.item_charges.clear();
+		st.game.inventories.clear();
 		for (size_t i = 0; i < k; ++i) {
 			std::string pname, item; int c; f >> pname >> item >> c;
-			st.game.item_charges[pname][item] = c;
+			st.game.inventories[pname].setCharges(item, c);
 		}
 		if (!(f >> token)) { err = "Ожидался FINISHED или PCOLORS/LOOT_T"; return false; }
 	}
@@ -369,7 +369,7 @@ bool AppState::load(AppState& st, const std::string& path, std::string& err) {
 			if (btoken == "BITEMS") {
 				size_t bi=0; if (!(f >> bi)) { err = "Некорректный BITEMS"; return false; }
 				for (size_t i = 0; i < bi; ++i) {
-					std::string pname, item; int c; f >> pname >> item >> c; st.base_game.item_charges[pname][item]=c;
+					std::string pname, item; int c; f >> pname >> item >> c; st.base_game.inventories[pname].setCharges(item, c);
 				}
 				if (!(f >> btoken)) { err = "Ожидался BLOOT_T"; return false; }
 			}

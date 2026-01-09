@@ -13,6 +13,9 @@ struct Item {
 	// item consumption profile
 	virtual int chargesPerUse() const { return 1; }
 	virtual int defaultInitialCharges() const { return 0; }
+	// behavior on depletion
+	virtual bool persistsWhenDepleted() const { return false; } // remain in inventory with 0 charges
+	virtual void onDepleted(Game& /*game*/, LabyrinthMap& /*map*/, const std::string& /*playerName*/, std::vector<std::string>& /*messages*/) {}
 };
 
 

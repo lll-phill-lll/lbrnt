@@ -229,29 +229,27 @@ std::string render_svg(const AppState& st, float cell_px, float margin_px) {
 		float sx = panel_left + panel_w - cell_px * 2.6f;
 		float kx = panel_left + panel_w - cell_px * 2.2f;
 		std::string icol = "#333333";
-		// show only items the player actually has (>0 charges)
-		auto itItems = st.game.item_charges.find(name);
+		// show items the player has; grey out when charges==0
+		auto itInv = st.game.inventories.find(name);
 		auto get_ch = [&](const char* id)->int {
-			if (itItems == st.game.item_charges.end()) return 0;
-			auto it = itItems->second.find(id);
-			return (it == itItems->second.end()) ? 0 : it->second;
+			if (itInv == st.game.inventories.end()) return 0;
+			return itInv->second.getCharges(id);
 		};
-		if (get_ch("flashlight") > 0) {
-			oss << "<text x=\"" << fx << "\" y=\"" << (cy + cell_px*0.02f) << "\" fill=\"" << icol
-			    << "\" font-size=\"" << (cell_px*0.6f) << "\" font-family=\"monospace\" text-anchor=\"middle\" dominant-baseline=\"central\">F</text>\n";
-		}
-		if (get_ch("rifle") > 0) {
-			oss << "<text x=\"" << rx << "\" y=\"" << (cy + cell_px*0.02f) << "\" fill=\"" << icol
-			    << "\" font-size=\"" << (cell_px*0.6f) << "\" font-family=\"monospace\" text-anchor=\"middle\" dominant-baseline=\"central\">R</text>\n";
-		}
-		if (get_ch("shotgun") > 0) {
-			oss << "<text x=\"" << sx << "\" y=\"" << (cy + cell_px*0.02f) << "\" fill=\"" << icol
-			    << "\" font-size=\"" << (cell_px*0.6f) << "\" font-family=\"monospace\" text-anchor=\"middle\" dominant-baseline=\"central\">S</text>\n";
-		}
-		if (get_ch("knife") > 0) {
-			oss << "<text x=\"" << kx << "\" y=\"" << (cy + cell_px*0.02f) << "\" fill=\"" << kcol
-			    << "\" font-size=\"" << (cell_px*0.6f) << "\" font-family=\"monospace\" text-anchor=\"middle\" dominant-baseline=\"central\">K</text>\n";
-		}
+		auto draw_item = [&](float x, const char* label, bool present, bool active, const std::string& active_col) {
+			if (!present) return;
+			const std::string coltxt = active ? active_col : std::string("#999999");
+			oss << "<text x=\"" << x << "\" y=\"" << (cy + cell_px*0.02f) << "\" fill=\"" << coltxt
+			    << "\" font-size=\"" << (cell_px*0.6f) << "\" font-family=\"monospace\" text-anchor=\"middle\" dominant-baseline=\"central\">"
+			    << label << "</text>\n";
+		};
+		bool hasFlash = itInv != st.game.inventories.end() && itInv->second.item_charges.count("flashlight");
+		bool hasRifle  = itInv != st.game.inventories.end() && itInv->second.item_charges.count("rifle");
+		bool hasShot   = itInv != st.game.inventories.end() && itInv->second.item_charges.count("shotgun");
+		bool hasKnife  = itInv != st.game.inventories.end() && itInv->second.item_charges.count("knife");
+		draw_item(fx, "F", hasFlash, get_ch("flashlight") > 0, icol);
+		draw_item(rx, "R", hasRifle,  get_ch("rifle") > 0,      icol);
+		draw_item(sx, "S", hasShot,   get_ch("shotgun") > 0,    icol);
+		draw_item(kx, "K", true,      get_ch("knife") > 0 && !broken, kcol);
 		bool hasT = st.game.players_with_treasure.count(name) > 0;
 		if (hasT) {
 			float tx = panel_left + panel_w - cell_px * 0.9f;
