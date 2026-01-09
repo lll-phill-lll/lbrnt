@@ -150,14 +150,18 @@ def api_generate():
     height = request.values.get("height", type=int, default=12)
     openness = request.values.get("openness", type=float, default=0.5)
     seed = request.values.get("seed", type=int, default=42)
-    code, out, err = run_lab([
+    turn_actions = request.values.get("turn_actions", type=int)
+    args = [
         "generate",
         "--width", str(width),
         "--height", str(height),
         "--out", STATE,
         "--openness", str(openness),
         "--seed", str(seed),
-    ])
+    ]
+    if turn_actions and turn_actions > 0:
+        args += ["--turn-actions", str(turn_actions)]
+    code, out, err = run_lab(args)
     ok, msg = ensure_svg()
     return jsonify({
         "ok": code == 0 and ok,
@@ -253,6 +257,7 @@ def api_preset():
     height = request.values.get("height", type=int, default=12)
     openness = request.values.get("openness", type=float, default=0.5)
     seed = request.values.get("seed", type=int, default=42)
+    turn_actions = request.values.get("turn_actions", type=int)
     names_raw = request.values.get("names", default="Rus2m,M1sha,Dasha,Orino")
     names = [n.strip() for n in names_raw.split(",") if n.strip()]
     if len(names) < 4:
@@ -264,14 +269,17 @@ def api_preset():
             if d not in names:
                 names.append(d)
     # Generate
-    code, out_g, err_g = run_lab([
+    gen_args = [
         "generate",
         "--width", str(width),
         "--height", str(height),
         "--out", STATE,
         "--openness", str(openness),
         "--seed", str(seed),
-    ])
+    ]
+    if turn_actions and turn_actions > 0:
+        gen_args += ["--turn-actions", str(turn_actions)]
+    code, out_g, err_g = run_lab(gen_args)
     if code != 0:
         return jsonify({"ok": False, "stderr": err_g, "stdout": out_g}), 400
     # Add players

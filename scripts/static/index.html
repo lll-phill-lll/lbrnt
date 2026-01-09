@@ -130,8 +130,8 @@
       return enqueue(async () => {
         try {
           const data = await fetchJson('/api/move', { method: 'POST', headers: {'Content-Type':'application/x-www-form-urlencoded'}, body: form({name, dir}) });
-          if (data.stdout_lines) logStdoutLines('[MOVE]', data.stdout_lines); else if (data.stdout) logStdout('[MOVE]', data.stdout);
-          if (data.stderr_lines) logStderrLines('[MOVE]', data.stderr_lines); else if (data.stderr) logStderr('[MOVE]', data.stderr);
+          if (data.stdout_lines) logStdoutLines('', data.stdout_lines); else if (data.stdout) logStdout('', data.stdout);
+          if (data.stderr_lines) logStderrLines('', data.stderr_lines); else if (data.stderr) logStderr('', data.stderr);
           if (data.turn) applyTurn(data.turn);
         } catch (e) { logErr('[MOVE:ERR] ' + e.message); }
         await refreshSvg(); await refreshPlayers(); await refreshTurn();
@@ -143,8 +143,8 @@
       return enqueue(async () => {
         try {
           const data = await fetchJson('/api/attack', { method: 'POST', headers: {'Content-Type':'application/x-www-form-urlencoded'}, body: form({name, dir}) });
-          if (data.stdout_lines) logStdoutLines('[ATTACK]', data.stdout_lines); else if (data.stdout) logStdout('[ATTACK]', data.stdout);
-          if (data.stderr_lines) logStderrLines('[ATTACK]', data.stderr_lines); else if (data.stderr) logStderr('[ATTACK]', data.stderr);
+          if (data.stdout_lines) logStdoutLines('', data.stdout_lines); else if (data.stdout) logStdout('', data.stdout);
+          if (data.stderr_lines) logStderrLines('', data.stderr_lines); else if (data.stderr) logStderr('', data.stderr);
           if (data.turn) applyTurn(data.turn);
         } catch (e) { logErr('[ATTACK:ERR] ' + e.message); }
         await refreshSvg(); await refreshPlayers(); await refreshTurn();
@@ -157,8 +157,8 @@
       return enqueue(async () => {
         try {
           const data = await fetchJson('/api/use-item', { method: 'POST', headers: {'Content-Type':'application/x-www-form-urlencoded'}, body: form({name, item, dir}) });
-          if (data.stdout_lines) logStdoutLines('[USE ' + item + ']', data.stdout_lines); else if (data.stdout) logStdout('[USE ' + item + ']', data.stdout);
-          if (data.stderr_lines) logStderrLines('[USE ' + item + ']', data.stderr_lines); else if (data.stderr) logStderr('[USE ' + item + ']', data.stderr);
+          if (data.stdout_lines) logStdoutLines('', data.stdout_lines); else if (data.stdout) logStdout('', data.stdout);
+          if (data.stderr_lines) logStderrLines('', data.stderr_lines); else if (data.stderr) logStderr('', data.stderr);
           if (data.turn) applyTurn(data.turn);
         } catch (e) { logErr('[USE:ERR] ' + e.message); }
         await refreshSvg(); await refreshPlayers(); await refreshTurn();
@@ -170,8 +170,8 @@
       return enqueue(async () => {
         try {
           const data = await fetchJson('/api/add-player-random', { method: 'POST', headers: {'Content-Type':'application/x-www-form-urlencoded'}, body: form({name}) });
-          if (data.stdout_lines) logStdoutLines('[ADDR]', data.stdout_lines); else if (data.stdout) logStdout('[ADDR]', data.stdout);
-          if (data.stderr_lines) logStderrLines('[ADDR]', data.stderr_lines); else if (data.stderr) logStderr('[ADDR]', data.stderr);
+          if (data.stdout_lines) logStdoutLines('', data.stdout_lines); else if (data.stdout) logStdout('', data.stdout);
+          if (data.stderr_lines) logStderrLines('', data.stderr_lines); else if (data.stderr) logStderr('', data.stderr);
           document.getElementById('newPlayer').value = '';
           if (data.turn) applyTurn(data.turn);
         } catch (e) { logErr('[ADDR:ERR] ' + e.message); }
@@ -183,11 +183,12 @@
       const height = document.getElementById('gH').value;
       const openness = document.getElementById('gO').value;
       const seed = document.getElementById('gS').value;
+      const turn_actions = document.getElementById('gTA').value;
       return enqueue(async () => {
         try {
-          const data = await fetchJson('/api/generate', { method: 'POST', headers: {'Content-Type':'application/x-www-form-urlencoded'}, body: form({width, height, openness, seed}) });
-          if (data.stdout_lines) logStdoutLines('[GEN]', data.stdout_lines); else if (data.stdout) logStdout('[GEN]', data.stdout);
-          if (data.stderr_lines) logStderrLines('[GEN]', data.stderr_lines); else if (data.stderr) logStderr('[GEN]', data.stderr);
+          const data = await fetchJson('/api/generate', { method: 'POST', headers: {'Content-Type':'application/x-www-form-urlencoded'}, body: form({width, height, openness, seed, turn_actions}) });
+          if (data.stdout_lines) logStdoutLines('', data.stdout_lines); else if (data.stdout) logStdout('', data.stdout);
+          if (data.stderr_lines) logStderrLines('', data.stderr_lines); else if (data.stderr) logStderr('', data.stderr);
           if (data.turn) applyTurn(data.turn);
         } catch (e) { logErr('[GEN:ERR] ' + e.message); }
         await refreshSvg(); await refreshPlayers(); await refreshTurn();
@@ -199,11 +200,12 @@
       const openness = document.getElementById('gO').value;
       const seed = document.getElementById('gS').value;
       const names = document.getElementById('gNames').value;
+      const turn_actions = document.getElementById('gTA').value;
       return enqueue(async () => {
         try {
-          const data = await fetchJson('/api/preset', { method: 'POST', headers: {'Content-Type':'application/x-www-form-urlencoded'}, body: form({width, height, openness, seed, names}) });
-          if (data.stdout_lines) logStdoutLines('[PRESET]', data.stdout_lines); else if (data.stdout) logStdout('[PRESET]', data.stdout);
-          if (data.stderr_lines) logStderrLines('[PRESET]', data.stderr_lines); else if (data.stderr) logStderr('[PRESET]', data.stderr);
+          const data = await fetchJson('/api/preset', { method: 'POST', headers: {'Content-Type':'application/x-www-form-urlencoded'}, body: form({width, height, openness, seed, names, turn_actions}) });
+          if (data.stdout_lines) logStdoutLines('', data.stdout_lines); else if (data.stdout) logStdout('', data.stdout);
+          if (data.stderr_lines) logStderrLines('', data.stderr_lines); else if (data.stderr) logStderr('', data.stderr);
           if (data.turn) applyTurn(data.turn);
         } catch (e) { logErr('[PRESET:ERR] ' + e.message); }
         await refreshSvg(); await refreshPlayers(); await refreshTurn();
@@ -355,6 +357,7 @@
       <div class="row"><input id="gH" type="number" value="12" placeholder="height" /></div>
       <div class="row"><input id="gO" type="number" step="0.1" value="0.5" placeholder="openness" /></div>
       <div class="row"><input id="gS" type="number" value="42" placeholder="seed" /></div>
+      <div class="row"><input id="gTA" type="number" value="1" min="1" placeholder="turn actions" /></div>
       <div class="row"><input id="gNames" value="Rus2m,M1sha,Dasha,Orino" placeholder="имена через запятую" /></div>
       <div class="row" style="gap:6px;">
         <button onclick="doGenerate()">Сгенерировать</button>

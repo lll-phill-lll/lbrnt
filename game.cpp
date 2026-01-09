@@ -24,6 +24,7 @@ static void ensure_turns_initialized(Game& g) {
 	std::shuffle(names.begin(), names.end(), gen);
 	g.turn_order = std::move(names);
 	g.turn_index = 0;
+	g.actions_left = std::max(1, g.actions_per_turn);
 }
 static bool is_players_turn(Game& g, const std::string& name) {
 	if (!g.enforce_turns) return true;
@@ -45,6 +46,12 @@ static void advance_turn(Game& g) {
 	for (size_t i=0;i<filtered.size();++i) if (filtered[i]==current) { idx=i; break; }
 	g.turn_order = std::move(filtered);
 	g.turn_index = (idx + 1) % g.turn_order.size();
+	g.actions_left = std::max(1, g.actions_per_turn);
+}
+static void consume_action_or_advance(Game& g) {
+	if (!g.enforce_turns) return;
+	if (g.actions_left > 0) g.actions_left -= 1;
+	if (g.actions_left <= 0) advance_turn(g);
 }
 bool Game::add_player(const std::string& name, std::pair<size_t,size_t> at, const LabyrinthMap& map, std::string& err) {
 	if (!map.in_bounds(static_cast<long>(at.first), static_cast<long>(at.second))) {
@@ -135,7 +142,7 @@ MoveOutcome Game::move_player(const std::string& name, Direction dir, LabyrinthM
 		out.moved = false;
 		out.position = pos;
 		out.messages.push_back("Врезался в стену");
-		advance_turn(*this);
+		consume_action_or_advance(*this);
 		return out;
 	}
 	std::pair<size_t,size_t> new_pos{static_cast<size_t>(nx), static_cast<size_t>(ny)};
@@ -214,7 +221,7 @@ MoveOutcome Game::move_player(const std::string& name, Direction dir, LabyrinthM
 			break;
 		}
 	}
-	advance_turn(*this);
+	consume_action_or_advance(*this);
 	return out;
 }
 
@@ -249,7 +256,16 @@ UseOutcome Game::use_item(const std::string& name, const std::string& itemId, Di
 	// Delegate charge logic to item
 	extern bool item_use(Game& game, Item& item, LabyrinthMap& map, const std::string& playerName, Direction dir, std::vector<std::string>& messages);
 	out.used = item_use(*this, *item, map, name, dir, out.messages);
-	advance_turn(*this);
+	if (out.used) {
+		// terminating items: knife, rifle, shotgun
+		std::string id = item->id();
+		if (id == "knife" || id == "rifle" || id == "shotgun") {
+			actions_left = 0;
+			advance_turn(*this);
+		} else {
+			consume_action_or_advance(*this);
+		}
+	}
 	return out;
 }
 

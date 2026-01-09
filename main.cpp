@@ -25,6 +25,7 @@ static void usage() {
 R"(labyrinth_cpp commands:
   generate --width W --height H --out state.txt [--openness 0..1] [--seed N]
             [--turns 0|1]
+            [--turn-actions N]
   show --state state.txt [--reveal]
   status --state state.txt
   add-player --state state.txt --name NAME --x X --y Y
@@ -75,7 +76,7 @@ int main(int argc, char** argv) {
 	if (argc < 2) { usage(); return 1; }
 	std::string cmd = argv[1];
 	if (cmd == "generate") {
-		std::string sw, sh, out, so, sseed, sturns;
+		std::string sw, sh, out, so, sseed, sturns, sactions;
 		if (!get_arg(argc, argv, std::string("--width"), sw) ||
 		    !get_arg(argc, argv, std::string("--height"), sh) ||
 		    !get_arg(argc, argv, std::string("--out"), out)) {
@@ -103,6 +104,13 @@ int main(int argc, char** argv) {
 			int tv = std::stoi(sturns);
 			st.game.enforce_turns = (tv != 0);
 		}
+		st.game.actions_per_turn = 1;
+		if (get_arg(argc, argv, std::string("--turn-actions"), sactions)) {
+			int av = std::stoi(sactions);
+			if (av < 1) av = 1;
+			st.game.actions_per_turn = av;
+		}
+		st.game.actions_left = st.game.actions_per_turn;
 		st.map = generate_maze_with_items(w, h, openness);
 		std::string err;
 		if (!AppState::save(st, out, err)) { std::cerr << err << "\n"; return 2; }

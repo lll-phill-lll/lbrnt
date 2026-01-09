@@ -30,6 +30,9 @@ struct Game {
 	bool enforce_turns{false};
 	std::vector<std::string> turn_order; // fixed order when enforced
 	size_t turn_index{0};                 // index in turn_order
+	// Action points (per turn and remaining for current actor)
+	int actions_per_turn{1};
+	int actions_left{1};
 	// inventory: broken knife set; if name is in set -> knife broken, else active
 	std::unordered_set<std::string> broken_knife;
 	// stable per-player color hex (e.g., "#1f77b4")
