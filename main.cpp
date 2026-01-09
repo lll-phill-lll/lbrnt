@@ -26,6 +26,7 @@ R"(labyrinth_cpp commands:
   generate --width W --height H --out state.txt [--openness 0..1] [--seed N]
             [--turns 0|1]
   show --state state.txt [--reveal]
+  status --state state.txt
   add-player --state state.txt --name NAME --x X --y Y
   add-player-random --state state.txt --name NAME
   move --state state.txt --name NAME (up|down|left|right)
@@ -115,6 +116,62 @@ int main(int argc, char** argv) {
 		AppState st; std::string err;
 		if (!AppState::load(st, state, err)) { std::cerr << err << "\n"; return 2; }
 		std::cout << st.map.render_ascii(&st.game.players, reveal, &st.game.loot_treasure) << std::flush;
+		return 0;
+	}
+	if (cmd == "status") {
+		std::string state;
+		if (!get_arg(argc, argv, std::string("--state"), state)) { usage(); return 1; }
+		AppState st; std::string err;
+		if (!AppState::load(st, state, err)) { std::cerr << err << "\n"; return 2; }
+		// determine next actor
+		std::string nextActor = "-";
+		if (st.game.enforce_turns && !st.game.turn_order.empty()) {
+			size_t idx = st.game.turn_index;
+			// find first present from idx forward circularly
+			for (size_t k = 0; k < st.game.turn_order.size(); ++k) {
+				const std::string& cand = st.game.turn_order[(idx + k) % st.game.turn_order.size()];
+				if (st.game.players.count(cand)) { nextActor = cand; break; }
+			}
+		}
+		// print global turn info
+		print_user_messages("TURN", std::vector<std::string>{std::string("Next: ") + nextActor});
+		// build player listing order
+		std::vector<std::string> names;
+		if (st.game.enforce_turns && !st.game.turn_order.empty()) {
+			for (const auto& n : st.game.turn_order) if (st.game.players.count(n)) names.push_back(n);
+			for (const auto& kv : st.game.players) {
+				if (std::find(names.begin(), names.end(), kv.first) == names.end()) names.push_back(kv.first);
+			}
+		} else {
+			for (const auto& kv : st.game.players) names.push_back(kv.first);
+			std::sort(names.begin(), names.end());
+		}
+		// per-player inventories
+		for (const auto& name : names) {
+			std::vector<std::string> lines;
+			auto itInv = st.game.inventories.find(name);
+			if (itInv == st.game.inventories.end() || itInv->second.item_charges.empty()) {
+				lines.push_back("Inventory: (empty)");
+			} else {
+				// stable item order
+				static const char* order[] = {"knife","rifle","shotgun","flashlight"};
+				for (const char* iid : order) {
+					auto it = itInv->second.item_charges.find(iid);
+					if (it == itInv->second.item_charges.end()) continue;
+					int c = it->second;
+					std::string label = std::string(iid) + ": " + std::to_string(c);
+					if (std::string(iid) == "knife" && st.game.broken_knife.count(name)) label += " [broken]";
+					lines.push_back(label);
+				}
+				// any extra items not in predefined order
+				for (const auto& kv : itInv->second.item_charges) {
+					if (kv.first=="knife" || kv.first=="rifle" || kv.first=="shotgun" || kv.first=="flashlight") continue;
+					lines.push_back(kv.first + ": " + std::to_string(kv.second));
+				}
+				if (lines.empty()) lines.push_back("Inventory: (empty)");
+			}
+			print_user_messages(name, lines);
+		}
 		return 0;
 	}
 	if (cmd == "add-player") {
