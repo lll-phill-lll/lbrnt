@@ -62,6 +62,12 @@ bool pick_and_place_location_cluster(
 			std::vector<std::pair<size_t,size_t>> cells;
 			cells.reserve(pat.size());
 			for (auto [dx,dy] : pat) cells.emplace_back(static_cast<size_t>(sx+dx), static_cast<size_t>(sy+dy));
+			// do not overwrite existing special cells (require empties)
+			bool all_empty = true;
+			for (auto [x,y] : cells) {
+				if (test.get_cell(x, y) != CellContent::Empty) { all_empty = false; break; }
+			}
+			if (!all_empty) continue;
 			for (auto [x,y] : cells) test.set_cell(x, y, type);
 			// Remove internal walls, close cluster perimeter
 			std::vector<std::tuple<bool,size_t,size_t>> perimeter;

@@ -122,12 +122,13 @@ LabyrinthMap generate_maze_with_items(size_t width, size_t height, float opennes
 	LabyrinthMap map(width, height);
 	carve_maze(map);
 	remove_extra_walls(map, openness);
-	place_items(map);
 	place_exit_edge(map);
 	ensure_exit_open(map);
 	// Let locations place themselves (shape + walls) based on seed
 	if (auto* hl = getLocationFor(CellContent::Hospital)) { Game d; hl->onPlaced(d, map); }
 	if (auto* al = getLocationFor(CellContent::Arsenal)) { Game d; al->onPlaced(d, map); }
+	// Place treasure after locations are placed
+	place_items(map);
 	return map;
 }
 
