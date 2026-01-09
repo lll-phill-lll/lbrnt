@@ -6,6 +6,11 @@
 #include <fstream>
 #include <random>
 
+// Simple stderr logger for service messages
+static void log_err(const std::string& msg) {
+	std::cerr << msg << "\n";
+}
+
 static void usage() {
 	std::cout <<
 R"(labyrinth_cpp commands:
@@ -109,10 +114,10 @@ int main(int argc, char** argv) {
 			std::cerr << e << "\n"; return 3;
 		}
 		if (!AppState::save(st, state, err)) { std::cerr << err << "\n"; return 2; }
-		std::cout << "Игрок '" << name << "' добавлен\n";
+		log_err(std::string("Игрок '") + name + "' добавлен");
 		// log
 		st.log.push_back(LogEntry{LogType::AddPlayer, name, Direction::Up, (size_t)std::stoul(sx), (size_t)std::stoul(sy)});
-		return 0;
+		return 0; // no stdout response
 	}
 	if (cmd == "add-player-random") {
 		std::string state, name;
@@ -140,8 +145,8 @@ int main(int argc, char** argv) {
 		if (!st.game.add_player(name, pos, st.map, e)) { std::cerr << e << "\n"; return 3; }
 		st.log.push_back(LogEntry{LogType::AddPlayerRandom, name, Direction::Up, pos.first, pos.second});
 		if (!AppState::save(st, state, err)) { std::cerr << err << "\n"; return 2; }
-		std::cout << "Игрок '" << name << "' добавлен на " << pos.first << "," << pos.second << "\n";
-		return 0;
+		log_err(std::string("Игрок '") + name + "' добавлен на " + std::to_string(pos.first) + "," + std::to_string(pos.second));
+		return 0; // no stdout response
 	}
 	if (cmd == "move") {
 		std::string state, name, sdir;
@@ -160,7 +165,7 @@ int main(int argc, char** argv) {
 		auto out = st.game.move_player(name, dir, st.map);
 		st.log.push_back(LogEntry{LogType::Move, name, dir, 0, 0});
 		if (!AppState::save(st, state, err)) { std::cerr << err << "\n"; return 2; }
-		std::cout << "Позиция: " << out.position.first << "," << out.position.second << "\n";
+		// Do not print position to stdout; only feedback messages
 		for (auto& m : out.messages) std::cout << m << "\n";
 		return 0;
 	}
@@ -366,7 +371,8 @@ int main(int argc, char** argv) {
 		std::ofstream f(out);
 		if (!f) { std::cerr << "Не могу записать SVG\n"; return 2; }
 		f << svg;
-		std::cout << "SVG сохранён: " << out << "\n"; return 0;
+		log_err(std::string("SVG сохранён: ") + out);
+		return 0; // no stdout response
 	}
 	if (cmd == "init-base") {
 		std::string state;
