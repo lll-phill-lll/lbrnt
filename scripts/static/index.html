@@ -63,14 +63,14 @@
     }
     function appendLog(elId, line) {
       const el = document.getElementById(elId);
-      el.textContent += ((line));
+      el.textContent += (normalizeNewlines(line) + '\n');
       el.scrollTop = el.scrollHeight;
     }
     function logOut(line) { appendLog('logOut', line); }
     function logErr(line) { appendLog('logErr', line); }
     function logLines(elId, prefix, text) {
       const t = normalizeNewlines(text);
-      const parts = t.split('\\n');
+      const parts = t.split('\n');
       for (let i = 0; i < parts.length; i++) {
         const pfx = (i === 0 && prefix) ? (prefix + ' ') : '';
         appendLog(elId, pfx + parts[i]);
@@ -78,6 +78,18 @@
     }
     function logStdout(prefix, text) { logLines('logOut', prefix, text); }
     function logStderr(prefix, text) { logLines('logErr', prefix, text); }
+    function logStdoutLines(prefix, lines) {
+      if (!Array.isArray(lines)) { logStdout(prefix, String(lines ?? '')); return; }
+      if (lines.length === 0) return;
+      appendLog('logOut', (prefix ? (prefix + ' ') : '') + lines[0]);
+      for (let i = 1; i < lines.length; i++) appendLog('logOut', lines[i]);
+    }
+    function logStderrLines(prefix, lines) {
+      if (!Array.isArray(lines)) { logStderr(prefix, String(lines ?? '')); return; }
+      if (lines.length === 0) return;
+      appendLog('logErr', (prefix ? (prefix + ' ') : '') + lines[0]);
+      for (let i = 1; i < lines.length; i++) appendLog('logErr', lines[i]);
+    }
     function applyTurn(turn) {
       if (!turn || !turn.current) return;
       const sel = document.getElementById('player');
@@ -115,8 +127,8 @@
       return enqueue(async () => {
         try {
           const data = await fetchJson('/api/move', { method: 'POST', headers: {'Content-Type':'application/x-www-form-urlencoded'}, body: form({name, dir}) });
-          if (data.stdout) logStdout('[MOVE]', data.stdout);
-          if (data.stderr) logStderr('[MOVE]', data.stderr);
+          if (data.stdout_lines) logStdoutLines('[MOVE]', data.stdout_lines); else if (data.stdout) logStdout('[MOVE]', data.stdout);
+          if (data.stderr_lines) logStderrLines('[MOVE]', data.stderr_lines); else if (data.stderr) logStderr('[MOVE]', data.stderr);
           if (data.turn) applyTurn(data.turn);
         } catch (e) { logErr('[MOVE:ERR] ' + e.message); }
         await refreshSvg(); await refreshPlayers(); await refreshTurn();
@@ -128,8 +140,8 @@
       return enqueue(async () => {
         try {
           const data = await fetchJson('/api/attack', { method: 'POST', headers: {'Content-Type':'application/x-www-form-urlencoded'}, body: form({name, dir}) });
-          if (data.stdout) logStdout('[ATTACK]', data.stdout);
-          if (data.stderr) logStderr('[ATTACK]', data.stderr);
+          if (data.stdout_lines) logStdoutLines('[ATTACK]', data.stdout_lines); else if (data.stdout) logStdout('[ATTACK]', data.stdout);
+          if (data.stderr_lines) logStderrLines('[ATTACK]', data.stderr_lines); else if (data.stderr) logStderr('[ATTACK]', data.stderr);
           if (data.turn) applyTurn(data.turn);
         } catch (e) { logErr('[ATTACK:ERR] ' + e.message); }
         await refreshSvg(); await refreshPlayers(); await refreshTurn();
@@ -142,8 +154,8 @@
       return enqueue(async () => {
         try {
           const data = await fetchJson('/api/use-item', { method: 'POST', headers: {'Content-Type':'application/x-www-form-urlencoded'}, body: form({name, item, dir}) });
-          if (data.stdout) logStdout('[USE ' + item + ']', data.stdout);
-          if (data.stderr) logStderr('[USE ' + item + ']', data.stderr);
+          if (data.stdout_lines) logStdoutLines('[USE ' + item + ']', data.stdout_lines); else if (data.stdout) logStdout('[USE ' + item + ']', data.stdout);
+          if (data.stderr_lines) logStderrLines('[USE ' + item + ']', data.stderr_lines); else if (data.stderr) logStderr('[USE ' + item + ']', data.stderr);
           if (data.turn) applyTurn(data.turn);
         } catch (e) { logErr('[USE:ERR] ' + e.message); }
         await refreshSvg(); await refreshPlayers(); await refreshTurn();
@@ -155,8 +167,8 @@
       return enqueue(async () => {
         try {
           const data = await fetchJson('/api/add-player-random', { method: 'POST', headers: {'Content-Type':'application/x-www-form-urlencoded'}, body: form({name}) });
-          if (data.stdout) logStdout('[ADDR]', data.stdout);
-          if (data.stderr) logStderr('[ADDR]', data.stderr);
+          if (data.stdout_lines) logStdoutLines('[ADDR]', data.stdout_lines); else if (data.stdout) logStdout('[ADDR]', data.stdout);
+          if (data.stderr_lines) logStderrLines('[ADDR]', data.stderr_lines); else if (data.stderr) logStderr('[ADDR]', data.stderr);
           document.getElementById('newPlayer').value = '';
           if (data.turn) applyTurn(data.turn);
         } catch (e) { logErr('[ADDR:ERR] ' + e.message); }
@@ -171,8 +183,8 @@
       return enqueue(async () => {
         try {
           const data = await fetchJson('/api/generate', { method: 'POST', headers: {'Content-Type':'application/x-www-form-urlencoded'}, body: form({width, height, openness, seed}) });
-          if (data.stdout) logStdout('[GEN]', data.stdout);
-          if (data.stderr) logStderr('[GEN]', data.stderr);
+          if (data.stdout_lines) logStdoutLines('[GEN]', data.stdout_lines); else if (data.stdout) logStdout('[GEN]', data.stdout);
+          if (data.stderr_lines) logStderrLines('[GEN]', data.stderr_lines); else if (data.stderr) logStderr('[GEN]', data.stderr);
           if (data.turn) applyTurn(data.turn);
         } catch (e) { logErr('[GEN:ERR] ' + e.message); }
         await refreshSvg(); await refreshPlayers(); await refreshTurn();
@@ -187,8 +199,8 @@
       return enqueue(async () => {
         try {
           const data = await fetchJson('/api/preset', { method: 'POST', headers: {'Content-Type':'application/x-www-form-urlencoded'}, body: form({width, height, openness, seed, names}) });
-          if (data.stdout) logStdout('[PRESET]', data.stdout);
-          if (data.stderr) logStderr('[PRESET]', data.stderr);
+          if (data.stdout_lines) logStdoutLines('[PRESET]', data.stdout_lines); else if (data.stdout) logStdout('[PRESET]', data.stdout);
+          if (data.stderr_lines) logStderrLines('[PRESET]', data.stderr_lines); else if (data.stderr) logStderr('[PRESET]', data.stderr);
           if (data.turn) applyTurn(data.turn);
         } catch (e) { logErr('[PRESET:ERR] ' + e.message); }
         await refreshSvg(); await refreshPlayers(); await refreshTurn();

@@ -26,6 +26,16 @@ def run_lab(args):
     res = subprocess.run([LAB] + args, capture_output=True, text=True)
     return res.returncode, res.stdout.strip(), res.stderr.strip()
 
+def split_lines(text: str):
+    """Normalize and split text into lines, converting literal '\\n' to newlines."""
+    if text is None:
+        return []
+    t = str(text)
+    t = t.replace("\r\n", "\n").replace("\r", "\n")
+    # repeatedly unescape literal \n
+    while "\\n" in t:
+        t = t.replace("\\n", "\n")
+    return t.split("\n")
 
 def ensure_svg():
     """Ensure SVG exists by exporting current state."""
@@ -153,6 +163,8 @@ def api_generate():
         "ok": code == 0 and ok,
         "stdout": out,
         "stderr": err,
+        "stdout_lines": split_lines(out),
+        "stderr_lines": split_lines(err),
         "players": parse_players(),
         "turn": parse_turn_info(),
     }), (200 if code == 0 and ok else 400)
@@ -169,6 +181,8 @@ def api_add_player_random():
         "ok": code == 0 and ok,
         "stdout": out,
         "stderr": err,
+        "stdout_lines": split_lines(out),
+        "stderr_lines": split_lines(err),
         "players": parse_players(),
         "turn": parse_turn_info(),
     }), (200 if code == 0 and ok else 400)
@@ -186,6 +200,8 @@ def api_move():
         "ok": code == 0 and ok,
         "stdout": out,
         "stderr": err,
+        "stdout_lines": split_lines(out),
+        "stderr_lines": split_lines(err),
         "players": parse_players(),
         "turn": parse_turn_info(),
     }), (200 if code == 0 and ok else 400)
@@ -203,6 +219,8 @@ def api_attack():
         "ok": code == 0 and ok,
         "stdout": out,
         "stderr": err,
+        "stdout_lines": split_lines(out),
+        "stderr_lines": split_lines(err),
         "players": parse_players(),
         "turn": parse_turn_info(),
     }), (200 if code == 0 and ok else 400)
@@ -221,6 +239,8 @@ def api_use_item():
         "ok": code == 0 and ok,
         "stdout": out,
         "stderr": err,
+        "stdout_lines": split_lines(out),
+        "stderr_lines": split_lines(err),
         "players": parse_players(),
         "turn": parse_turn_info(),
     }), (200 if code == 0 and ok else 400)
@@ -274,6 +294,8 @@ def api_preset():
         "ok": ok,
         "stdout": "\n".join(outs),
         "stderr": "\n".join(errs),
+        "stdout_lines": split_lines("\n".join(outs)),
+        "stderr_lines": split_lines("\n".join(errs)),
         "players": parse_players(),
         "turn": parse_turn_info(),
     }), (200 if ok else 400)
