@@ -4,6 +4,7 @@
 #include "items/Shotgun.hpp"
 #include "items/Rifle.hpp"
 #include "items/Flashlight.hpp"
+#include "locations/Location.hpp"
 
 static size_t manhattan(std::pair<size_t,size_t> a, std::pair<size_t,size_t> b) {
 	size_t dx = a.first > b.first ? a.first - b.first : b.first - a.first;
@@ -92,34 +93,26 @@ MoveOutcome Game::move_player(const std::string& name, Direction dir, LabyrinthM
 		return out;
 	}
 	std::pair<size_t,size_t> new_pos{static_cast<size_t>(nx), static_cast<size_t>(ny)};
+	// onExit for previous location if leaving it
+	CellContent prevCell = map.get_cell(pos.first, pos.second);
 	players[name] = new_pos;
 	out.moved = true;
 	out.position = new_pos;
 
-	switch (map.get_cell(new_pos.first, new_pos.second)) {
-		case CellContent::Treasure:
-			out.messages.push_back("Нашёл сокровище!");
-			players_with_treasure.insert(name);
-			map.set_cell(new_pos.first, new_pos.second, CellContent::Empty);
-			break;
-		case CellContent::Hospital:
-			out.messages.push_back("Вы нашли больницу.");
-			break;
-		case CellContent::Arsenal:
-			out.messages.push_back("Вы нашли арсенал.");
-			// repair/refill knife to 1 charge
-			item_charges[name]["knife"] = 1;
-			broken_knife.erase(name);
-			out.messages.push_back("Ваш нож починен.");
-			break;
-		case CellContent::Exit:
-			if (players_with_treasure.count(name)) {
-				out.messages.push_back("Выход найден! Игрок вынес сокровище!");
-				finished = true;
-			} else {
-				out.messages.push_back("Выход найден, но без сокровища.");
-			}
-			break;
+	CellContent newCell = map.get_cell(new_pos.first, new_pos.second);
+	// If moved between different location types, call onExit for previous
+	if (prevCell != newCell) {
+		auto* locPrev = getLocationFor(prevCell);
+		locPrev->onExit(*this, map, name, pos.first, pos.second, out.messages);
+	}
+
+	// Generic onEnter for any cell
+	{
+		auto* locNew = getLocationFor(newCell);
+		locNew->onEnter(*this, map, name, new_pos.first, new_pos.second, out.messages);
+	}
+
+	switch (newCell) {
 		default: break;
 	}
 	// Pick up loot treasure if present

@@ -4,6 +4,8 @@
 #include <algorithm>
 #include <unordered_set>
 #include <queue>
+#include "locations/Location.hpp"
+#include "game.hpp"
 
 static size_t count_components(const LabyrinthMap& m) {
 	std::vector<std::vector<bool>> vis(m.height, std::vector<bool>(m.width, false));
@@ -36,6 +38,10 @@ static std::mt19937& rng() {
 
 void set_rng_seed(unsigned int seed) {
 	rng().seed(seed);
+}
+
+unsigned int rand_u32() {
+	return rng()();
 }
 
 void carve_maze(LabyrinthMap& map) {
@@ -118,9 +124,10 @@ LabyrinthMap generate_maze_with_items(size_t width, size_t height, float opennes
 	remove_extra_walls(map, openness);
 	place_items(map);
 	place_exit_edge(map);
-	place_hospital_cluster(map);
-	place_arsenal_cluster(map);
 	ensure_exit_open(map);
+	// Let locations place themselves (shape + walls) based on seed
+	if (auto* hl = getLocationFor(CellContent::Hospital)) { Game d; hl->onPlaced(d, map); }
+	if (auto* al = getLocationFor(CellContent::Arsenal)) { Game d; al->onPlaced(d, map); }
 	return map;
 }
 

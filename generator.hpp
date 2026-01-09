@@ -11,5 +11,7 @@ void ensure_exit_open(LabyrinthMap& map);
 LabyrinthMap generate_maze_with_items(size_t width, size_t height, float openness = 0.0f);
 // Set seed for internal generator used by maze generation/place_* utilities
 void set_rng_seed(unsigned int seed);
+// Draw a 32-bit random value from internal generator
+unsigned int rand_u32();
 
 

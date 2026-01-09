@@ -1,6 +1,8 @@
 #include "../game.hpp"
 #include "../map.hpp"
 #include "Shotgun.hpp"
+#include "../locations/Location.hpp"
+#include "../locations/Hospital.hpp"
 
 static long long key_xy_local_sg(size_t x, size_t y) {
 	return (long long)y * 1000000LL + (long long)x;
@@ -18,10 +20,10 @@ static bool step_forward_sg(const LabyrinthMap& map, size_t& x, size_t& y, Direc
 
 static void hospitalize_sg(Game& game, LabyrinthMap& map, const std::string& victim, std::vector<std::string>& messages) {
 	bool sent = false;
-	if (!map.hospital_cells.empty()) {
-		auto [hx, hy] = map.hospital_cells.front();
-		game.players[victim] = {hx, hy};
-		sent = true;
+	if (auto* loc = getLocationFor(CellContent::Hospital)) {
+		if (auto* hosp = dynamic_cast<HospitalLocation*>(loc)) {
+			sent = hosp->teleportToHospital(game, map, victim);
+		}
 	}
 	if (sent) messages.push_back("Игрок " + victim + " отправлен в больницу");
 	else messages.push_back("Больница не найдена");

@@ -10,9 +10,6 @@ struct LabyrinthMap {
 	std::vector<std::vector<CellContent>> cells;   // [h][w]
 	std::vector<std::vector<bool>> v_walls;        // [h][w+1]
 	std::vector<std::vector<bool>> h_walls;        // [h+1][w]
-	// Cached special cells for fast access
-	std::vector<std::pair<size_t,size_t>> hospital_cells;
-	std::vector<std::pair<size_t,size_t>> arsenal_cells;
 	// Exit edge on outer border
 	bool has_exit{false};
 	bool exit_vertical{false}; // true: vertical edge (x==0 or x==width), false: horizontal (y==0 or y==height)

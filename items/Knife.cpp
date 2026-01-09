@@ -1,5 +1,7 @@
 #include "../game.hpp"
 #include "../map.hpp"
+#include "../locations/Location.hpp"
+#include "../locations/Hospital.hpp"
 #include "Knife.hpp"
 
 static long long key_xy_local(size_t x, size_t y) {
@@ -35,12 +37,13 @@ void Knife::apply(Game& game, LabyrinthMap& map, const std::string& playerName, 
 		game.players_with_treasure.erase(victim);
 		game.loot_treasure[key_xy_local(tx, ty)] += 1;
 	}
-	// teleport victim to hospital
+	// teleport victim to hospital via location
 	bool sent = false;
-	if (!map.hospital_cells.empty()) {
-		auto [hx, hy] = map.hospital_cells.front();
-		game.players[victim] = {hx, hy};
-		sent = true;
+	if (auto* loc = getLocationFor(CellContent::Hospital)) {
+		// HospitalLocation provides teleport method
+		if (auto* hosp = dynamic_cast<HospitalLocation*>(loc)) {
+			sent = hosp->teleportToHospital(game, map, victim);
+		}
 	}
 	if (sent) messages.push_back("Игрок " + victim + " отправлен в больницу");
 	else messages.push_back("Больница не найдена");

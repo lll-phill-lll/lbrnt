@@ -1,6 +1,10 @@
 #include "viz.hpp"
 #include <sstream>
 #include <iomanip>
+#include <unordered_map>
+#include <vector>
+#include <map>
+#include <algorithm>
 
 std::string render_svg(const AppState& st, float cell_px, float margin_px) {
 	const auto& map = st.map;
@@ -137,19 +141,53 @@ std::string render_svg(const AppState& st, float cell_px, float margin_px) {
 			}
 		}
 	}
-	// players
-	for (const auto& kv : st.game.players) {
-		float cx = margin_px + kv.second.first * cell_px + cell_px * 0.5f;
-		float cy = margin_px + kv.second.second * cell_px + cell_px * 0.5f;
-		std::string col = "#1f77b4";
-		auto itc = st.game.player_color.find(kv.first);
-		if (itc != st.game.player_color.end()) col = itc->second;
-		oss << "<circle cx=\"" << cx << "\" cy=\"" << cy << "\" r=\"" << (cell_px*0.28f)
-		    << "\" fill=\"" << col << "\" opacity=\"0.9\"/>\n";
-		char label = kv.first.empty() ? 'P' : static_cast<char>(::toupper(kv.first[0]));
-		oss << "<text x=\"" << cx << "\" y=\"" << (cy + cell_px*0.02f) << "\" fill=\"#ffffff\" font-size=\""
-		    << (cell_px*0.45f) << "\" font-family=\"monospace\" text-anchor=\"middle\" dominant-baseline=\"central\">"
-		    << label << "</text>\n";
+	// players (support multiple per cell - draw smaller circles in cluster)
+	{
+		std::map<long long, std::vector<std::pair<std::string,std::string>>> groups;
+		for (const auto& kv : st.game.players) {
+			long long key = (long long)kv.second.second * 1000000LL + (long long)kv.second.first;
+			std::string col = "#1f77b4";
+			auto itc = st.game.player_color.find(kv.first);
+			if (itc != st.game.player_color.end()) col = itc->second;
+			groups[key].push_back({kv.first, col});
+		}
+		for (const auto& g : groups) {
+			size_t gy = (size_t)(g.first / 1000000LL);
+			size_t gx = (size_t)(g.first % 1000000LL);
+			float base_x = margin_px + gx * cell_px + cell_px * 0.5f;
+			float base_y = margin_px + gy * cell_px + cell_px * 0.5f;
+			auto vec = g.second;
+			std::sort(vec.begin(), vec.end(), [](const auto& a, const auto& b){ return a.first < b.first; });
+			size_t n = vec.size();
+			// offsets and sizes
+			std::vector<std::pair<float,float>> offs;
+			float rr = (n <= 1 ? cell_px*0.28f : cell_px*0.20f);
+			float txdy = (n <= 1 ? cell_px*0.02f : 0.0f);
+			if (n == 1) {
+				offs = {{0.0f, 0.0f}};
+			} else if (n == 2) {
+				float d = cell_px * 0.18f;
+				offs = {{-d, 0.0f}, {d, 0.0f}};
+			} else if (n == 3) {
+				float dx = cell_px * 0.16f, dy = cell_px * 0.14f;
+				offs = {{0.0f, -dy}, {-dx, dy}, {dx, dy}};
+			} else {
+				float dx = cell_px * 0.18f, dy = cell_px * 0.18f;
+				offs = {{-dx,-dy}, {dx,-dy}, {-dx,dy}, {dx,dy}};
+			}
+			for (size_t i = 0; i < vec.size() && i < offs.size(); ++i) {
+				float cx = base_x + offs[i].first;
+				float cy = base_y + offs[i].second;
+				const std::string& name = vec[i].first;
+				const std::string& col = vec[i].second;
+				oss << "<circle cx=\"" << cx << "\" cy=\"" << cy << "\" r=\"" << rr
+				    << "\" fill=\"" << col << "\" opacity=\"0.9\"/>\n";
+				char label = name.empty() ? 'P' : static_cast<char>(::toupper(name[0]));
+				oss << "<text x=\"" << cx << "\" y=\"" << (cy + txdy) << "\" fill=\"#ffffff\" font-size=\""
+				    << (n <= 1 ? cell_px*0.45f : cell_px*0.34f) << "\" font-family=\"monospace\" text-anchor=\"middle\" dominant-baseline=\"central\">"
+				    << label << "</text>\n";
+			}
+		}
 	}
 	// Stats panel on the right
 	float panel_left = margin_px + map_w + panel_gap;

@@ -26,6 +26,18 @@ add_executable(labyrinth
 	items/Rifle.cpp
 	items/Flashlight.hpp
 	items/Flashlight.cpp
+	locations/LocationUtils.hpp
+	locations/LocationUtils.cpp
+	locations/Location.hpp
+	locations/Location.cpp
+	locations/Treasure.hpp
+	locations/Treasure.cpp
+	locations/Exit.hpp
+	locations/Exit.cpp
+	locations/Hospital.hpp
+	locations/Hospital.cpp
+	locations/Arsenal.hpp
+	locations/Arsenal.cpp
 )
 
 if (APPLE)
