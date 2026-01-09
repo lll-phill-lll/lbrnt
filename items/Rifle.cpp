@@ -18,13 +18,10 @@ static bool step_forward(const LabyrinthMap& map, size_t& x, size_t& y, Directio
 
 static void hospitalize(Game& game, LabyrinthMap& map, const std::string& victim, std::vector<std::string>& messages) {
 	bool sent = false;
-	for (size_t yy = 0; yy < map.height && !sent; ++yy) {
-		for (size_t xx = 0; xx < map.width && !sent; ++xx) {
-			if (map.get_cell(xx, yy) == CellContent::Hospital) {
-				game.players[victim] = {xx, yy};
-				sent = true;
-			}
-		}
+	if (!map.hospital_cells.empty()) {
+		auto [hx, hy] = map.hospital_cells.front();
+		game.players[victim] = {hx, hy};
+		sent = true;
 	}
 	if (sent) messages.push_back("Игрок " + victim + " отправлен в больницу");
 	else messages.push_back("Больница не найдена");

@@ -37,13 +37,10 @@ void Knife::apply(Game& game, LabyrinthMap& map, const std::string& playerName, 
 	}
 	// teleport victim to hospital
 	bool sent = false;
-	for (size_t y = 0; y < map.height && !sent; ++y) {
-		for (size_t x = 0; x < map.width && !sent; ++x) {
-			if (map.get_cell(x, y) == CellContent::Hospital) {
-				game.players[victim] = {x, y};
-				sent = true;
-			}
-		}
+	if (!map.hospital_cells.empty()) {
+		auto [hx, hy] = map.hospital_cells.front();
+		game.players[victim] = {hx, hy};
+		sent = true;
 	}
 	if (sent) messages.push_back("Игрок " + victim + " отправлен в больницу");
 	else messages.push_back("Больница не найдена");

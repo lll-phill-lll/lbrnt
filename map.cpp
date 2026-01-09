@@ -6,6 +6,8 @@ LabyrinthMap::LabyrinthMap(size_t w, size_t h) : width(w), height(h) {
 	v_walls.assign(height, std::vector<bool>(width + 1, true));
 	h_walls.assign(height + 1, std::vector<bool>(width, true));
 	has_exit = false;
+	hospital_cells.clear();
+	arsenal_cells.clear();
 }
 
 bool LabyrinthMap::in_bounds(long x, long y) const {
@@ -17,7 +19,22 @@ CellContent LabyrinthMap::get_cell(size_t x, size_t y) const {
 }
 
 void LabyrinthMap::set_cell(size_t x, size_t y, CellContent c) {
+	CellContent prev = cells[y][x];
+	if (prev == CellContent::Hospital) {
+		for (auto it = hospital_cells.begin(); it != hospital_cells.end(); ++it) {
+			if (it->first == x && it->second == y) { hospital_cells.erase(it); break; }
+		}
+	} else if (prev == CellContent::Arsenal) {
+		for (auto it = arsenal_cells.begin(); it != arsenal_cells.end(); ++it) {
+			if (it->first == x && it->second == y) { arsenal_cells.erase(it); break; }
+		}
+	}
 	cells[y][x] = c;
+	if (c == CellContent::Hospital) {
+		hospital_cells.emplace_back(x, y);
+	} else if (c == CellContent::Arsenal) {
+		arsenal_cells.emplace_back(x, y);
+	}
 }
 
 void LabyrinthMap::set_vwall(size_t y, size_t x, bool present) {
