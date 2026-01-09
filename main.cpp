@@ -5,17 +5,29 @@
 #include <filesystem>
 #include <fstream>
 #include <random>
+#include <sstream>
 
 // Simple stderr logger for service messages
 static void log_err(const std::string& msg) {
 	std::cerr << msg << "\n";
 }
 
+// User-facing formatted output: [Player]: then tab-indented messages
+static void print_user_messages(const std::string& player, const std::vector<std::string>& messages) {
+	std::cout << "[" << player << "]:" << "\n";
+	for (const auto& m : messages) {
+		std::cout << "\t" << m << "\n";
+	}
+}
+
 static void usage() {
 	std::cout <<
 R"(labyrinth_cpp commands:
   generate --width W --height H --out state.txt [--openness 0..1] [--seed N]
+            [--turns 0|1]
+            [--turn-actions N]
   show --state state.txt [--reveal]
+  status --state state.txt
   add-player --state state.txt --name NAME --x X --y Y
   add-player-random --state state.txt --name NAME
   move --state state.txt --name NAME (up|down|left|right)
@@ -64,7 +76,7 @@ int main(int argc, char** argv) {
 	if (argc < 2) { usage(); return 1; }
 	std::string cmd = argv[1];
 	if (cmd == "generate") {
-		std::string sw, sh, out, so, sseed;
+		std::string sw, sh, out, so, sseed, sturns, sactions;
 		if (!get_arg(argc, argv, std::string("--width"), sw) ||
 		    !get_arg(argc, argv, std::string("--height"), sh) ||
 		    !get_arg(argc, argv, std::string("--out"), out)) {
@@ -86,6 +98,19 @@ int main(int argc, char** argv) {
 		AppState st;
 		st.random_seed = seed;
 		st.random_nonce = 0;
+		// turns enabled by default
+		st.game.enforce_turns = true;
+		if (get_arg(argc, argv, std::string("--turns"), sturns)) {
+			int tv = std::stoi(sturns);
+			st.game.enforce_turns = (tv != 0);
+		}
+		st.game.actions_per_turn = 1;
+		if (get_arg(argc, argv, std::string("--turn-actions"), sactions)) {
+			int av = std::stoi(sactions);
+			if (av < 1) av = 1;
+			st.game.actions_per_turn = av;
+		}
+		st.game.actions_left = st.game.actions_per_turn;
 		st.map = generate_maze_with_items(w, h, openness);
 		std::string err;
 		if (!AppState::save(st, out, err)) { std::cerr << err << "\n"; return 2; }
@@ -99,6 +124,62 @@ int main(int argc, char** argv) {
 		AppState st; std::string err;
 		if (!AppState::load(st, state, err)) { std::cerr << err << "\n"; return 2; }
 		std::cout << st.map.render_ascii(&st.game.players, reveal, &st.game.loot_treasure) << std::flush;
+		return 0;
+	}
+	if (cmd == "status") {
+		std::string state;
+		if (!get_arg(argc, argv, std::string("--state"), state)) { usage(); return 1; }
+		AppState st; std::string err;
+		if (!AppState::load(st, state, err)) { std::cerr << err << "\n"; return 2; }
+		// determine next actor
+		std::string nextActor = "-";
+		if (st.game.enforce_turns && !st.game.turn_order.empty()) {
+			size_t idx = st.game.turn_index;
+			// find first present from idx forward circularly
+			for (size_t k = 0; k < st.game.turn_order.size(); ++k) {
+				const std::string& cand = st.game.turn_order[(idx + k) % st.game.turn_order.size()];
+				if (st.game.players.count(cand)) { nextActor = cand; break; }
+			}
+		}
+		// print global turn info
+		print_user_messages("TURN", std::vector<std::string>{std::string("Next: ") + nextActor});
+		// build player listing order
+		std::vector<std::string> names;
+		if (st.game.enforce_turns && !st.game.turn_order.empty()) {
+			for (const auto& n : st.game.turn_order) if (st.game.players.count(n)) names.push_back(n);
+			for (const auto& kv : st.game.players) {
+				if (std::find(names.begin(), names.end(), kv.first) == names.end()) names.push_back(kv.first);
+			}
+		} else {
+			for (const auto& kv : st.game.players) names.push_back(kv.first);
+			std::sort(names.begin(), names.end());
+		}
+		// per-player inventories
+		for (const auto& name : names) {
+			std::vector<std::string> lines;
+			auto itInv = st.game.inventories.find(name);
+			if (itInv == st.game.inventories.end() || itInv->second.item_charges.empty()) {
+				lines.push_back("Inventory: (empty)");
+			} else {
+				// stable item order
+				static const char* order[] = {"knife","rifle","shotgun","flashlight"};
+				for (const char* iid : order) {
+					auto it = itInv->second.item_charges.find(iid);
+					if (it == itInv->second.item_charges.end()) continue;
+					int c = it->second;
+					std::string label = std::string(iid) + ": " + std::to_string(c);
+					if (std::string(iid) == "knife" && st.game.broken_knife.count(name)) label += " [broken]";
+					lines.push_back(label);
+				}
+				// any extra items not in predefined order
+				for (const auto& kv : itInv->second.item_charges) {
+					if (kv.first=="knife" || kv.first=="rifle" || kv.first=="shotgun" || kv.first=="flashlight") continue;
+					lines.push_back(kv.first + ": " + std::to_string(kv.second));
+				}
+				if (lines.empty()) lines.push_back("Inventory: (empty)");
+			}
+			print_user_messages(name, lines);
+		}
 		return 0;
 	}
 	if (cmd == "add-player") {
@@ -162,11 +243,28 @@ int main(int argc, char** argv) {
 		else { usage(); return 1; }
 		AppState st; std::string err;
 		if (!AppState::load(st, state, err)) { std::cerr << err << "\n"; return 2; }
+		// detailed stderr log baseline
+		std::pair<size_t,size_t> oldpos{0,0};
+		bool had_old = false;
+		{
+			auto itp = st.game.players.find(name);
+			if (itp != st.game.players.end()) { oldpos = itp->second; had_old = true; }
+		}
 		auto out = st.game.move_player(name, dir, st.map);
 		st.log.push_back(LogEntry{LogType::Move, name, dir, 0, 0});
 		if (!AppState::save(st, state, err)) { std::cerr << err << "\n"; return 2; }
-		// Do not print position to stdout; only feedback messages
-		for (auto& m : out.messages) std::cout << m << "\n";
+		// stderr detailed log
+		if (had_old) {
+			std::ostringstream es;
+			es << "MOVE " << name << " from " << oldpos.first << "," << oldpos.second
+			   << " to " << out.position.first << "," << out.position.second
+			   << (out.moved ? " [moved]" : " [blocked]");
+			log_err(es.str());
+		} else {
+			log_err(std::string("MOVE ") + name + " (no previous position)");
+		}
+		// stdout user messages
+		print_user_messages(name, out.messages);
 		return 0;
 	}
 	if (cmd == "use-item") {
@@ -186,7 +284,14 @@ int main(int argc, char** argv) {
 		if (!AppState::load(st, state, err)) { std::cerr << err << "\n"; return 2; }
 		auto out = st.game.use_item(name, item, dir, st.map);
 		if (!AppState::save(st, state, err)) { std::cerr << err << "\n"; return 2; }
-		for (auto& m : out.messages) std::cout << m << "\n";
+		// stderr detailed log
+		{
+			std::ostringstream es;
+			es << "USE " << name << " item=" << item << " dir=" << sdir << (out.used ? " [applied]" : " [failed]");
+			log_err(es.str());
+		}
+		// stdout user messages
+		print_user_messages(name, out.messages);
 		return 0;
 	}
 	if (cmd == "add-item") {
@@ -253,7 +358,14 @@ int main(int argc, char** argv) {
 		auto out = st.game.attack(name, dir, st.map);
 		st.log.push_back(LogEntry{LogType::Attack, name, dir, 0, 0});
 		if (!AppState::save(st, state, err)) { std::cerr << err << "\n"; return 2; }
-		for (auto& m : out.messages) std::cout << m << "\n";
+		// stderr detailed log
+		{
+			std::ostringstream es;
+			es << "ATTACK " << name << " dir=" << sdir << (out.attacked ? " [done]" : " [failed]");
+			log_err(es.str());
+		}
+		// stdout user messages
+		print_user_messages(name, out.messages);
 		return 0;
 	}
 	if (cmd == "replay-export") {

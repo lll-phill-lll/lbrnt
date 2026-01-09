@@ -16,12 +16,26 @@ app = Flask(
     static_url_path="/static",
 )
 
+@app.after_request
+def add_no_store(resp):
+    resp.headers["Cache-Control"] = "no-store"
+    return resp
 
 def run_lab(args):
     """Run labyrinth CLI with given args."""
     res = subprocess.run([LAB] + args, capture_output=True, text=True)
     return res.returncode, res.stdout.strip(), res.stderr.strip()
 
+def split_lines(text: str):
+    """Normalize and split text into lines, converting literal '\\n' to newlines."""
+    if text is None:
+        return []
+    t = str(text)
+    t = t.replace("\r\n", "\n").replace("\r", "\n")
+    # repeatedly unescape literal \n
+    while "\\n" in t:
+        t = t.replace("\\n", "\n")
+    return t.split("\n")
 
 def ensure_svg():
     """Ensure SVG exists by exporting current state."""
@@ -40,6 +54,45 @@ def read_svg_text():
             return None
     with open(SVG, "r", encoding="utf-8") as f:
         return f.read()
+
+def parse_turn_info():
+    """Parse turn info from state.txt (TURNS block)."""
+    info = {"enforce": False, "index": 0, "order": [], "current": None, "next": None}
+    if not os.path.exists(STATE):
+        return info
+    try:
+        with open(STATE, "r", encoding="utf-8") as f:
+            lines = [l.rstrip("\n") for l in f]
+        # find TURNS line
+        pos = None
+        for i, line in enumerate(lines):
+            if line.startswith("TURNS "):
+                pos = i
+                break
+        if pos is None:
+            return info
+        parts = lines[pos].split()
+        # TURNS enf idx cnt
+        if len(parts) < 4:
+            return info
+        enf = int(parts[1])
+        idx = int(parts[2])
+        cnt = int(parts[3])
+        order = []
+        for j in range(cnt):
+            if pos + 1 + j < len(lines):
+                order.append(lines[pos + 1 + j].strip())
+        info["enforce"] = (enf != 0)
+        info["index"] = idx if 0 <= idx < len(order) else 0
+        info["order"] = order
+        info["current"] = order[info["index"]] if order else None
+        if order:
+            info["next"] = order[(info["index"] + 1) % len(order)]
+        else:
+            info["next"] = None
+    except Exception:
+        pass
+    return info
 
 
 def parse_players():
@@ -79,7 +132,11 @@ def api_svg():
     svg = read_svg_text()
     if svg is None:
         return jsonify({"ok": False, "error": "SVG not available (no state)"}), 400
-    return Response(svg, mimetype="image/svg+xml")
+    return Response(svg, mimetype="image/svg+xml", headers={"Cache-Control": "no-store"})
+
+@app.get("/api/turn")
+def api_turn():
+    return jsonify({"ok": True, "turn": parse_turn_info()})
 
 
 @app.get("/api/players")
@@ -93,20 +150,27 @@ def api_generate():
     height = request.values.get("height", type=int, default=12)
     openness = request.values.get("openness", type=float, default=0.5)
     seed = request.values.get("seed", type=int, default=42)
-    code, out, err = run_lab([
+    turn_actions = request.values.get("turn_actions", type=int)
+    args = [
         "generate",
         "--width", str(width),
         "--height", str(height),
         "--out", STATE,
         "--openness", str(openness),
         "--seed", str(seed),
-    ])
+    ]
+    if turn_actions and turn_actions > 0:
+        args += ["--turn-actions", str(turn_actions)]
+    code, out, err = run_lab(args)
     ok, msg = ensure_svg()
     return jsonify({
         "ok": code == 0 and ok,
         "stdout": out,
         "stderr": err,
+        "stdout_lines": split_lines(out),
+        "stderr_lines": split_lines(err),
         "players": parse_players(),
+        "turn": parse_turn_info(),
     }), (200 if code == 0 and ok else 400)
 
 
@@ -121,7 +185,10 @@ def api_add_player_random():
         "ok": code == 0 and ok,
         "stdout": out,
         "stderr": err,
+        "stdout_lines": split_lines(out),
+        "stderr_lines": split_lines(err),
         "players": parse_players(),
+        "turn": parse_turn_info(),
     }), (200 if code == 0 and ok else 400)
 
 
@@ -137,7 +204,10 @@ def api_move():
         "ok": code == 0 and ok,
         "stdout": out,
         "stderr": err,
+        "stdout_lines": split_lines(out),
+        "stderr_lines": split_lines(err),
         "players": parse_players(),
+        "turn": parse_turn_info(),
     }), (200 if code == 0 and ok else 400)
 
 
@@ -153,7 +223,10 @@ def api_attack():
         "ok": code == 0 and ok,
         "stdout": out,
         "stderr": err,
+        "stdout_lines": split_lines(out),
+        "stderr_lines": split_lines(err),
         "players": parse_players(),
+        "turn": parse_turn_info(),
     }), (200 if code == 0 and ok else 400)
 
 
@@ -170,7 +243,10 @@ def api_use_item():
         "ok": code == 0 and ok,
         "stdout": out,
         "stderr": err,
+        "stdout_lines": split_lines(out),
+        "stderr_lines": split_lines(err),
         "players": parse_players(),
+        "turn": parse_turn_info(),
     }), (200 if code == 0 and ok else 400)
 
 
@@ -181,6 +257,7 @@ def api_preset():
     height = request.values.get("height", type=int, default=12)
     openness = request.values.get("openness", type=float, default=0.5)
     seed = request.values.get("seed", type=int, default=42)
+    turn_actions = request.values.get("turn_actions", type=int)
     names_raw = request.values.get("names", default="Rus2m,M1sha,Dasha,Orino")
     names = [n.strip() for n in names_raw.split(",") if n.strip()]
     if len(names) < 4:
@@ -192,14 +269,17 @@ def api_preset():
             if d not in names:
                 names.append(d)
     # Generate
-    code, out_g, err_g = run_lab([
+    gen_args = [
         "generate",
         "--width", str(width),
         "--height", str(height),
         "--out", STATE,
         "--openness", str(openness),
         "--seed", str(seed),
-    ])
+    ]
+    if turn_actions and turn_actions > 0:
+        gen_args += ["--turn-actions", str(turn_actions)]
+    code, out_g, err_g = run_lab(gen_args)
     if code != 0:
         return jsonify({"ok": False, "stderr": err_g, "stdout": out_g}), 400
     # Add players
@@ -222,7 +302,10 @@ def api_preset():
         "ok": ok,
         "stdout": "\n".join(outs),
         "stderr": "\n".join(errs),
+        "stdout_lines": split_lines("\n".join(outs)),
+        "stderr_lines": split_lines("\n".join(errs)),
         "players": parse_players(),
+        "turn": parse_turn_info(),
     }), (200 if ok else 400)
 
 
