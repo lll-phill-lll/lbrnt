@@ -6,7 +6,10 @@
 #include "items/Flashlight.hpp"
 #include "locations/Location.hpp"
 #include "generator.hpp"
+#include "locations/Hospital.hpp"
+#include <algorithm>
 #include <random>
+#include <queue>
 
 static size_t manhattan(std::pair<size_t,size_t> a, std::pair<size_t,size_t> b) {
 	size_t dx = a.first > b.first ? a.first - b.first : b.first - a.first;
@@ -20,6 +23,7 @@ static void ensure_turns_initialized(Game& g) {
 	std::vector<std::string> names;
 	names.reserve(g.players.size());
 	for (const auto& kv : g.players) names.push_back(kv.first);
+	if (g.bot_enabled) names.push_back("bot");
 	std::mt19937 gen{rand_u32()};
 	std::shuffle(names.begin(), names.end(), gen);
 	g.turn_order = std::move(names);
@@ -38,7 +42,9 @@ static void advance_turn(Game& g) {
 	std::vector<std::string> filtered;
 	filtered.reserve(g.turn_order.size());
 	for (const auto& n : g.turn_order) {
-		if (g.players.count(n)) filtered.push_back(n);
+		if (n == "bot") {
+			if (g.bot_enabled) filtered.push_back(n);
+		} else if (g.players.count(n)) filtered.push_back(n);
 	}
 	if (filtered.empty()) { g.turn_order.clear(); g.turn_index = 0; return; }
 	std::string current = g.turn_order[g.turn_index];
@@ -69,6 +75,12 @@ bool Game::add_player(const std::string& name, std::pair<size_t,size_t> at, cons
 		std::uniform_int_distribution<size_t> dist(0, turn_order.size());
 		size_t pos = dist(gen);
 		turn_order.insert(turn_order.begin() + pos, name);
+	}
+	// ensure bot present in order if enabled
+	if (enforce_turns && bot_enabled) {
+		if (std::find(turn_order.begin(), turn_order.end(), std::string("bot")) == turn_order.end()) {
+			turn_order.push_back("bot");
+		}
 	}
 	// assign stable color if not set
 	if (!player_color.count(name)) {
@@ -221,6 +233,20 @@ MoveOutcome Game::move_player(const std::string& name, Direction dir, LabyrinthM
 			break;
 		}
 	}
+	// Bot breathing
+	if (bot_enabled) {
+		size_t bx = bot_x, by = bot_y;
+		size_t dx = (new_pos.first > bx) ? (new_pos.first - bx) : (bx - new_pos.first);
+		size_t dy = (new_pos.second > by) ? (new_pos.second - by) : (by - new_pos.second);
+		if (dx + dy == 1) {
+			bool visible = false;
+			if (bx + 1 == new_pos.first && by == new_pos.second) visible = map.can_move_left(new_pos.first, new_pos.second);
+			else if (bx == new_pos.first + 1 && by == new_pos.second) visible = map.can_move_right(new_pos.first, new_pos.second);
+			else if (by + 1 == new_pos.second && bx == new_pos.first) visible = map.can_move_up(new_pos.first, new_pos.second);
+			else if (by == new_pos.second + 1 && bx == new_pos.first) visible = map.can_move_down(new_pos.first, new_pos.second);
+			if (visible) out.messages.push_back("Вы чувствуете чьё-то дыхание поблизости.");
+		}
+	}
 	consume_action_or_advance(*this);
 	return out;
 }
@@ -267,6 +293,98 @@ UseOutcome Game::use_item(const std::string& name, const std::string& itemId, Di
 		}
 	}
 	return out;
+}
+
+// Bot AI: move towards nearest player up to bot_steps_per_turn, then attempt kill 50% if adjacent at end
+void Game::run_bot_turn(LabyrinthMap& map, std::vector<std::string>& messages) {
+	if (!bot_enabled) { advance_turn(*this); return; }
+	// gather targets
+	if (players.empty()) { advance_turn(*this); return; }
+	// BFS from bot to nearest player
+	std::vector<std::vector<bool>> vis(map.height, std::vector<bool>(map.width,false));
+	std::vector<std::vector<std::pair<int,int>>> prev(map.height, std::vector<std::pair<int,int>>(map.width, {-1,-1}));
+	std::queue<std::pair<size_t,size_t>> q;
+	if (bot_x >= map.width || bot_y >= map.height) { advance_turn(*this); return; }
+	q.push({bot_x, bot_y}); vis[bot_y][bot_x] = true;
+	std::pair<size_t,size_t> goal{map.width, map.height};
+	auto is_player = [&](size_t x, size_t y)->bool{
+		CellContent c = map.get_cell(x, y);
+		if (c == CellContent::Hospital || c == CellContent::Arsenal) return false;
+		for (const auto& kv : players) {
+			if (kv.second.first == x && kv.second.second == y) return true;
+		}
+		return false;
+	};
+	while (!q.empty()) {
+		auto [cx, cy] = q.front(); q.pop();
+		if (is_player(cx, cy)) { goal = {cx, cy}; break; }
+		// neighbors if passable
+		if (cx>0 && map.can_move_left(cx,cy) && !vis[cy][cx-1]) { vis[cy][cx-1]=true; prev[cy][cx-1]={static_cast<int>(cx),static_cast<int>(cy)}; q.push({cx-1,cy}); }
+		if (cx+1<map.width && map.can_move_right(cx,cy) && !vis[cy][cx+1]) { vis[cy][cx+1]=true; prev[cy][cx+1]={static_cast<int>(cx),static_cast<int>(cy)}; q.push({cx+1,cy}); }
+		if (cy>0 && map.can_move_up(cx,cy) && !vis[cy-1][cx]) { vis[cy-1][cx]=true; prev[cy-1][cx]={static_cast<int>(cx),static_cast<int>(cy)}; q.push({cx,cy-1}); }
+		if (cy+1<map.height && map.can_move_down(cx,cy) && !vis[cy+1][cx]) { vis[cy+1][cx]=true; prev[cy+1][cx]={static_cast<int>(cx),static_cast<int>(cy)}; q.push({cx,cy+1}); }
+	}
+	// reconstruct path
+	std::vector<std::pair<size_t,size_t>> path;
+	if (goal.first < map.width) {
+		auto cur = goal;
+		while (!(cur.first == bot_x && cur.second == bot_y)) {
+			path.push_back(cur);
+			auto p = prev[cur.second][cur.first];
+			if (p.first < 0) break;
+			cur = {static_cast<size_t>(p.first), static_cast<size_t>(p.second)};
+		}
+		std::reverse(path.begin(), path.end());
+	}
+	size_t steps = 0;
+	while (steps < static_cast<size_t>(std::max(1, bot_steps_per_turn)) && !path.empty()) {
+		auto [nx, ny] = path.front(); path.erase(path.begin());
+		messages.push_back(std::string("Bot moves ") + std::to_string(bot_x) + "," + std::to_string(bot_y) + " -> " + std::to_string(nx) + "," + std::to_string(ny));
+		bot_x = nx; bot_y = ny;
+		steps++;
+	}
+	// attempt kill if on same cell or adjacent to any player (walls do not block)
+	std::vector<std::string> adj;
+	for (const auto& kv : players) {
+		auto [px, py] = kv.second;
+		size_t dx = (px > bot_x) ? (px - bot_x) : (bot_x - px);
+		size_t dy = (py > bot_y) ? (py - bot_y) : (bot_y - py);
+		if (dx + dy <= 1) {
+			adj.push_back(kv.first);
+		}
+	}
+	if (!adj.empty()) {
+		// 50% chance
+		bool doKill = (rand_u32() % 2) == 0;
+		if (doKill) {
+			// pick first target deterministically (or random)
+			std::string victim = adj[ static_cast<size_t>(rand_u32() % adj.size()) ];
+			// drop treasure on victim cell if has
+			auto itp = players.find(victim);
+			if (itp != players.end()) {
+				if (players_with_treasure.count(victim)) {
+					players_with_treasure.erase(victim);
+					loot_treasure[key_xy(itp->second.first, itp->second.second)] += 1;
+				}
+				// hospitalize via HospitalLocation
+				if (auto* loc = getLocationFor(CellContent::Hospital)) {
+					if (auto* hosp = dynamic_cast<HospitalLocation*>(loc)) {
+						if (hosp->teleportToHospital(*this, map, victim)) {
+							messages.push_back(std::string("Bot killed ") + victim);
+							messages.push_back(std::string("PLAYER:") + victim + ": Вас убил бот. Вы в больнице.");
+						} else {
+							messages.push_back("Bot attempted kill, hospital not found");
+						}
+					}
+				}
+			}
+		} else {
+			messages.push_back("Bot spared this time");
+		}
+	}
+	// advance to next actor
+	actions_left = 0;
+	advance_turn(*this);
 }
 
 

@@ -26,6 +26,7 @@ R"(labyrinth_cpp commands:
   generate --width W --height H --out state.txt [--openness 0..1] [--seed N]
             [--turns 0|1]
             [--turn-actions N]
+            [--bot-steps N]
   show --state state.txt [--reveal]
   status --state state.txt
   add-player --state state.txt --name NAME --x X --y Y
@@ -76,7 +77,7 @@ int main(int argc, char** argv) {
 	if (argc < 2) { usage(); return 1; }
 	std::string cmd = argv[1];
 	if (cmd == "generate") {
-		std::string sw, sh, out, so, sseed, sturns, sactions;
+		std::string sw, sh, out, so, sseed, sturns, sactions, sbot;
 		if (!get_arg(argc, argv, std::string("--width"), sw) ||
 		    !get_arg(argc, argv, std::string("--height"), sh) ||
 		    !get_arg(argc, argv, std::string("--out"), out)) {
@@ -112,6 +113,26 @@ int main(int argc, char** argv) {
 		}
 		st.game.actions_left = st.game.actions_per_turn;
 		st.map = generate_maze_with_items(w, h, openness);
+		// Bot enable and initial placement
+		st.game.bot_enabled = false;
+		if (get_arg(argc, argv, std::string("--bot-steps"), sbot)) {
+			int bs = std::stoi(sbot);
+			if (bs > 0) {
+				st.game.bot_enabled = true;
+				st.game.bot_steps_per_turn = bs;
+				// place bot to random empty cell
+				std::vector<std::pair<size_t,size_t>> spots;
+				for (size_t y = 0; y < st.map.height; ++y)
+					for (size_t x = 0; x < st.map.width; ++x)
+						if (st.map.get_cell(x,y) == CellContent::Empty) spots.emplace_back(x,y);
+				if (!spots.empty()) {
+					auto pos = spots[rng_pick(st, spots.size())];
+					st.game.bot_x = pos.first; st.game.bot_y = pos.second;
+				} else {
+					st.game.bot_x = 0; st.game.bot_y = 0;
+				}
+			}
+		}
 		std::string err;
 		if (!AppState::save(st, out, err)) { std::cerr << err << "\n"; return 2; }
 		std::cout << "Создано: " << out << "\n";
@@ -265,6 +286,26 @@ int main(int argc, char** argv) {
 		}
 		// stdout user messages
 		print_user_messages(name, out.messages);
+		// auto-run bot turns if it's bot's turn
+		while (st.game.enforce_turns && st.game.bot_enabled && !st.game.turn_order.empty()
+		       && st.game.turn_index < st.game.turn_order.size()
+		       && st.game.turn_order[st.game.turn_index] == "bot") {
+			std::vector<std::string> blog;
+			st.game.run_bot_turn(st.map, blog);
+			for (const auto& line : blog) {
+				log_err(std::string("BOT: ") + line);
+				// Parse per-player message: format PLAYER:<name>:<msg>
+				if (line.rfind("PLAYER:", 0) == 0) {
+					size_t p = line.find(':', 7);
+					if (p != std::string::npos) {
+						std::string pname = line.substr(7, p - 7);
+						std::string pmsg = line.substr(p + 1);
+						print_user_messages(pname, std::vector<std::string>{pmsg});
+					}
+				}
+			}
+		}
+		if (!AppState::save(st, state, err)) { std::cerr << err << "\n"; return 2; }
 		return 0;
 	}
 	if (cmd == "use-item") {
@@ -292,6 +333,25 @@ int main(int argc, char** argv) {
 		}
 		// stdout user messages
 		print_user_messages(name, out.messages);
+		// auto-run bot
+		while (st.game.enforce_turns && st.game.bot_enabled && !st.game.turn_order.empty()
+		       && st.game.turn_index < st.game.turn_order.size()
+		       && st.game.turn_order[st.game.turn_index] == "bot") {
+			std::vector<std::string> blog;
+			st.game.run_bot_turn(st.map, blog);
+			for (const auto& line : blog) {
+				log_err(std::string("BOT: ") + line);
+				if (line.rfind("PLAYER:", 0) == 0) {
+					size_t p = line.find(':', 7);
+					if (p != std::string::npos) {
+						std::string pname = line.substr(7, p - 7);
+						std::string pmsg = line.substr(p + 1);
+						print_user_messages(pname, std::vector<std::string>{pmsg});
+					}
+				}
+			}
+		}
+		if (!AppState::save(st, state, err)) { std::cerr << err << "\n"; return 2; }
 		return 0;
 	}
 	if (cmd == "add-item") {
@@ -366,6 +426,25 @@ int main(int argc, char** argv) {
 		}
 		// stdout user messages
 		print_user_messages(name, out.messages);
+		// auto-run bot
+		while (st.game.enforce_turns && st.game.bot_enabled && !st.game.turn_order.empty()
+		       && st.game.turn_index < st.game.turn_order.size()
+		       && st.game.turn_order[st.game.turn_index] == "bot") {
+			std::vector<std::string> blog;
+			st.game.run_bot_turn(st.map, blog);
+			for (const auto& line : blog) {
+				log_err(std::string("BOT: ") + line);
+				if (line.rfind("PLAYER:", 0) == 0) {
+					size_t p = line.find(':', 7);
+					if (p != std::string::npos) {
+						std::string pname = line.substr(7, p - 7);
+						std::string pmsg = line.substr(p + 1);
+						print_user_messages(pname, std::vector<std::string>{pmsg});
+					}
+				}
+			}
+		}
+		if (!AppState::save(st, state, err)) { std::cerr << err << "\n"; return 2; }
 		return 0;
 	}
 	if (cmd == "replay-export") {

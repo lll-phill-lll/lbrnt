@@ -151,6 +151,7 @@ def api_generate():
     openness = request.values.get("openness", type=float, default=0.5)
     seed = request.values.get("seed", type=int, default=42)
     turn_actions = request.values.get("turn_actions", type=int)
+    bot_steps = request.values.get("bot_steps", type=int)
     args = [
         "generate",
         "--width", str(width),
@@ -161,6 +162,8 @@ def api_generate():
     ]
     if turn_actions and turn_actions > 0:
         args += ["--turn-actions", str(turn_actions)]
+    if bot_steps and bot_steps > 0:
+        args += ["--bot-steps", str(bot_steps)]
     code, out, err = run_lab(args)
     ok, msg = ensure_svg()
     return jsonify({
@@ -258,6 +261,7 @@ def api_preset():
     openness = request.values.get("openness", type=float, default=0.5)
     seed = request.values.get("seed", type=int, default=42)
     turn_actions = request.values.get("turn_actions", type=int)
+    bot_steps = request.values.get("bot_steps", type=int)
     names_raw = request.values.get("names", default="Rus2m,M1sha,Dasha,Orino")
     names = [n.strip() for n in names_raw.split(",") if n.strip()]
     if len(names) < 4:
@@ -279,6 +283,8 @@ def api_preset():
     ]
     if turn_actions and turn_actions > 0:
         gen_args += ["--turn-actions", str(turn_actions)]
+    if bot_steps and bot_steps > 0:
+        gen_args += ["--bot-steps", str(bot_steps)]
     code, out_g, err_g = run_lab(gen_args)
     if code != 0:
         return jsonify({"ok": False, "stderr": err_g, "stdout": out_g}), 400

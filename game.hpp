@@ -33,6 +33,14 @@ struct Game {
 	// Action points (per turn and remaining for current actor)
 	int actions_per_turn{1};
 	int actions_left{1};
+	// Special bot
+	bool bot_enabled{false};
+	size_t bot_x{0};
+	size_t bot_y{0};
+	int bot_steps_per_turn{1};
+
+	// Bot AI turn
+	void run_bot_turn(LabyrinthMap& map, std::vector<std::string>& messages);
 	// inventory: broken knife set; if name is in set -> knife broken, else active
 	std::unordered_set<std::string> broken_knife;
 	// stable per-player color hex (e.g., "#1f77b4")

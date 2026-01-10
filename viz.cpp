@@ -208,6 +208,33 @@ std::string render_svg(const AppState& st, float cell_px, float margin_px) {
 				    << (n <= 1 ? cell_px*0.45f : cell_px*0.34f) << "\" font-family=\"monospace\" text-anchor=\"middle\" dominant-baseline=\"central\">"
 				    << label << "</text>\n";
 			}
+			// Draw bot at its final position as distinct diamond
+			if (st.game.bot_enabled) {
+				size_t bx = st.game.bot_x, by = st.game.bot_y;
+				if (bx < st.map.width && by < st.map.height) {
+					float cx = margin_px + bx * cell_px + cell_px * 0.5f;
+					float cy = margin_px + by * cell_px + cell_px * 0.5f;
+					float rr2 = cell_px * 0.26f;
+					oss << "<polygon points=\""
+					    << cx << "," << (cy - rr2) << " "
+					    << (cx + rr2) << "," << cy << " "
+					    << cx << "," << (cy + rr2) << " "
+					    << (cx - rr2) << "," << cy
+					    << "\" fill=\"#9c27b0\" stroke=\"#4a148c\" stroke-width=\"" << (sw*0.9f) << "\"/>\n";
+					// Highlight if bot's turn
+					if (st.game.enforce_turns && !st.game.turn_order.empty() && st.game.turn_index < st.game.turn_order.size()
+					    && st.game.turn_order[st.game.turn_index] == "bot") {
+						oss << "<polygon points=\""
+						    << cx << "," << (cy - rr2 - sw*0.8f) << " "
+						    << (cx + rr2 + sw*0.8f) << "," << cy << " "
+						    << cx << "," << (cy + rr2 + sw*0.8f) << " "
+						    << (cx - rr2 - sw*0.8f) << "," << cy
+						    << "\" fill=\"none\" stroke=\"#ff9800\" stroke-width=\"" << (sw*1.6f) << "\"/>\n";
+					}
+					oss << "<text x=\"" << cx << "\" y=\"" << (cy + cell_px*0.02f) << "\" fill=\"#ffffff\" font-size=\""
+					    << (cell_px*0.4f) << "\" font-family=\"monospace\" text-anchor=\"middle\" dominant-baseline=\"central\">B</text>\n";
+				}
+			}
 		}
 	}
 	// Stats panel on the right
