@@ -93,6 +93,8 @@ bool AppState::save(const AppState& st, const std::string& path, std::string& er
 	for (const auto& n : st.game.turn_order) f << n << "\n";
 	// Actions
 	f << "ACTIONS " << st.game.actions_per_turn << " " << st.game.actions_left << "\n";
+	// Bot
+	f << "BOT " << (st.game.bot_enabled?1:0) << " " << st.game.bot_x << " " << st.game.bot_y << " " << st.game.bot_steps_per_turn << "\n";
 	// per-player item charges
 	size_t total_items = 0;
 	for (const auto& pkv : st.game.inventories) total_items += pkv.second.item_charges.size();
@@ -182,6 +184,7 @@ bool AppState::save(const AppState& st, const std::string& path, std::string& er
 		f << "BTURNS " << (copy.base_game.enforce_turns ? 1 : 0) << " " << copy.base_game.turn_index << " " << copy.base_game.turn_order.size() << "\n";
 		for (const auto& n : copy.base_game.turn_order) f << n << "\n";
 		f << "BACTIONS " << copy.base_game.actions_per_turn << " " << copy.base_game.actions_left << "\n";
+		f << "BBOT " << (copy.base_game.bot_enabled?1:0) << " " << copy.base_game.bot_x << " " << copy.base_game.bot_y << " " << copy.base_game.bot_steps_per_turn << "\n";
 		f << "BPCOLORS " << copy.base_game.player_color.size() << "\n";
 		for (const auto& kv : copy.base_game.player_color) {
 			f << kv.first << " " << kv.second << "\n";
@@ -297,6 +300,13 @@ bool AppState::load(AppState& st, const std::string& path, std::string& err) {
 		if (!(f >> per >> left)) { err = "Некорректный ACTIONS"; return false; }
 		st.game.actions_per_turn = per;
 		st.game.actions_left = left;
+		if (!(f >> token)) { err = "Ожидался FINISHED или BOT/PCOLORS/ITEMS"; return false; }
+	}
+	if (token == "BOT") {
+		int en=0; size_t bx=0, by=0; int steps=1;
+		if (!(f >> en >> bx >> by >> steps)) { err = "Некорректный BOT"; return false; }
+		st.game.bot_enabled = (en!=0);
+		st.game.bot_x = bx; st.game.bot_y = by; st.game.bot_steps_per_turn = steps;
 		if (!(f >> token)) { err = "Ожидался FINISHED или PCOLORS/ITEMS"; return false; }
 	}
 	if (token == "ITEMS") {
@@ -396,6 +406,13 @@ bool AppState::load(AppState& st, const std::string& path, std::string& err) {
 				int per=1, left=1; if (!(f >> per >> left)) { err = "Некорректный BACTIONS"; return false; }
 				st.base_game.actions_per_turn = per;
 				st.base_game.actions_left = left;
+				if (!(f >> btoken)) { err = "Ожидался BBOT или BPCOLORS"; return false; }
+			}
+			if (btoken == "BBOT") {
+				int en=0; size_t bx=0, by=0; int steps=1;
+				if (!(f >> en >> bx >> by >> steps)) { err = "Некорректный BBOT"; return false; }
+				st.base_game.bot_enabled = (en!=0);
+				st.base_game.bot_x = bx; st.base_game.bot_y = by; st.base_game.bot_steps_per_turn = steps;
 				if (!(f >> btoken)) { err = "Ожидался BPCOLORS"; return false; }
 			}
 			size_t bm=0;

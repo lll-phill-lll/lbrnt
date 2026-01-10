@@ -184,9 +184,10 @@
       const openness = document.getElementById('gO').value;
       const seed = document.getElementById('gS').value;
       const turn_actions = document.getElementById('gTA').value;
+      const bot_steps = document.getElementById('gBS').value;
       return enqueue(async () => {
         try {
-          const data = await fetchJson('/api/generate', { method: 'POST', headers: {'Content-Type':'application/x-www-form-urlencoded'}, body: form({width, height, openness, seed, turn_actions}) });
+          const data = await fetchJson('/api/generate', { method: 'POST', headers: {'Content-Type':'application/x-www-form-urlencoded'}, body: form({width, height, openness, seed, turn_actions, bot_steps}) });
           if (data.stdout_lines) logStdoutLines('', data.stdout_lines); else if (data.stdout) logStdout('', data.stdout);
           if (data.stderr_lines) logStderrLines('', data.stderr_lines); else if (data.stderr) logStderr('', data.stderr);
           if (data.turn) applyTurn(data.turn);
@@ -201,9 +202,10 @@
       const seed = document.getElementById('gS').value;
       const names = document.getElementById('gNames').value;
       const turn_actions = document.getElementById('gTA').value;
+      const bot_steps = document.getElementById('gBS').value;
       return enqueue(async () => {
         try {
-          const data = await fetchJson('/api/preset', { method: 'POST', headers: {'Content-Type':'application/x-www-form-urlencoded'}, body: form({width, height, openness, seed, names, turn_actions}) });
+          const data = await fetchJson('/api/preset', { method: 'POST', headers: {'Content-Type':'application/x-www-form-urlencoded'}, body: form({width, height, openness, seed, names, turn_actions, bot_steps}) });
           if (data.stdout_lines) logStdoutLines('', data.stdout_lines); else if (data.stdout) logStdout('', data.stdout);
           if (data.stderr_lines) logStderrLines('', data.stderr_lines); else if (data.stderr) logStderr('', data.stderr);
           if (data.turn) applyTurn(data.turn);
@@ -358,6 +360,7 @@
       <div class="row"><input id="gO" type="number" step="0.1" value="0.5" placeholder="openness" /></div>
       <div class="row"><input id="gS" type="number" value="42" placeholder="seed" /></div>
       <div class="row"><input id="gTA" type="number" value="1" min="1" placeholder="turn actions" /></div>
+      <div class="row"><input id="gBS" type="number" value="0" min="0" placeholder="bot steps per turn (0 = off)" /></div>
       <div class="row"><input id="gNames" value="Rus2m,M1sha,Dasha,Orino" placeholder="имена через запятую" /></div>
       <div class="row" style="gap:6px;">
         <button onclick="doGenerate()">Сгенерировать</button>
