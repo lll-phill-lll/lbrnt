@@ -1,0 +1,6 @@
+- [ ] Add seeded rng
+- [ ] Add player
+- [ ] Add move command
+- [ ] Add logger
+- [ ] Add ENSURE macros
+- [ ] Split files into cpp/h
