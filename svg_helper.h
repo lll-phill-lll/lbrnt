@@ -21,13 +21,13 @@ struct TRect {
     int GetCY() const { return (y0 + y1) / 2; }
 };
 
-TRect ToRect(TPos pos, int32_t marginpx, int32_t cellpx) {
+inline TRect ToRect(TPos pos, int32_t marginpx, int32_t cellpx) {
     int x0 = marginpx + pos.X * cellpx;
     int y0 = marginpx + pos.Y * cellpx;
     return {x0, y0, x0 + cellpx, y0 + cellpx};
 }
 
-std::string GetHeader(int w, int h) {
+inline std::string GetHeader(int w, int h) {
     return std::format(
         "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
         "<svg xmlns=\"http://www.w3.org/2000/svg\" "
@@ -35,9 +35,9 @@ std::string GetHeader(int w, int h) {
         w, h, w, h);
 }
 
-std::string GetFooter() { return "</svg>\n"; }
+inline std::string GetFooter() { return "</svg>\n"; }
 
-std::string GroupBegin(std::string_view id = "", std::string_view extra = "") {
+inline std::string GroupBegin(std::string_view id = "", std::string_view extra = "") {
     if (!id.empty()) {
         return std::format("<g id=\"{}\" {}>\n", id, extra);
     } else {
@@ -45,23 +45,23 @@ std::string GroupBegin(std::string_view id = "", std::string_view extra = "") {
     }
 }
 
-std::string GroupEnd() { return "</g>\n"; }
+inline std::string GroupEnd() { return "</g>\n"; }
 
-std::string DrawLine(int x0, int y0, int x1, int y1) {
+inline std::string DrawLine(int x0, int y0, int x1, int y1) {
     return std::format("<line x1=\"{}\" y1=\"{}\" x2=\"{}\" y2=\"{}\"/>\n", x0, y0, x1, y1);
 }
 
-std::string DrawRect(const TRect& r, std::string_view fill, std::string_view stroke = "", std::string_view extra = "") {
+inline std::string DrawRect(const TRect& r, std::string_view fill, std::string_view stroke = "", std::string_view extra = "") {
     if (stroke.empty()) {
-        return std::format("    <rect x=\"{}\" y=\"{}\" width=\"{}\" height=\"{}\" fill=\"{}\" {}/>\n", r.x0, r.y0,
+        return std::format("<rect x=\"{}\" y=\"{}\" width=\"{}\" height=\"{}\" fill=\"{}\" {}/>\n", r.x0, r.y0,
                            r.GetW(), r.GetH(), fill, extra);
     }
-    return std::format("    <rect x=\"{}\" y=\"{}\" width=\"{}\" height=\"{}\" fill=\"{}\" stroke=\"{}\" {}/>\n", r.x0,
+    return std::format("<rect x=\"{}\" y=\"{}\" width=\"{}\" height=\"{}\" fill=\"{}\" stroke=\"{}\" {}/>\n", r.x0,
                        r.y0, r.GetW(), r.GetH(), fill, stroke, extra);
 }
 
-std::string svgCircle(int cx, int cy, int r, std::string_view fill, std::string_view stroke = "black") {
-    return std::format("    <circle cx=\"{}\" cy=\"{}\" r=\"{}\" fill=\"{}\" stroke=\"{}\"/>\n", cx, cy, r, fill,
+inline std::string svgCircle(int cx, int cy, int r, std::string_view fill, std::string_view stroke = "black") {
+    return std::format("<circle cx=\"{}\" cy=\"{}\" r=\"{}\" fill=\"{}\" stroke=\"{}\"/>\n", cx, cy, r, fill,
                        stroke);
 }
 
