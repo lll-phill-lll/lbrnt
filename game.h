@@ -146,6 +146,17 @@ class TGame {
         out += SVG::DrawRect({0, 0, wpx, hpx}, "white");
         out += SVG::GroupEnd();
 
+        out += SVG::GroupBegin("grid", "stroke=\"#dddddd\" stroke-width=\"1\" fill=\"none\"");
+        for (int x = 0; x <= w; ++x) {
+            int gx = marginpx + x * cellpx;
+            out += SVG::DrawLine(gx, marginpx, gx, marginpx + h * cellpx);
+        }
+        for (int y = 0; y <= h; ++y) {
+            int gy = marginpx + y * cellpx;
+            out += SVG::DrawLine(marginpx, gy, marginpx + w * cellpx, gy);
+        }
+        out += SVG::GroupEnd();
+
         out += SVG::GroupBegin("walls", std::format("stroke=\"black\" stroke-width=\"{}\" fill=\"none\"", strokepx));
         for (int y = 0; y < h; ++y) {
             for (int x = 0; x < w; ++x) {
