@@ -51,7 +51,8 @@ inline std::string DrawLine(int x0, int y0, int x1, int y1) {
     return std::format("<line x1=\"{}\" y1=\"{}\" x2=\"{}\" y2=\"{}\"/>\n", x0, y0, x1, y1);
 }
 
-inline std::string DrawRect(const TRect& r, std::string_view fill, std::string_view stroke = "", std::string_view extra = "") {
+inline std::string DrawRect(const TRect& r, std::string_view fill, std::string_view stroke = "",
+                            std::string_view extra = "") {
     if (stroke.empty()) {
         return std::format("<rect x=\"{}\" y=\"{}\" width=\"{}\" height=\"{}\" fill=\"{}\" {}/>\n", r.x0, r.y0,
                            r.GetW(), r.GetH(), fill, extra);
@@ -61,8 +62,7 @@ inline std::string DrawRect(const TRect& r, std::string_view fill, std::string_v
 }
 
 inline std::string svgCircle(int cx, int cy, int r, std::string_view fill, std::string_view stroke = "black") {
-    return std::format("<circle cx=\"{}\" cy=\"{}\" r=\"{}\" fill=\"{}\" stroke=\"{}\"/>\n", cx, cy, r, fill,
-                       stroke);
+    return std::format("<circle cx=\"{}\" cy=\"{}\" r=\"{}\" fill=\"{}\" stroke=\"{}\"/>\n", cx, cy, r, fill, stroke);
 }
 
 }  // namespace SVG
