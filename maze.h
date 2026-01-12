@@ -2,13 +2,15 @@
 
 #include <algorithm>
 #include <cassert>
-#include <iomanip>
 #include <iostream>
 #include <random>
 #include <stack>
+#include <string_view>
 #include <vector>
 
 #include "common.h"
+#include "context.h"
+#include "random.h"
 
 struct TMazeCfg {
     int32_t W;
@@ -30,7 +32,10 @@ struct TCell {
 class TMaze {
    public:
     TMaze() : W(0), H(0), Cells(0) {}
-    TMaze(const TMazeCfg& cfg) : W(cfg.W), H(cfg.H), Openness(cfg.Openness), Cells(W * H) { Generate(); }
+    TMaze(const TMazeCfg& cfg, std::shared_ptr<TGameCtx> ctx)
+        : W(cfg.W), H(cfg.H), Openness(cfg.Openness), Cells(W * H), Ctx(std::move(ctx)) {
+        Generate();
+    }
     TMaze(std::istream& in) { FromStream(in); }
 
     int32_t GetH() const { return H; }
@@ -43,26 +48,25 @@ class TMaze {
 
     void Generate() {
         assert(W > 0 && H > 0);
+        assert(Ctx);
 
         // rebuild just in case
         for (auto& c : Cells) c.Walls = 0b1111;
         std::vector<bool> visited(Cells.size(), false);
 
-        std::random_device rng;
-        Dfs({0, 0}, visited, rng);
+        Dfs({0, 0}, visited, Ctx->Rng);
         RemoveExtraWalls();
     }
 
-    const std::string& GetMagic() const { return Magic; }
+    static std::string_view GetMagic() { return Magic; }
 
     void ToStream(std::ostream& out) const {
         out << W << " " << H << std::endl;
-
-        out << std::hex << std::nouppercase << std::setfill('0');
         for (int y = 0; y < H; ++y) {
             for (int x = 0; x < W; ++x) {
-                uint8_t w = At({x, y}).Walls;
-                out << std::setw(2) << static_cast<unsigned>(w);
+                constexpr char HEX[] = "0123456789abcdef";
+                uint8_t w = At({x, y}).Walls & 0b1111;
+                out.put(HEX[w]);
             }
             out << std::endl;
         }
@@ -94,13 +98,13 @@ class TMaze {
             for (char c : line)
                 if (!std::isspace(static_cast<unsigned char>(c))) hex.push_back(c);
 
-            if ((int)hex.size() < 2 * W) {
+            if ((int32_t)hex.size() < W) {
                 std::cerr << "Row " + std::to_string(y) + " is too short" << std::endl;
                 std::exit(1);
             }
 
             for (int x = 0; x < W; ++x) {
-                uint8_t walls = ParseHexByte(hex[2 * x], hex[2 * x + 1]);
+                uint8_t walls = HexVal(hex[x]);
                 walls &= 0b1111;
                 Cells[y * W + x].Walls = walls;
             }
@@ -149,7 +153,7 @@ class TMaze {
         At(to_pos).RemoveWall(OppositeDir(dir));
     }
 
-    void Dfs(TPos pos, std::vector<bool>& visited, std::random_device& rng) {
+    void Dfs(TPos pos, std::vector<bool>& visited, TRng& rng) {
         std::stack<TPos> stack;
         visited[Idx(pos)] = true;
         stack.push(pos);
@@ -193,16 +197,15 @@ class TMaze {
         if (p <= 0) return;
         if (p > 100) p = 100;
 
-        std::random_device rng;
         std::uniform_int_distribution<int> dist(0, 99);
 
         for (int y = 0; y < H; ++y) {
             for (int x = 0; x < W; ++x) {
                 TPos pos{x, y};
-                if (x + 1 < W && At(pos).HasWall(EDir::RIGHT) && dist(rng) < p) {
+                if (x + 1 < W && At(pos).HasWall(EDir::RIGHT) && dist(Ctx->Rng) < p) {
                     RemoveWall(pos, EDir::RIGHT);
                 }
-                if (y + 1 < H && At(pos).HasWall(EDir::DOWN) && dist(rng) < p) {
+                if (y + 1 < H && At(pos).HasWall(EDir::DOWN) && dist(Ctx->Rng) < p) {
                     RemoveWall(pos, EDir::DOWN);
                 }
             }
@@ -217,13 +220,12 @@ class TMaze {
         return {};
     }
 
-    uint8_t ParseHexByte(char hi, char lo) { return uint8_t((HexVal(hi) << 4) | HexVal(lo)); }
-
    private:
     int32_t W = 0;
     int32_t H = 0;
     int32_t Openness = 50;
     std::vector<TCell> Cells;
 
-    const std::string Magic = "[MAZE]";
+    std::shared_ptr<TGameCtx> Ctx;
+    static constexpr std::string_view Magic = "[MAZE]";
 };

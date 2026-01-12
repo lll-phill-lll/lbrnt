@@ -12,7 +12,7 @@ int32_t HandleGenerate(int32_t argc, char** argv) {
                        {
                            {"--width", width, std::nullopt},
                            {"--height", height, std::nullopt},
-                           {"--seed", seed, 0},
+                           {"--seed", seed, 42},
                            {"--openness", openness, 50},
                        });
 
@@ -20,7 +20,7 @@ int32_t HandleGenerate(int32_t argc, char** argv) {
                            {
                                {"--out", out, std::nullopt},
                            });
-    TGame game(TGameCfg{height, width, openness});
+    TGame game(TGameCfg{width, height, openness, static_cast<uint64_t>(seed)});
     game.ToFile(out);
     return 0;
 }

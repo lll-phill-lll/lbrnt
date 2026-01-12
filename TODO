@@ -1,5 +1,8 @@
-- [ ] Add seeded rng
+- [x] Add seeded rng
 - [ ] Add player
+- [ ] Add hospital
+- [ ] Add arsenal
+- [ ] Add tools
 - [ ] Add move command
 - [ ] Add logger
 - [ ] Add ENSURE macros

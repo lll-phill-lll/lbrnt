@@ -2,19 +2,24 @@
 
 #include <fstream>
 
+#include "context.h"
 #include "maze.h"
+#include "random.h"
 #include "svg_helper.h"
 
 struct TGameCfg {
     int32_t W;
     int32_t H;
     int32_t Openness;
+    uint64_t Seed;
 };
 
 class TGame {
    public:
-    TGame(const std::string& path) { FromFile(path); }
-    TGame(const TGameCfg& cfg) : Maze({cfg.W, cfg.H, cfg.Openness}) {}
+    TGame(const std::string& path) : Ctx(std::make_shared<TGameCtx>()) { FromFile(path); }
+    TGame(int32_t w, int32_t h, int32_t openness, uint64_t seed)
+        : Ctx(std::make_shared<TGameCtx>(seed)), Maze({w, h, openness}, Ctx) {}
+    TGame(const TGameCfg& cfg) : Ctx(std::make_shared<TGameCtx>(cfg.Seed)), Maze({cfg.W, cfg.H, cfg.Openness}, Ctx) {}
 
     void FromFile(const std::string& path) {
         std::ifstream f(path);
@@ -32,6 +37,8 @@ class TGame {
 
             if (magic == Maze.GetMagic()) {
                 Maze.FromStream(f);
+            } else if (magic == Ctx->Rng.GetMagic()) {
+                Ctx->Rng.FromStream(f);
             }
         }
     }
@@ -46,6 +53,9 @@ class TGame {
 
         f << Maze.GetMagic() << std::endl;
         Maze.ToStream(f);
+
+        f << Ctx->Rng.GetMagic() << std::endl;
+        Ctx->Rng.ToStream(f);
     }
 
     void ToSvg(const std::string& path) const {
@@ -109,5 +119,6 @@ class TGame {
     }
 
    private:
+    std::shared_ptr<TGameCtx> Ctx;
     TMaze Maze;
 };

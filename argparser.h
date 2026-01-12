@@ -3,13 +3,13 @@
 #include <charconv>
 #include <iostream>
 
-void PrintUsage() {
+inline void PrintUsage() {
     std::cout << "generate --width W --height H --out state.txt [--openness 0..100] [--seed N]\n"
                  "add-player --state state.txt --name NAME\n"
                  "export-svg --state state.txt --out lbrnt.svg\n";
 }
 
-[[noreturn]] void ArgError() {
+[[noreturn]] inline void ArgError() {
     PrintUsage();
     std::exit(1);
 }
@@ -35,7 +35,7 @@ T ParseValue(std::string_view sv) {
     }
 }
 
-std::optional<std::string_view> GetArgValue(int argc, char** argv, std::string_view key) {
+inline std::optional<std::string_view> GetArgValue(int argc, char** argv, std::string_view key) {
     for (int i = 1; i < argc - 1; ++i) {
         if (std::string_view(argv[i]) == key) {
             return std::string_view(argv[i + 1]);
