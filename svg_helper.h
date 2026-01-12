@@ -65,4 +65,12 @@ inline std::string svgCircle(int cx, int cy, int r, std::string_view fill, std::
     return std::format("<circle cx=\"{}\" cy=\"{}\" r=\"{}\" fill=\"{}\" stroke=\"{}\"/>\n", cx, cy, r, fill, stroke);
 }
 
+inline std::string DrawText(int x, int y, std::string_view text, std::string_view fill, float font_size,
+                            std::string_view extra = "") {
+    return std::format(
+        "<text x=\"{}\" y=\"{}\" fill=\"{}\" font-size=\"{}\" text-anchor=\"middle\" dominant-baseline=\"middle\" "
+        "font-family=\"monospace\" {}>{}</text>\n",
+        x, y + font_size * 0.05, fill, font_size, extra, text);
+}
+
 }  // namespace SVG

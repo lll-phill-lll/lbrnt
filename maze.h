@@ -2,9 +2,11 @@
 
 #include <algorithm>
 #include <cassert>
+#include <cctype>
 #include <iostream>
 #include <random>
 #include <stack>
+#include <string>
 #include <string_view>
 #include <vector>
 
@@ -36,7 +38,7 @@ class TMaze {
         : W(cfg.W), H(cfg.H), Openness(cfg.Openness), Cells(W * H), Ctx(std::move(ctx)) {
         Generate();
     }
-    TMaze(std::istream& in) { FromStream(in); }
+    TMaze(std::istream& in, std::shared_ptr<TGameCtx> ctx) { FromStream(in, ctx); }
 
     int32_t GetH() const { return H; }
     int32_t GetW() const { return W; }
@@ -45,6 +47,50 @@ class TMaze {
 
     TCell& At(TPos p) { return Cells[Idx(p)]; }
     const TCell& At(TPos p) const { return Cells[Idx(p)]; }
+
+    TPos GenRandomPosition() {
+        std::uniform_int_distribution<int32_t> dx(0, W - 1);
+        std::uniform_int_distribution<int32_t> dy(0, H - 1);
+        return {dx(Ctx->Rng), dy(Ctx->Rng)};
+    }
+
+    TPos Step(TPos pos, EDir dir) const {
+        switch (dir) {
+            case EDir::UP:
+                return {pos.X, pos.Y - 1};
+            case EDir::RIGHT:
+                return {pos.X + 1, pos.Y};
+            case EDir::DOWN:
+                return {pos.X, pos.Y + 1};
+            case EDir::LEFT:
+                return {pos.X - 1, pos.Y};
+        }
+        assert(false);
+        return {};
+    }
+
+    bool DirFromStr(std::string_view s, EDir& out) {
+        std::string t;
+        t.reserve(s.size());
+        for (char c : s) t.push_back(std::toupper(c));
+        if (t == "UP") {
+            out = EDir::UP;
+            return true;
+        }
+        if (t == "RIGHT") {
+            out = EDir::RIGHT;
+            return true;
+        }
+        if (t == "DOWN") {
+            out = EDir::DOWN;
+            return true;
+        }
+        if (t == "LEFT") {
+            out = EDir::LEFT;
+            return true;
+        }
+        return false;
+    }
 
     void Generate() {
         assert(W > 0 && H > 0);
@@ -72,7 +118,8 @@ class TMaze {
         }
     }
 
-    void FromStream(std::istream& in) {
+    void FromStream(std::istream& in, std::shared_ptr<TGameCtx> ctx) {
+        Ctx = ctx;
         if (!(in >> W >> H)) {
             std::cerr << "Failed to read header" << std::endl;
             std::exit(1);
@@ -112,21 +159,6 @@ class TMaze {
     }
 
    private:
-    TPos step(TPos pos, EDir dir) {
-        switch (dir) {
-            case EDir::UP:
-                return {pos.X, pos.Y - 1};
-            case EDir::RIGHT:
-                return {pos.X + 1, pos.Y};
-            case EDir::DOWN:
-                return {pos.X, pos.Y + 1};
-            case EDir::LEFT:
-                return {pos.X - 1, pos.Y};
-        }
-        assert(false);
-        return {};
-    }
-
     EDir OppositeDir(EDir dir) {
         switch (dir) {
             case EDir::UP:
@@ -146,7 +178,7 @@ class TMaze {
 
     void RemoveWall(TPos from_pos, EDir dir) {
         assert(InBounds(from_pos));
-        TPos to_pos = step(from_pos, dir);
+        TPos to_pos = Step(from_pos, dir);
         assert(InBounds(to_pos));
 
         At(from_pos).RemoveWall(dir);
@@ -165,7 +197,7 @@ class TMaze {
             neighbors.reserve(4);
 
             auto tryAdd = [&](EDir dir) {
-                TPos next_pos = step(cur, dir);
+                TPos next_pos = Step(cur, dir);
                 if (InBounds(next_pos) && !visited[Idx(next_pos)]) {
                     neighbors.emplace_back(next_pos, dir);
                 }

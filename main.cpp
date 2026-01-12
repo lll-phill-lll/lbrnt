@@ -25,7 +25,28 @@ int32_t HandleGenerate(int32_t argc, char** argv) {
     return 0;
 }
 
-int32_t HandleAddPlayer() { return 0; }
+int32_t HandleAddPlayer(int32_t argc, char** argv) {
+    std::string state;
+    std::string name;
+    ParseArgs<std::string>(argc, argv, {{"--state", state, std::nullopt}, {"--name", name, std::nullopt}});
+    TGame game(state);
+    auto msgs = game.AddPlayerRandom(name);
+    for (const auto& m : msgs) std::cout << m << "\n";
+    game.ToFile(state);
+    return 0;
+}
+
+int32_t HandleMovePlayer(int32_t argc, char** argv) {
+    std::string state;
+    std::string name;
+    std::string dir;
+    ParseArgs<std::string>(argc, argv, {{"--state", state, std::nullopt}, {"--name", name, std::nullopt}, {"--dir", dir, std::nullopt}});
+    TGame game(state);
+    auto msgs = game.MovePlayer(name, dir);
+    for (const auto& m : msgs) std::cout << m << "\n";
+    game.ToFile(state);
+    return 0;
+}
 
 int32_t HandleExportSvg(int32_t argc, char** argv) {
     std::string state;
@@ -53,7 +74,9 @@ int32_t main(int32_t argc, char** argv) {
     if (cmd == "generate") {
         return HandleGenerate(argc, argv);
     } else if (cmd == "add-player") {
-        HandleAddPlayer();
+        return HandleAddPlayer(argc, argv);
+    } else if (cmd == "move-player") {
+        return HandleMovePlayer(argc, argv);
     } else if (cmd == "export-svg") {
         HandleExportSvg(argc, argv);
     } else {

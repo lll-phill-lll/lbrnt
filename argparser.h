@@ -6,7 +6,8 @@
 inline void PrintUsage() {
     std::cout << "generate --width W --height H --out state.txt [--openness 0..100] [--seed N]\n"
                  "add-player --state state.txt --name NAME\n"
-                 "export-svg --state state.txt --out lbrnt.svg\n";
+                 "move-player --state state.txt --name NAME --dir {UP|RIGHT|DOWN|LEFT}\n"
+                 "export-svg --state state.txt --out maze.svg\n";
 }
 
 [[noreturn]] inline void ArgError() {
