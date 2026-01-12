@@ -33,8 +33,27 @@ class TPlayer {
         int r = cellpx / 3;
         out += SVG::svgCircle(cx, cy, r, Color, "black");
         char ch = Name.empty() ? '?' : static_cast<char>(std::toupper(static_cast<unsigned char>(Name[0])));
-        out += SVG::DrawText(cx, cy, std::string(1, ch), "white", static_cast<float>(cellpx * 0.5f),
-                             "font-weight=\"bold\"");
+        out += SVG::DrawText(cx, cy, std::string(1, ch), "white", static_cast<float>(cellpx * 0.5f), "font-weight=\"bold\"");
+        return out;
+    }
+
+    std::string GetSvgInCell(int marginpx, int cellpx, int totalInCell, int indexInCell) const {
+        if (totalInCell <= 1) return GetSvg(marginpx, cellpx);
+        std::string out;
+        SVG::TRect rect = SVG::ToRect(Pos, marginpx, cellpx);
+        int cols = static_cast<int>(std::ceil(std::sqrt(static_cast<double>(totalInCell))));
+        int rows = (totalInCell + cols - 1) / cols;
+        int gridW = rect.GetW() / cols;
+        int gridH = rect.GetH() / rows;
+        int row = indexInCell / cols;
+        int col = indexInCell % cols;
+        int cx = rect.x0 + col * gridW + gridW / 2;
+        int cy = rect.y0 + row * gridH + gridH / 2;
+        int r = std::max(2, std::min(gridW, gridH) / 2 - 2);
+        float fontSize = std::max(3.0f, r * 0.9f);
+        out += SVG::svgCircle(cx, cy, r, Color, "black");
+        char ch = Name.empty() ? '?' : static_cast<char>(std::toupper(static_cast<unsigned char>(Name[0])));
+        out += SVG::DrawText(cx, cy, std::string(1, ch), "white", fontSize, "font-weight=\"bold\"");
         return out;
     }
 

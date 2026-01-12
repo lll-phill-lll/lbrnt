@@ -1,6 +1,8 @@
 #pragma once
 
 #include <cctype>
+#include <cmath>
+#include <algorithm>
 #include <fstream>
 
 #include "context.h"
@@ -163,8 +165,25 @@ class TGame {
 
         if (!Players.empty()) {
             out += SVG::GroupBegin("players");
-            for (const auto& p : Players) {
-                out += p.GetSvg(marginpx, cellpx);
+            std::vector<const TPlayer*> sorted;
+            sorted.reserve(Players.size());
+            for (const auto& p : Players) sorted.push_back(&p);
+            std::sort(sorted.begin(), sorted.end(), [](const TPlayer* a, const TPlayer* b) {
+                if (a->GetPos().Y != b->GetPos().Y) return a->GetPos().Y < b->GetPos().Y;
+                if (a->GetPos().X != b->GetPos().X) return a->GetPos().X < b->GetPos().X;
+                return a->GetName() < b->GetName();
+            });
+            for (int32_t i = 0; i < sorted.size();) {
+                int32_t j = i + 1;
+                const TPos pos = sorted[i]->GetPos();
+                while (j < sorted.size() && sorted[j]->GetPos().X == pos.X && sorted[j]->GetPos().Y == pos.Y) {
+                    ++j;
+                }
+                int32_t count = j - i;
+                for (int32_t k = 0; k < count; ++k) {
+                    out += sorted[i + k]->GetSvgInCell(marginpx, cellpx, count, k);
+                }
+                i = j;
             }
             out += SVG::GroupEnd();
         }
