@@ -214,11 +214,18 @@ class TGame {
     std::vector<TPlayer> Players;
 
     bool HasAdjacentAnother(const TPlayer& who) const {
-        for (const auto& p : Players) {
-            if (&p == &who) continue;
-            int dx = std::abs(p.GetPos().X - who.GetPos().X);
-            int dy = std::abs(p.GetPos().Y - who.GetPos().Y);
-            if (dx + dy == 1) return true;
+        static const EDir kDirs[4] = {EDir::UP, EDir::RIGHT, EDir::DOWN, EDir::LEFT};
+        const TPos pos = who.GetPos();
+        for (EDir dir : kDirs) {
+            if (Maze.At(pos).HasWall(dir)) continue;
+            TPos neigh = Maze.Step(pos, dir);
+            if (!Maze.InBounds(neigh)) continue;
+            for (const auto& p : Players) {
+                if (&p == &who) continue;
+                if (p.GetPos() == neigh) {
+                    return true;
+                }
+            }
         }
         return false;
     }
