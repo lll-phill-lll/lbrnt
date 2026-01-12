@@ -1,7 +1,6 @@
 #pragma once
 
 #include <fstream>
-#include <sstream>
 
 #include "maze.h"
 #include "svg_helper.h"
@@ -9,12 +8,13 @@
 struct TGameCfg {
     int32_t W;
     int32_t H;
+    int32_t Openness;
 };
 
 class TGame {
    public:
     TGame(const std::string& path) { FromFile(path); }
-    TGame(const TGameCfg& cfg) : Maze({cfg.W, cfg.H}) {}
+    TGame(const TGameCfg& cfg) : Maze({cfg.W, cfg.H, cfg.Openness}) {}
 
     void FromFile(const std::string& path) {
         std::ifstream f(path);
@@ -100,8 +100,8 @@ class TGame {
         out += SVG::GroupEnd();
 
         out += SVG::GroupBegin("maze-border");
-        out += SVG::DrawRect({marginpx, marginpx, marginpx + w * cellpx, marginpx + h * cellpx},
-                "none", "black", std::format("stroke-width=\"{}\"", strokepx));
+        out += SVG::DrawRect({marginpx, marginpx, marginpx + w * cellpx, marginpx + h * cellpx}, "none", "black",
+                             std::format("stroke-width=\"{}\"", strokepx));
         out += SVG::GroupEnd();
 
         out += SVG::GetFooter();

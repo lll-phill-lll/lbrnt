@@ -20,7 +20,7 @@ int32_t HandleGenerate(int32_t argc, char** argv) {
                            {
                                {"--out", out, std::nullopt},
                            });
-    TGame game(TGameCfg{height, width});
+    TGame game(TGameCfg{height, width, openness});
     game.ToFile(out);
     return 0;
 }

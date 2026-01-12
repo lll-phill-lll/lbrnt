@@ -1,9 +1,11 @@
 #pragma once
 
+#include <algorithm>
 #include <cassert>
 #include <iomanip>
 #include <iostream>
 #include <random>
+#include <stack>
 #include <vector>
 
 #include "common.h"
@@ -11,6 +13,7 @@
 struct TMazeCfg {
     int32_t W;
     int32_t H;
+    int32_t Openness;
 };
 
 enum class EDir : uint8_t { UP = 0, RIGHT = 1, DOWN = 2, LEFT = 3 };
@@ -27,7 +30,7 @@ struct TCell {
 class TMaze {
    public:
     TMaze() : W(0), H(0), Cells(0) {}
-    TMaze(const TMazeCfg& cfg) : W(cfg.W), H(cfg.H), Cells(W * H) { Generate(); }
+    TMaze(const TMazeCfg& cfg) : W(cfg.W), H(cfg.H), Openness(cfg.Openness), Cells(W * H) { Generate(); }
     TMaze(std::istream& in) { FromStream(in); }
 
     int32_t GetH() const { return H; }
@@ -47,6 +50,7 @@ class TMaze {
 
         std::random_device rng;
         Dfs({0, 0}, visited, rng);
+        RemoveExtraWalls();
     }
 
     const std::string& GetMagic() const { return Magic; }
@@ -146,19 +150,62 @@ class TMaze {
     }
 
     void Dfs(TPos pos, std::vector<bool>& visited, std::random_device& rng) {
+        std::stack<TPos> stack;
         visited[Idx(pos)] = true;
+        stack.push(pos);
 
-        std::array<EDir, 4> dirs{EDir::UP, EDir::RIGHT, EDir::DOWN, EDir::LEFT};
-        std::shuffle(dirs.begin(), dirs.end(), rng);
+        while (!stack.empty()) {
+            TPos cur = stack.top();
 
-        for (EDir dir : dirs) {
-            TPos next_pos = step(pos, dir);
-            if (!InBounds(next_pos)) continue;
-            if (visited[Idx(next_pos)]) continue;
+            std::vector<std::pair<TPos, EDir>> neighbors;
+            neighbors.reserve(4);
 
-            RemoveWall(pos, dir);
-            // TODO: use stack
-            Dfs(next_pos, visited, rng);
+            auto tryAdd = [&](EDir dir) {
+                TPos next_pos = step(cur, dir);
+                if (InBounds(next_pos) && !visited[Idx(next_pos)]) {
+                    neighbors.emplace_back(next_pos, dir);
+                }
+            };
+
+            tryAdd(EDir::UP);
+            tryAdd(EDir::RIGHT);
+            tryAdd(EDir::DOWN);
+            tryAdd(EDir::LEFT);
+
+            if (neighbors.empty()) {
+                stack.pop();
+                continue;
+            }
+
+            std::shuffle(neighbors.begin(), neighbors.end(), rng);
+            const auto& choice = neighbors.front();
+            const TPos next_pos = choice.first;
+            const EDir dir = choice.second;
+
+            RemoveWall(cur, dir);
+            visited[Idx(next_pos)] = true;
+            stack.push(next_pos);
+        }
+    }
+
+    void RemoveExtraWalls() {
+        int p = Openness;
+        if (p <= 0) return;
+        if (p > 100) p = 100;
+
+        std::random_device rng;
+        std::uniform_int_distribution<int> dist(0, 99);
+
+        for (int y = 0; y < H; ++y) {
+            for (int x = 0; x < W; ++x) {
+                TPos pos{x, y};
+                if (x + 1 < W && At(pos).HasWall(EDir::RIGHT) && dist(rng) < p) {
+                    RemoveWall(pos, EDir::RIGHT);
+                }
+                if (y + 1 < H && At(pos).HasWall(EDir::DOWN) && dist(rng) < p) {
+                    RemoveWall(pos, EDir::DOWN);
+                }
+            }
         }
     }
 
@@ -175,6 +222,7 @@ class TMaze {
    private:
     int32_t W = 0;
     int32_t H = 0;
+    int32_t Openness = 50;
     std::vector<TCell> Cells;
 
     const std::string Magic = "[MAZE]";
