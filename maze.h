@@ -4,8 +4,9 @@
 #include <iomanip>
 #include <iostream>
 #include <random>
-#include <sstream>
 #include <vector>
+
+#include "common.h"
 
 struct TMazeCfg {
     int32_t W;
@@ -18,10 +19,9 @@ enum class ECellContent : uint8_t { EMPTY, HOSPITAL };
 struct TCell {
     uint8_t Walls = 0b1111;
     ECellContent Content = ECellContent::EMPTY;
-};
 
-struct TPos {
-    int32_t X, Y;
+    bool HasWall(EDir dir) const { return Walls & (1u << static_cast<uint8_t>(dir)); }
+    void RemoveWall(EDir dir) { Walls &= ~(1u << static_cast<uint8_t>(dir)); }
 };
 
 class TMaze {
@@ -29,6 +29,9 @@ class TMaze {
     TMaze() : W(0), H(0), Cells(0) {}
     TMaze(const TMazeCfg& cfg) : W(cfg.W), H(cfg.H), Cells(W * H) { Generate(); }
     TMaze(std::istream& in) { FromStream(in); }
+
+    int32_t GetH() const { return H; }
+    int32_t GetW() const { return W; }
 
     bool InBounds(TPos pos) const { return 0 <= pos.X && pos.X < W && 0 <= pos.Y && pos.Y < H; }
 
@@ -71,10 +74,11 @@ class TMaze {
             std::exit(1);
         }
 
+        Cells.resize(H * W);
+
         std::string line;
         std::getline(in, line);
 
-        std::vector<TCell> cells(W * H);
         for (int y = 0; y < H; ++y) {
             if (!std::getline(in, line)) {
                 std::cerr << "Unexpected end of input while reading rows" << std::endl;
@@ -94,7 +98,7 @@ class TMaze {
             for (int x = 0; x < W; ++x) {
                 uint8_t walls = ParseHexByte(hex[2 * x], hex[2 * x + 1]);
                 walls &= 0b1111;
-                cells[y * W + x].Walls = walls;
+                Cells[y * W + x].Walls = walls;
             }
         }
     }
@@ -137,8 +141,8 @@ class TMaze {
         TPos to_pos = step(from_pos, dir);
         assert(InBounds(to_pos));
 
-        At(from_pos).Walls &= ~(1u << static_cast<uint8_t>(dir));
-        At(to_pos).Walls &= ~(1u << static_cast<uint8_t>(OppositeDir(dir)));
+        At(from_pos).RemoveWall(dir);
+        At(to_pos).RemoveWall(OppositeDir(dir));
     }
 
     void Dfs(TPos pos, std::vector<bool>& visited, std::random_device& rng) {

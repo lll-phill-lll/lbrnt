@@ -26,7 +26,22 @@ int32_t HandleGenerate(int32_t argc, char** argv) {
 }
 
 int32_t HandleAddPlayer() { return 0; }
-int32_t HandleExportSvg() { return 0; }
+
+int32_t HandleExportSvg(int32_t argc, char** argv) {
+    std::string state;
+    std::string out;
+
+    ParseArgs<std::string>(argc, argv,
+                           {
+                               {"--state", state, std::nullopt},
+                               {"--out", out, std::nullopt},
+                           });
+
+    TGame game(state);
+    game.ToSvg(out);
+
+    return 0;
+}
 
 int32_t main(int32_t argc, char** argv) {
     if (argc < 2) {
@@ -40,7 +55,7 @@ int32_t main(int32_t argc, char** argv) {
     } else if (cmd == "add-player") {
         HandleAddPlayer();
     } else if (cmd == "export-svg") {
-        HandleExportSvg();
+        HandleExportSvg(argc, argv);
     } else {
         PrintUsage();
         return 0;
