@@ -5,6 +5,7 @@
 #include <cctype>
 #include <iostream>
 #include <random>
+#include <queue>
 #include <stack>
 #include <string>
 #include <string_view>
@@ -90,6 +91,75 @@ class TMaze {
             return true;
         }
         return false;
+    }
+    void PlaceWall(TPos from_pos, EDir dir) { AddWall(from_pos, dir); }
+    void ClearWall(TPos from_pos, EDir dir) { RemoveWall(from_pos, dir); }
+
+    // Validate and apply a location placement suggested by a location:
+    // - Ensures cells in bounds and not intersecting reserved
+    // - Applies wall operations (place first, then clear so exit stays open)
+    // - Ensures maze remains single-component; otherwise rolls back and returns false
+    bool TryApplyLocation(const std::vector<TPos>& cells,
+                          const std::vector<std::pair<TPos, EDir>>& wallsToPlace,
+                          const std::vector<std::pair<TPos, EDir>>& wallsToClear,
+                          const std::vector<TPos>& reserved) {
+        // bounds and reserved checks
+        for (auto p : cells) {
+            if (!InBounds(p)) return false;
+            for (auto r : reserved) if (p == r) return false;
+        }
+        auto snapshot = SnapshotWalls();
+        // Apply walls: place first, then clear (so explicit exits win)
+        for (const auto& [p, d] : wallsToPlace) { if (InBounds(p)) PlaceWall(p, d); }
+        for (const auto& [p, d] : wallsToClear) { if (InBounds(p)) ClearWall(p, d); }
+        if (CountConnectedComponents() == 1) {
+            return true;
+        }
+        RestoreWalls(snapshot);
+        return false;
+    }
+
+    // Snapshot and restore only wall bitmasks (for transactional location placement)
+    std::vector<uint8_t> SnapshotWalls() const {
+        std::vector<uint8_t> walls;
+        walls.reserve(Cells.size());
+        for (const auto& c : Cells) walls.push_back(c.Walls);
+        return walls;
+    }
+    void RestoreWalls(const std::vector<uint8_t>& walls) {
+        assert((int)walls.size() == (int)Cells.size());
+        for (size_t i = 0; i < Cells.size(); ++i) Cells[i].Walls = walls[i];
+    }
+
+    // Count connected components using current walls
+    int CountConnectedComponents() const {
+        if (W == 0 || H == 0) return 0;
+        std::vector<uint8_t> seen(W * H, 0);
+        auto visit = [&](TPos p) { return seen[Idx(p)] != 0; };
+        auto mark = [&](TPos p) { seen[Idx(p)] = 1; };
+        int components = 0;
+        for (int y = 0; y < H; ++y) {
+            for (int x = 0; x < W; ++x) {
+                TPos start{x, y};
+                if (visit(start)) continue;
+                ++components;
+                std::queue<TPos> q;
+                q.push(start);
+                mark(start);
+                while (!q.empty()) {
+                    TPos cur = q.front(); q.pop();
+                    // traverse to neighbors where there is no wall
+                    for (EDir d : {EDir::UP, EDir::RIGHT, EDir::DOWN, EDir::LEFT}) {
+                        if (At(cur).HasWall(d)) continue;
+                        TPos nxt = Step(cur, d);
+                        if (!InBounds(nxt) || visit(nxt)) continue;
+                        mark(nxt);
+                        q.push(nxt);
+                    }
+                }
+            }
+        }
+        return components;
     }
 
     void Generate() {
@@ -183,6 +253,14 @@ class TMaze {
 
         At(from_pos).RemoveWall(dir);
         At(to_pos).RemoveWall(OppositeDir(dir));
+    }
+
+    void AddWall(TPos from_pos, EDir dir) {
+        assert(InBounds(from_pos));
+        TPos to_pos = Step(from_pos, dir);
+        if (!InBounds(to_pos)) return; // outer border, nothing to add
+        At(from_pos).Walls |= (1u << static_cast<uint8_t>(dir));
+        At(to_pos).Walls |= (1u << static_cast<uint8_t>(OppositeDir(dir)));
     }
 
     void Dfs(TPos pos, std::vector<bool>& visited, TRng& rng) {
