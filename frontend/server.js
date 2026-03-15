@@ -428,6 +428,14 @@ io.on('connection', (socket) => {
     }
   });
 
+  socket.on('chatMessage', (payload, cb) => {
+    if (!myRoom || !myName) return cb?.({ ok: false });
+    const text = String(payload?.text || '').trim();
+    if (!text) return cb?.({ ok: false });
+    io.to('game:' + myRoom).emit('chatMsg', { who: myName, text });
+    cb?.({ ok: true });
+  });
+
   socket.on('disconnect', () => {
     if (!myRoom || !rooms.has(myRoom)) return;
     const r = rooms.get(myRoom);

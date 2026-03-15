@@ -40,7 +40,28 @@
   const roomTitle    = $('roomTitle');
   const toastContainer = $('toastContainer');
 
+  const helpOverlay = $('helpOverlay');
+  $('helpBtn').addEventListener('click', () => helpOverlay.classList.remove('hidden'));
+  $('closeHelp').addEventListener('click', () => helpOverlay.classList.add('hidden'));
+  helpOverlay.addEventListener('click', e => { if (e.target === helpOverlay) helpOverlay.classList.add('hidden'); });
+
   roomTitle.textContent = `Комната: ${session.room}`;
+
+  // ── Chat ──
+  const chatInput = $('chatInput');
+  const chatSend  = $('chatSend');
+  function sendChat() {
+    const text = chatInput.value.trim();
+    if (!text) return;
+    chatInput.value = '';
+    socket.emit('chatMessage', { text }, () => {});
+  }
+  chatSend.addEventListener('click', sendChat);
+  chatInput.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); sendChat(); } });
+  socket.on('chatMsg', msg => {
+    if (!msg?.who || !msg?.text) return;
+    toastFeedback([msg.text], msg.who);
+  });
   playerLabel.textContent = session.name;
 
   function showToast(text, cls, duration) {
