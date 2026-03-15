@@ -8,6 +8,7 @@
 #include "generator.hpp"
 #include "locations/Hospital.hpp"
 #include <algorithm>
+#include <memory>
 #include <random>
 #include <queue>
 
