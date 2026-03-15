@@ -126,6 +126,18 @@
       tip.className = 'tooltip';
       tip.innerHTML = '<b>' + item.displayName + '</b><br>' + item.description + '<br><br><i>' + item.rechargeHint + '</i>';
       info.appendChild(tip);
+      info.addEventListener('mouseenter', () => {
+        const r = info.getBoundingClientRect();
+        let x = r.right + 8, y = r.top;
+        tip.style.display = 'block';
+        const tw = tip.offsetWidth, th = tip.offsetHeight;
+        if (x + tw > window.innerWidth) x = r.left - tw - 8;
+        if (y + th > window.innerHeight) y = window.innerHeight - th - 8;
+        if (y < 4) y = 4;
+        tip.style.left = x + 'px';
+        tip.style.top = y + 'px';
+      });
+      info.addEventListener('mouseleave', () => { tip.style.display = 'none'; });
       header.appendChild(info);
 
       const charges = document.createElement('span');
