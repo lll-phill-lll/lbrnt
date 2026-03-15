@@ -1,0 +1,6 @@
+build/
+frontend/node_modules/
+rooms/
+*.log
+.labyrinth.pid
+*.svg
