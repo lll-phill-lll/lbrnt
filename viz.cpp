@@ -5,6 +5,7 @@
 #include <vector>
 #include <map>
 #include <algorithm>
+#include <sstream>
 
 std::string render_svg(const AppState& st, float cell_px, float margin_px) {
 	const auto& map = st.map;
@@ -20,12 +21,74 @@ std::string render_svg(const AppState& st, float cell_px, float margin_px) {
 	    << " viewBox=\"0 0 " << w << " " << h << "\""
 	    << " width=\"" << w << "\" height=\"" << h << "\">";
 	oss << "<rect x=\"0\" y=\"0\" width=\"" << w << "\" height=\"" << h << "\" fill=\"#ffffff\"/>\n";
+	// Precompute players per cell for data attributes
+	std::map<long long, std::vector<std::string>> players_in_cell;
+	for (const auto& kv : st.game.players) {
+		long long key = (long long)kv.second.second * 1000000LL + (long long)kv.second.first;
+		players_in_cell[key].push_back(kv.first);
+	}
 	// grid faint
 	for (size_t y = 0; y < map.height; ++y) {
 		for (size_t x = 0; x < map.width; ++x) {
-			oss << "<rect x=\"" << (margin_px + x * cell_px) << "\" y=\"" << (margin_px + y * cell_px)
+			long long key = (long long)y * 1000000LL + (long long)x;
+			// content label
+			std::string cstr = "Empty";
+			switch (map.get_cell(x, y)) {
+				case CellContent::Empty: cstr = "Empty"; break;
+				case CellContent::Treasure: cstr = "Treasure"; break;
+				case CellContent::Hospital: cstr = "Hospital"; break;
+				case CellContent::Arsenal: cstr = "Arsenal"; break;
+				case CellContent::Exit: cstr = "Exit"; break;
+			}
+			// players CSV
+			std::string pcsv;
+			{
+				auto it = players_in_cell.find(key);
+				if (it != players_in_cell.end()) {
+					for (size_t i = 0; i < it->second.size(); ++i) {
+						if (i) pcsv.push_back(',');
+						pcsv += it->second[i];
+					}
+				}
+			}
+			// ground items compact string "id:cnt;id:cnt"
+			std::string gitems;
+			{
+				auto it = st.game.ground_items.find(key);
+				if (it != st.game.ground_items.end()) {
+					bool first = true;
+					for (const auto& iv : it->second) {
+						if (!first) gitems.push_back(';');
+						first = false;
+						gitems += iv.first;
+						gitems.push_back(':');
+						gitems += std::to_string(iv.second);
+					}
+				}
+			}
+			int loot = 0;
+			{
+				auto itL = st.game.loot_treasure.find(key);
+				if (itL != st.game.loot_treasure.end()) loot = itL->second;
+			}
+			oss << "<rect class=\"cell\" data-x=\"" << x << "\" data-y=\"" << y
+			    << "\" data-content=\"" << cstr << "\" data-players=\"" << pcsv
+			    << "\" data-ground=\"" << gitems << "\" data-loot=\"" << loot
+			    << "\" x=\"" << (margin_px + x * cell_px) << "\" y=\"" << (margin_px + y * cell_px)
 			    << "\" width=\"" << cell_px << "\" height=\"" << cell_px
 			    << "\" fill=\"#ffffff\" stroke=\"#f0f0f0\" stroke-width=\"1\"/>\n";
+		}
+	}
+	// per-cell coordinate labels (x,y) in top-left corner
+	{
+		for (size_t y = 0; y < map.height; ++y) {
+			for (size_t x = 0; x < map.width; ++x) {
+				float tx = margin_px + x * cell_px + cell_px * 0.5f;
+				float ty = margin_px + y * cell_px + cell_px * 0.5f;
+				oss << "<text x=\"" << tx << "\" y=\"" << ty << "\" fill=\"#000000\" fill-opacity=\"0.22\" font-size=\""
+				    << (cell_px*0.28f) << "\" font-family=\"monospace\" text-anchor=\"middle\" dominant-baseline=\"central\">"
+				    << x << "," << y << "</text>\n";
+			}
 		}
 	}
 	// walls
@@ -327,6 +390,56 @@ std::string render_svg(const AppState& st, float cell_px, float margin_px) {
 	}
 	oss << "</svg>\n";
 	return oss.str();
+}
+
+std::string render_html(const AppState& st, float cell_px, float margin_px) {
+	std::ostringstream html;
+	html << "<!doctype html>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\"/>\n"
+	     << "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"/>\n"
+	     << "<title>Labyrinth</title>\n"
+	     << "<style>\n"
+	     << "html,body{margin:0;padding:0;background:#f7f7f7;color:#111;font-family:system-ui, -apple-system, Segoe UI, Roboto, sans-serif;}\n"
+	     << ".wrap{padding:12px;display:flex;justify-content:center;}\n"
+	     << ".card{background:#fff;box-shadow:0 1px 4px rgba(0,0,0,0.08);border-radius:8px;padding:12px;}\n"
+	     << ".svg{display:block;max-width:100%;height:auto;}\n"
+	     << "rect.cell{cursor:pointer;}\n"
+	     << "#info{margin-top:10px;font-size:14px;line-height:1.45;color:#333;}\n"
+	     << "#info code{background:#f0f0f0;padding:2px 4px;border-radius:4px;}\n"
+	     << "</style>\n</head>\n<body>\n<div class=\"wrap\"><div class=\"card\">\n";
+	html << render_svg(st, cell_px, margin_px);
+	html << "\n<div id=\"info\"></div>\n";
+	html << "<script>\n";
+	html << "(() => {\n"
+	     << "  const svg = document.querySelector('svg');\n"
+	     << "  const info = document.getElementById('info');\n"
+	     << "  function setInfo(el){\n"
+	     << "    const x = el.getAttribute('data-x');\n"
+	     << "    const y = el.getAttribute('data-y');\n"
+	     << "    const cont = el.getAttribute('data-content') || '';\n"
+	     << "    const players = el.getAttribute('data-players') || '';\n"
+	     << "    const ground = el.getAttribute('data-ground') || '';\n"
+	     << "    const loot = el.getAttribute('data-loot') || '0';\n"
+	     << "    info.innerHTML = `<div><strong>Cell</strong> <code>(${x},${y})</code></div>` +\n"
+	     << "      `<div>Content: <code>${cont}</code></div>` +\n"
+	     << "      `<div>Players: <code>${players || '-'}</code></div>` +\n"
+	     << "      `<div>Ground: <code>${ground || '-'}</code></div>` +\n"
+	     << "      `<div>Treasure on ground: <code>${loot}</code></div>`;\n"
+	     << "  }\n"
+	     << "  function highlight(el){\n"
+	     << "    let hl = document.getElementById('cell-hl');\n"
+	     << "    if (!hl) { hl = document.createElementNS('http://www.w3.org/2000/svg','rect'); hl.setAttribute('id','cell-hl'); hl.setAttribute('fill','none'); hl.setAttribute('stroke','#ff9800'); hl.setAttribute('stroke-width','2'); svg.appendChild(hl); }\n"
+	     << "    hl.setAttribute('x', el.getAttribute('x'));\n"
+	     << "    hl.setAttribute('y', el.getAttribute('y'));\n"
+	     << "    hl.setAttribute('width', el.getAttribute('width'));\n"
+	     << "    hl.setAttribute('height', el.getAttribute('height'));\n"
+	     << "  }\n"
+	     << "  document.querySelectorAll('rect.cell').forEach(el => {\n"
+	     << "    el.addEventListener('click', () => { highlight(el); setInfo(el); });\n"
+	     << "  });\n"
+	     << "})();\n";
+	html << "</script>\n";
+	html << "</div></div>\n</body>\n</html>\n";
+	return html.str();
 }
 
 
