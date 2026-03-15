@@ -53,9 +53,18 @@ static void applyLogEntry(const LogEntry& e, AppState& cur) {
 		case LogType::Attack:
 			cur.game.attack(e.name, e.dir, cur.map);
 			break;
-		case LogType::UseItem:
-			cur.game.use_item(e.name, e.item, e.dir, cur.map);
+		case LogType::UseItem: {
+			std::unique_ptr<Item> itm;
+			if (e.item == "knife") itm = std::make_unique<Knife>();
+			else if (e.item == "shotgun") itm = std::make_unique<Shotgun>();
+			else if (e.item == "rifle") itm = std::make_unique<Rifle>();
+			else if (e.item == "flashlight") itm = std::make_unique<Flashlight>();
+			if (itm) {
+				std::vector<std::string> msgs;
+				itm->apply(cur.game, cur.map, e.name, e.dir, msgs);
+			}
 			break;
+		}
 	}
 	cur.game.enforce_turns = wasEnforced;
 }
