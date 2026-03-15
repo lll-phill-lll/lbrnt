@@ -57,13 +57,21 @@
     setTimeout(() => { el.classList.add('out'); setTimeout(() => el.remove(), 250); }, ttl);
     while (toastContainer.children.length > 6) toastContainer.firstChild.remove();
   }
+  const feedHistory = [];
+  const feedListEl = document.getElementById('feedList');
+  function addFeedEntry(html) {
+    feedHistory.push(html);
+    if (feedHistory.length > 3) feedHistory.shift();
+    if (feedListEl) feedListEl.innerHTML = feedHistory.map(h => `<div style="border-bottom:1px solid rgba(255,255,255,.06);padding:3px 0;">${h}</div>`).join('');
+  }
   function toastFeedback(lines, who) {
     const isSelf = who === session.name;
     const prefix = who ? `<span class="toast-who">${who}:</span> ` : '';
     const body = (Array.isArray(lines) ? lines : [lines]).join('<br>');
     showToast(prefix + body, isSelf ? 'self' : 'other');
+    addFeedEntry(prefix + body);
   }
-  function toastSystem(text) { showToast(text, 'system', 2500); }
+  function toastSystem(text) { showToast(text, 'system', 2500); addFeedEntry(text); }
 
   // ── Socket ──
   const socket = io('/', { transports: ['websocket'] });
