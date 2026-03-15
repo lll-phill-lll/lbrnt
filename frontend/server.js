@@ -234,6 +234,8 @@ io.on('connection', (socket) => {
         }
         // Initialize turn order so players see it immediately
         await runLab(['init-turns', '--state', stateFile(myRoom)]);
+        // Snapshot base state for replay (after weapons + players are placed)
+        await runLab(['init-base', '--state', stateFile(myRoom)]);
       });
 
       r.started = true;
