@@ -408,7 +408,7 @@
   const cells = new Map();
   let shapes = [], selectedShape = null, lines = [], lineStart = null;
   let pointerDown = false, panning = false, lastPX = 0, lastPY = 0, draggingShape = null, hover = null, borderPreview = null;
-  let trailDraw = false, dragPrevCX = 0, dragPrevCY = 0;
+  let trailDraw = true, dragPrevCX = 0, dragPrevCY = 0;
 
   // Undo stack: each entry is a snapshot { cells, shapes, lines }
   const undoStack = [];
@@ -434,6 +434,20 @@
     trailDraw = !trailDraw;
     trailToggleEl.classList.toggle('active', trailDraw);
   });
+
+  const drawInfoIcon = $('drawInfoIcon'), drawInfoTip = $('drawInfoTip');
+  drawInfoIcon.addEventListener('mouseenter', () => {
+    const r = drawInfoIcon.getBoundingClientRect();
+    let x = r.right + 8, y = r.top;
+    drawInfoTip.style.display = 'block';
+    const tw = drawInfoTip.offsetWidth, th = drawInfoTip.offsetHeight;
+    if (x + tw > window.innerWidth) x = r.left - tw - 8;
+    if (y + th > window.innerHeight) y = window.innerHeight - th - 8;
+    if (y < 4) y = 4;
+    drawInfoTip.style.left = x + 'px';
+    drawInfoTip.style.top = y + 'px';
+  });
+  drawInfoIcon.addEventListener('mouseleave', () => { drawInfoTip.style.display = 'none'; });
 
   document.querySelectorAll('[data-mode]').forEach(btn => {
     btn.addEventListener('click', () => {
