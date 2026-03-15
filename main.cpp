@@ -1,11 +1,35 @@
 #include "generator.hpp"
 #include "state.hpp"
 #include "viz.hpp"
+#include "items/Knife.hpp"
+#include "items/Shotgun.hpp"
+#include "items/Rifle.hpp"
+#include "items/Flashlight.hpp"
 #include <iostream>
 #include <filesystem>
 #include <fstream>
 #include <random>
 #include <sstream>
+#include <memory>
+
+static std::unique_ptr<Item> makeItem(const std::string& id) {
+	if (id == "knife") return std::make_unique<Knife>();
+	if (id == "shotgun") return std::make_unique<Shotgun>();
+	if (id == "rifle") return std::make_unique<Rifle>();
+	if (id == "flashlight") return std::make_unique<Flashlight>();
+	return nullptr;
+}
+
+static std::string jsonEscape(const std::string& s) {
+	std::string out;
+	for (char c : s) {
+		if (c == '"') out += "\\\"";
+		else if (c == '\\') out += "\\\\";
+		else if (c == '\n') out += "\\n";
+		else out += c;
+	}
+	return out;
+}
 
 // Simple stderr logger for service messages
 static void log_err(const std::string& msg) {
@@ -29,6 +53,7 @@ R"(labyrinth_cpp commands:
             [--bot-steps N]
   show --state state.txt [--reveal]
   status --state state.txt
+  player-status --state state.txt --name NAME
   add-player --state state.txt --name NAME --x X --y Y
   add-player-random --state state.txt --name NAME
   move --state state.txt --name NAME (up|down|left|right)
@@ -44,6 +69,7 @@ R"(labyrinth_cpp commands:
   export-svg --state state.txt --out maze.svg [--cell N] [--margin PX]
   export-html --state state.txt --out maze.html [--cell N] [--margin PX]
   replay-export --base base.txt --log state_with_log.txt --out-dir frames --cell N --margin PX
+  init-turns --state state.txt
   init-base --state state.txt
   replay-export-one --state state.txt --out-dir frames --cell N --margin PX
 )";
@@ -202,6 +228,69 @@ int main(int argc, char** argv) {
 			}
 			print_user_messages(name, lines);
 		}
+		return 0;
+	}
+	if (cmd == "player-status") {
+		std::string state, name;
+		if (!get_arg(argc, argv, std::string("--state"), state) ||
+		    !get_arg(argc, argv, std::string("--name"), name)) { usage(); return 1; }
+		AppState st; std::string err;
+		if (!AppState::load(st, state, err)) { std::cerr << err << "\n"; return 2; }
+		if (!st.game.players.count(name)) { std::cerr << "Игрок не найден\n"; return 3; }
+
+		bool hasTreasure = st.game.players_with_treasure.count(name) > 0;
+
+		std::ostringstream js;
+		js << "{";
+		js << "\"name\":\"" << jsonEscape(name) << "\",";
+		js << "\"hasTreasure\":" << (hasTreasure ? "true" : "false") << ",";
+		js << "\"items\":[";
+
+		static const char* itemOrder[] = {"knife","shotgun","rifle","flashlight"};
+		auto itInv = st.game.inventories.find(name);
+		bool first = true;
+		for (const char* iid : itemOrder) {
+			int charges = 0;
+			bool has = false;
+			if (itInv != st.game.inventories.end()) {
+				auto it = itInv->second.item_charges.find(iid);
+				if (it != itInv->second.item_charges.end()) {
+					charges = it->second;
+					has = true;
+				}
+			}
+			if (!has) continue;
+			auto item = makeItem(iid);
+			if (!item) continue;
+
+			if (!first) js << ",";
+			first = false;
+			bool broken = (std::string(iid) == "knife" && st.game.broken_knife.count(name));
+			js << "{";
+			js << "\"id\":\"" << iid << "\",";
+			js << "\"displayName\":\"" << jsonEscape(item->displayName()) << "\",";
+			js << "\"description\":\"" << jsonEscape(item->description()) << "\",";
+			js << "\"rechargeHint\":\"" << jsonEscape(item->rechargeHint()) << "\",";
+			js << "\"charges\":" << charges << ",";
+			js << "\"broken\":" << (broken ? "true" : "false");
+			js << "}";
+		}
+		// extra items not in predefined order
+		if (itInv != st.game.inventories.end()) {
+			for (const auto& kv : itInv->second.item_charges) {
+				if (kv.first=="knife"||kv.first=="shotgun"||kv.first=="rifle"||kv.first=="flashlight") continue;
+				auto item = makeItem(kv.first);
+				if (!first) js << ",";
+				first = false;
+				js << "{\"id\":\"" << jsonEscape(kv.first) << "\",";
+				js << "\"displayName\":\"" << jsonEscape(kv.first) << "\",";
+				js << "\"description\":\"\",\"rechargeHint\":\"\",";
+				js << "\"charges\":" << kv.second << ",\"broken\":false}";
+			}
+		}
+
+		js << "]}";
+		std::cout << js.str() << "\n";
 		return 0;
 	}
 	if (cmd == "add-player") {
@@ -581,6 +670,23 @@ int main(int argc, char** argv) {
 		if (!f) { std::cerr << "Не могу записать HTML\n"; return 2; }
 		f << html;
 		log_err(std::string("HTML сохранён: ") + out);
+		return 0;
+	}
+	if (cmd == "init-turns") {
+		std::string state;
+		if (!get_arg(argc, argv, std::string("--state"), state)) { usage(); return 1; }
+		AppState st; std::string err;
+		if (!AppState::load(st, state, err)) { std::cerr << err << "\n"; return 2; }
+		st.game.init_turns();
+		if (!AppState::save(st, state, err)) { std::cerr << err << "\n"; return 2; }
+		// Output turn info so callers can read it
+		if (!st.game.turn_order.empty()) {
+			std::string cur = st.game.turn_order[st.game.turn_index % st.game.turn_order.size()];
+			std::cout << "Current: " << cur << "\n";
+			std::cout << "Order:";
+			for (const auto& n : st.game.turn_order) std::cout << " " << n;
+			std::cout << "\n";
+		}
 		return 0;
 	}
 	if (cmd == "init-base") {

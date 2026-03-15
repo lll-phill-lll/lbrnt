@@ -126,6 +126,11 @@ def parse_players():
 def root_index():
     return send_from_directory(app.static_folder, "index.html")
 
+@app.get("/draw")
+def draw_page():
+    # Serve the interactive drawing tool (scripts/index.html)
+    return send_from_directory(THIS_DIR, "index.html")
+
 
 @app.get("/api/svg")
 def api_svg():

@@ -73,6 +73,10 @@ static void consume_action_or_advance(Game& g) {
 	if (g.actions_left > 0) g.actions_left -= 1;
 	if (g.actions_left <= 0) advance_turn(g);
 }
+void Game::init_turns() {
+	ensure_turns_initialized(*this);
+}
+
 bool Game::add_player(const std::string& name, std::pair<size_t,size_t> at, const LabyrinthMap& map, std::string& err) {
 	if (!map.in_bounds(static_cast<long>(at.first), static_cast<long>(at.second))) {
 		err = "Координаты вне карты";
