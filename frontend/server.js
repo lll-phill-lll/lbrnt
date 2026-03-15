@@ -5,6 +5,8 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { spawn } from 'child_process';
 import fs from 'fs';
+import sharp from 'sharp';
+import GIFEncoder from 'gif-encoder-2';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -21,6 +23,65 @@ const io = new SocketIOServer(server, { cors: { origin: true, credentials: true 
 app.use(express.static(path.join(__dirname, 'public')));
 app.get('/', (_req, res) => res.sendFile(path.join(__dirname, 'public', 'lobby.html')));
 app.get('/game', (_req, res) => res.sendFile(path.join(__dirname, 'public', 'game.html')));
+
+app.get('/api/replay-gif', async (req, res) => {
+  const room = req.query.room;
+  const creator = req.query.creator;
+  if (!room || !creator) return res.status(400).send('Missing params');
+  const meta = readMeta(room);
+  if (!meta || meta.creator !== creator) return res.status(403).send('Forbidden');
+  const sf = stateFile(room);
+  if (!fs.existsSync(sf)) return res.status(404).send('Room not found');
+  try {
+    const listRes = await runLab(['replay-list', '--state', sf]);
+    if (listRes.code !== 0) throw new Error(listRes.err);
+    const { total } = JSON.parse(listRes.out);
+
+    const svgs = [];
+    for (let i = 0; i <= total; i++) {
+      let svgText;
+      if (i === total) {
+        const tmpSvg = sf + '.tmp.svg';
+        const r = await runLab(['export-svg', '--state', sf, '--out', tmpSvg]);
+        if (r.code !== 0) throw new Error(r.err);
+        svgText = fs.readFileSync(tmpSvg, 'utf8');
+        fs.unlinkSync(tmpSvg);
+      } else {
+        const r = await runLab(['replay-svg', '--state', sf, '--step', String(i)]);
+        if (r.code !== 0) throw new Error(r.err);
+        svgText = r.out;
+      }
+      svgs.push(svgText);
+    }
+
+    const firstPng = await sharp(Buffer.from(svgs[0])).png().toBuffer();
+    const firstMeta = await sharp(firstPng).metadata();
+    const w = firstMeta.width, h = firstMeta.height;
+
+    const encoder = new GIFEncoder(w, h);
+    encoder.setDelay(1000);
+    encoder.setRepeat(0);
+    encoder.start();
+
+    for (const svg of svgs) {
+      const png = await sharp(Buffer.from(svg))
+        .resize(w, h)
+        .flatten({ background: { r: 11, g: 13, b: 18 } })
+        .ensureAlpha()
+        .raw()
+        .toBuffer();
+      encoder.addFrame(png);
+    }
+
+    encoder.finish();
+    const gifBuf = encoder.out.getData();
+    res.set({ 'Content-Type': 'image/gif', 'Content-Disposition': 'attachment; filename="replay.gif"' });
+    res.send(gifBuf);
+  } catch (e) {
+    console.error('GIF export error:', e);
+    res.status(500).send('Error: ' + (e?.message || e));
+  }
+});
 
 function splitLines(s) {
   if (!s) return [];

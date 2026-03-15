@@ -348,70 +348,22 @@
   $('replayNext').addEventListener('click', () => gotoStep(replayCurrentStep + 1));
   $('replayLast').addEventListener('click', () => gotoStep(replayTotal));
 
-  $('replayExportGif').addEventListener('click', async () => {
+  $('replayExportGif').addEventListener('click', () => {
     const btn = $('replayExportGif');
     btn.disabled = true;
-    btn.textContent = '⏳ 0/' + (replayTotal + 1);
-    try {
-      const svgs = [];
-      for (let i = 0; i <= replayTotal; i++) {
-        let svgText;
-        if (i === replayTotal) {
-          const resp = await emit('viewMap', {});
-          svgText = resp?.svg;
-        } else {
-          const resp = await emit('replaySvg', { step: i });
-          svgText = resp?.svg;
-        }
-        if (!svgText) throw new Error('Не удалось загрузить кадр ' + i);
-        svgs.push(svgText);
-        btn.textContent = '⏳ ' + (i + 1) + '/' + (replayTotal + 1);
-      }
-
-      const firstSvg = new DOMParser().parseFromString(svgs[0], 'image/svg+xml').documentElement;
-      const vb = (firstSvg.getAttribute('viewBox') || '').split(/\s+/).map(Number);
-      const w = vb[2] || parseInt(firstSvg.getAttribute('width')) || 640;
-      const h = vb[3] || parseInt(firstSvg.getAttribute('height')) || 480;
-      const scale = Math.min(1, 800 / Math.max(w, h));
-      const cw = Math.round(w * scale), ch = Math.round(h * scale);
-
-      const gif = new GIF({ workers: 2, quality: 10, width: cw, height: ch,
-        workerScript: 'https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.worker.js' });
-
-      const cvs = document.createElement('canvas');
-      cvs.width = cw; cvs.height = ch;
-      const ctx2 = cvs.getContext('2d');
-
-      for (let i = 0; i < svgs.length; i++) {
-        btn.textContent = '🎬 ' + (i + 1) + '/' + svgs.length;
-        await new Promise((resolve, reject) => {
-          const img = new Image();
-          img.onload = () => {
-            ctx2.fillStyle = '#0b0d12';
-            ctx2.fillRect(0, 0, cw, ch);
-            ctx2.drawImage(img, 0, 0, cw, ch);
-            gif.addFrame(ctx2, { copy: true, delay: 1000 });
-            resolve();
-          };
-          img.onerror = reject;
-          const blob = new Blob([svgs[i]], { type: 'image/svg+xml;charset=utf-8' });
-          img.src = URL.createObjectURL(blob);
-        });
-      }
-
-      btn.textContent = '⏳ Рендер...';
-      gif.on('finished', blob => {
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url; a.download = 'replay.gif'; a.click();
-        URL.revokeObjectURL(url);
-        btn.disabled = false; btn.textContent = '📥 GIF';
-      });
-      gif.render();
-    } catch (e) {
-      toastSystem('Ошибка экспорта: ' + (e?.message || e));
-      btn.disabled = false; btn.textContent = '📥 GIF';
-    }
+    btn.textContent = '⏳ Генерация...';
+    const url = `/api/replay-gif?room=${encodeURIComponent(session.room)}&creator=${encodeURIComponent(session.name)}`;
+    fetch(url).then(r => {
+      if (!r.ok) throw new Error('Ошибка ' + r.status);
+      return r.blob();
+    }).then(blob => {
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'replay.gif';
+      a.click();
+      URL.revokeObjectURL(a.href);
+    }).catch(e => toastSystem('Ошибка экспорта: ' + (e?.message || e)))
+      .finally(() => { btn.disabled = false; btn.textContent = '📥 GIF'; });
   });
   closeMap.addEventListener('click', () => mapOverlay.classList.add('hidden'));
   mapOverlay.addEventListener('click', e => { if (e.target === mapOverlay) mapOverlay.classList.add('hidden'); });
