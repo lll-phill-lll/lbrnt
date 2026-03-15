@@ -38,8 +38,11 @@ echo ""
 echo ">> Building C++ backend..."
 mkdir -p "$PROJECT_DIR/build"
 cd "$PROJECT_DIR/build"
-cmake .. -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_FLAGS="-O2" >/dev/null
-make -j"$(nproc)" 2>&1 | tail -3
+cmake .. -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_FLAGS="-O2" >/dev/null 2>&1
+if ! make -j"$(nproc)" 2>&1; then
+  echo "ERROR: C++ build failed (see errors above)"
+  exit 1
+fi
 echo "   Binary: $PROJECT_DIR/build/labyrinth"
 
 # ── 4. Install Node.js dependencies ──
