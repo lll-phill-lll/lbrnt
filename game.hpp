@@ -8,6 +8,16 @@
 
 enum class Direction { Up, Down, Left, Right };
 
+inline const char* dir_ru(Direction d) {
+	switch(d) {
+		case Direction::Up:    return "вверх";
+		case Direction::Down:  return "вниз";
+		case Direction::Left:  return "влево";
+		case Direction::Right: return "вправо";
+	}
+	return "";
+}
+
 struct MoveOutcome {
 	bool moved{false};
 	std::pair<size_t,size_t> position{0,0};

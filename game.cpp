@@ -181,7 +181,7 @@ MoveOutcome Game::move_player(const std::string& name, Direction dir, LabyrinthM
 	if (!can) {
 		out.moved = false;
 		out.position = pos;
-		out.messages.push_back("Врезался в стену");
+		out.messages.push_back(std::string("Врезался в стену (") + dir_ru(dir) + ")");
 		consume_action_or_advance(*this);
 		return out;
 	}
@@ -191,7 +191,7 @@ MoveOutcome Game::move_player(const std::string& name, Direction dir, LabyrinthM
 	players[name] = new_pos;
 	out.moved = true;
 	out.position = new_pos;
-	out.messages.push_back("Прошел");
+	out.messages.push_back(std::string("Прошёл ") + dir_ru(dir));
 
 	CellContent newCell = map.get_cell(new_pos.first, new_pos.second);
 	// If moved between different location types, call onExit for previous

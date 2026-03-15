@@ -28,7 +28,7 @@ void Knife::apply(Game& game, LabyrinthMap& map, const std::string& playerName, 
 		if (kv.second.first == tx && kv.second.second == ty) { victim = kv.first; break; }
 	}
 	if (victim.empty() || !can) {
-		messages.push_back("Удар мимо");
+		messages.push_back(std::string("Удар ножом ") + dir_ru(dir) + " — мимо");
 		messages.push_back("Нож потрачен");
 		return;
 	}
@@ -45,7 +45,7 @@ void Knife::apply(Game& game, LabyrinthMap& map, const std::string& playerName, 
 			sent = hosp->teleportToHospital(game, map, victim);
 		}
 	}
-	if (sent) messages.push_back("Игрок " + victim + " отправлен в больницу");
+	if (sent) messages.push_back(std::string("Удар ножом ") + dir_ru(dir) + ": игрок " + victim + " отправлен в больницу");
 	else messages.push_back("Больница не найдена");
 	messages.push_back("Нож потрачен");
 }

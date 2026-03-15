@@ -32,9 +32,9 @@ void Flashlight::apply(Game& game, LabyrinthMap& map, const std::string& playerN
 
 	size_t cx = ita->second.first, cy = ita->second.second;
 	for (int i = 1; i <= 3; ++i) {
-		if (!step_forward_fl(map, cx, cy, dir)) { messages.push_back("Фонарь: путь закрыт стеной"); break; }
+		if (!step_forward_fl(map, cx, cy, dir)) { messages.push_back(std::string("Фонарь ") + dir_ru(dir) + ": путь закрыт стеной"); break; }
 		std::ostringstream os;
-		os << "Фонарь " << i << ": " << cell_name(map.get_cell(cx, cy));
+		os << "Фонарь " << dir_ru(dir) << " " << i << ": " << cell_name(map.get_cell(cx, cy));
 		// check players
 		bool found_player = false;
 		for (const auto& kv : game.players) {

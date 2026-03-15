@@ -18,14 +18,14 @@ static bool step_forward_sg(const LabyrinthMap& map, size_t& x, size_t& y, Direc
 	return false;
 }
 
-static void hospitalize_sg(Game& game, LabyrinthMap& map, const std::string& victim, std::vector<std::string>& messages) {
+static void hospitalize_sg(Game& game, LabyrinthMap& map, const std::string& victim, Direction dir, std::vector<std::string>& messages) {
 	bool sent = false;
 	if (auto* loc = getLocationFor(CellContent::Hospital)) {
 		if (auto* hosp = dynamic_cast<HospitalLocation*>(loc)) {
 			sent = hosp->teleportToHospital(game, map, victim);
 		}
 	}
-	if (sent) messages.push_back("Игрок " + victim + " отправлен в больницу");
+	if (sent) messages.push_back(std::string("Дробовик ") + dir_ru(dir) + ": игрок " + victim + " отправлен в больницу");
 	else messages.push_back("Больница не найдена");
 }
 
@@ -35,7 +35,7 @@ void Shotgun::apply(Game& game, LabyrinthMap& map, const std::string& playerName
 
 	// Shotgun fires a 3-wide belt one cell ahead; blocked if first step is blocked
 	size_t fx = ita->second.first, fy = ita->second.second;
-	if (!step_forward_sg(map, fx, fy, dir)) { messages.push_back("Выстрел: стена перед вами"); return; }
+	if (!step_forward_sg(map, fx, fy, dir)) { messages.push_back(std::string("Дробовик ") + dir_ru(dir) + ": стена перед вами"); return; }
 
 	// Determine three target cells perpendicular to direction
 	std::vector<std::pair<size_t,size_t>> targets;
@@ -68,12 +68,12 @@ void Shotgun::apply(Game& game, LabyrinthMap& map, const std::string& playerName
 					game.players_with_treasure.erase(kv.first);
 					game.loot_treasure[key_xy_local_sg(tx, ty)] += 1;
 				}
-				hospitalize_sg(game, map, kv.first, messages);
+				hospitalize_sg(game, map, kv.first, dir, messages);
 				any = true;
 			}
 		}
 	}
-	if (!any) messages.push_back("Выстрел: промах");
+	if (!any) messages.push_back(std::string("Дробовик ") + dir_ru(dir) + ": промах");
 }
 
 
