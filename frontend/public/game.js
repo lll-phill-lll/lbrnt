@@ -209,9 +209,12 @@
     if (currentItems.length > 0 && !selectedItemId) selectedItemId = currentItems[0].id;
   }
 
+  let lastBreathing = false;
   function handlePlayerStatus(data) {
     if (data?.items) renderItemsPanel(data.items);
-    if (data?.nearbyBreathing) toastSystem('Вы чувствуете чьё-то дыхание поблизости...');
+    const br = !!data?.nearbyBreathing;
+    if (br && !lastBreathing) toastSystem('Вы чувствуете чьё-то дыхание поблизости...');
+    lastBreathing = br;
   }
 
   socket.on('playerStatus', data => handlePlayerStatus(data));

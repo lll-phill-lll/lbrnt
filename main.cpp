@@ -345,7 +345,6 @@ int main(int argc, char** argv) {
 			if (kv.first == name) continue;
 			size_t dx = (myPos.first > kv.second.first) ? (myPos.first - kv.second.first) : (kv.second.first - myPos.first);
 			size_t dy = (myPos.second > kv.second.second) ? (myPos.second - kv.second.second) : (kv.second.second - myPos.second);
-			if (dx + dy == 0) { breathing = true; break; }
 			if (dx + dy != 1) continue;
 			bool vis = false;
 			if (kv.second.first + 1 == myPos.first && kv.second.second == myPos.second) vis = st.map.can_move_left(myPos.first, myPos.second);
@@ -358,8 +357,7 @@ int main(int argc, char** argv) {
 			size_t bx = st.game.bot_x, by = st.game.bot_y;
 			size_t dx = (myPos.first > bx) ? (myPos.first - bx) : (bx - myPos.first);
 			size_t dy = (myPos.second > by) ? (myPos.second - by) : (by - myPos.second);
-			if (dx + dy == 0) breathing = true;
-			else if (dx + dy == 1) {
+			if (dx + dy == 1) {
 				if (bx + 1 == myPos.first && by == myPos.second) breathing = st.map.can_move_left(myPos.first, myPos.second);
 				else if (bx == myPos.first + 1 && by == myPos.second) breathing = st.map.can_move_right(myPos.first, myPos.second);
 				else if (by + 1 == myPos.second && bx == myPos.first) breathing = st.map.can_move_up(myPos.first, myPos.second);
