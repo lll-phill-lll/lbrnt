@@ -7,9 +7,17 @@
   <style>
     :root{--sidebar:300px;}
     *,*::before,*::after{box-sizing:border-box;}
+    ::-webkit-scrollbar{width:5px;height:5px;}
+    ::-webkit-scrollbar-track{background:rgba(255,255,255,.04);border-radius:3px;}
+    ::-webkit-scrollbar-thumb{background:rgba(255,255,255,.2);border-radius:3px;}
+    ::-webkit-scrollbar-thumb:hover{background:rgba(255,255,255,.35);}
+    ::-webkit-scrollbar-corner{background:transparent;}
+    *{scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.2) rgba(255,255,255,.04);}
     html,body{margin:0;height:100%;font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Arial;background:#0b0d12;color:#e9edf7;}
     .wrap{display:grid;grid-template-columns:var(--sidebar) 1fr;height:100vh;}
-    .sidebar{padding:12px;border-right:1px solid rgba(255,255,255,.12);background:rgba(14,16,22,.95);overflow-y:auto;display:flex;flex-direction:column;gap:10px;}
+    .sidebar{padding:0;border-right:1px solid rgba(255,255,255,.12);background:rgba(14,16,22,.95);display:flex;flex-direction:column;}
+    .sidebar-scroll{flex:1;min-height:0;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:10px;}
+    .sidebar-bottom{padding:8px 12px;border-top:1px solid rgba(255,255,255,.08);flex-shrink:0;}
     .content{display:flex;flex-direction:column;min-width:0;min-height:0;}
     .topbar{padding:8px 12px;border-bottom:1px solid rgba(255,255,255,.12);background:rgba(14,16,22,.95);display:flex;gap:10px;align-items:center;flex-shrink:0;}
     .viewer{flex:1;min-height:0;position:relative;overflow:hidden;}
@@ -34,18 +42,29 @@
     .muted{font-size:12px;color:#9aa4b2;}
     .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
     .hidden{display:none!important;}
-    .palette{display:grid;grid-template-columns:repeat(6,1fr);gap:5px;margin-top:6px;}
-    .sw{width:100%;aspect-ratio:1/1;border-radius:6px;border:2px solid transparent;cursor:pointer;}
+    .palette{display:grid;grid-template-columns:repeat(6,1fr);gap:3px;margin-top:6px;}
+    .sw{width:100%;aspect-ratio:1/1;border-radius:4px;border:2px solid transparent;cursor:pointer;}
     .sw.active{border-color:#fff;box-shadow:0 0 0 2px rgba(122,162,255,.3);}
-    #mapOverlay{position:fixed;inset:0;z-index:100;background:rgba(0,0,0,.85);display:flex;justify-content:center;align-items:center;}
-    #mapOverlay .inner{background:#1a1d26;border:1px solid rgba(255,255,255,.15);border-radius:14px;padding:16px;max-width:92vw;max-height:92vh;overflow:auto;position:relative;}
-    #mapOverlay .close{position:absolute;top:8px;right:12px;background:none;border:none;color:#e9edf7;font-size:22px;cursor:pointer;}
+    #helpOverlay{position:fixed;inset:0;z-index:100;background:rgba(0,0,0,.85);display:flex;justify-content:center;align-items:center;}
+    #helpOverlay .inner{background:#1a1d26;border:1px solid rgba(255,255,255,.15);border-radius:14px;padding:16px;max-width:92vw;max-height:92vh;overflow:auto;position:relative;}
+    #helpOverlay .close{position:absolute;top:8px;right:12px;background:none;border:none;color:#e9edf7;font-size:22px;cursor:pointer;}
+    #mapOverlay{position:fixed;z-index:150;background:#1a1d26;border:1px solid rgba(255,255,255,.2);border-radius:12px;padding:12px;width:520px;max-width:90vw;max-height:85vh;overflow:auto;box-shadow:0 8px 32px rgba(0,0,0,.6);resize:both;}
+    #mapOverlay .inner{position:relative;}
+    #mapOverlay .titlebar{cursor:grab;padding:0 0 8px;display:flex;align-items:center;justify-content:space-between;user-select:none;border-bottom:1px solid rgba(255,255,255,.08);margin-bottom:8px;}
+    #mapOverlay .titlebar:active{cursor:grabbing;}
+    #mapOverlay .close{background:none;border:none;color:#e9edf7;font-size:18px;cursor:pointer;padding:0 4px;}
+    #mapContent svg{width:100%;height:auto;display:block;}
+    #replayControls button{font-size:14px;padding:4px 10px;}
+    #replayFullLog .log-line{padding:2px 4px;border-radius:3px;}
+    #replayFullLog .log-line:hover{background:rgba(255,255,255,.05);}
+    #replayFullLog .log-line.active{background:rgba(122,162,255,.15);color:#e9edf7;}
     .item-card{border:1px solid rgba(255,255,255,.1);border-radius:8px;padding:8px;background:rgba(255,255,255,.03);margin-bottom:6px;}
-    .item-card.disabled{opacity:.4;pointer-events:none;}
+    .item-card.disabled{opacity:.4;}
+    .item-card.disabled .item-dirs{pointer-events:none;}
     .item-header{display:flex;align-items:center;gap:6px;margin-bottom:4px;}
     .item-header .item-name{font-weight:600;font-size:13px;}
     .item-header .item-charges{font-size:11px;color:#868e96;margin-left:auto;}
-    .item-header .info-icon{width:16px;height:16px;border-radius:50%;border:1px solid rgba(255,255,255,.2);display:inline-flex;align-items:center;justify-content:center;font-size:10px;color:#9aa4b2;cursor:help;position:relative;flex-shrink:0;}
+    .info-icon{width:16px;height:16px;border-radius:50%;border:1px solid rgba(255,255,255,.2);display:inline-flex;align-items:center;justify-content:center;font-size:10px;color:#9aa4b2;cursor:help;position:relative;flex-shrink:0;}
     .info-icon .tooltip{display:none;position:fixed;background:#1a1d26;border:1px solid rgba(255,255,255,.2);border-radius:8px;padding:8px 10px;font-size:11px;line-height:1.4;color:#ced4da;white-space:normal;width:220px;max-width:90vw;z-index:200;pointer-events:none;box-shadow:0 4px 12px rgba(0,0,0,.5);}
     .item-dirs{display:flex;gap:4px;}
     .item-dirs button{font-size:12px;padding:3px 8px;}
@@ -58,6 +77,7 @@
 <body>
 <div class="wrap">
   <aside class="sidebar">
+  <div class="sidebar-scroll">
     <!-- Game info -->
     <div class="card">
       <div class="title" id="roomTitle">Комната</div>
@@ -72,28 +92,32 @@
           <button data-move="right">→</button>
         </div>
       </div>
-      <div id="itemsPanel" style="margin-top:8px;"></div>
-      <div class="muted" style="margin-top:8px;">Стрелки: ход · Shift+стрелка: атака · Ctrl/Alt+стрелка: предмет</div>
     </div>
 
-    <!-- Creator controls -->
-    <div class="card hidden" id="creatorCard">
-      <div class="title">Управление</div>
-      <button id="viewMapBtn">Показать лабиринт</button>
+    <!-- Items -->
+    <div class="card" id="itemsCard">
+      <div class="title">Предметы</div>
+      <div id="itemsPanel"></div>
     </div>
 
     <!-- Drawing tools -->
     <div class="card">
-      <div class="title">Рисование</div>
+      <div class="title" style="display:flex;align-items:center;gap:6px;">Рисование
+        <span class="info-icon" id="drawInfoIcon">i<span class="tooltip" id="drawInfoTip" style="width:240px;">
+<b>Рисование</b><br>
+<span style="color:#7aa2ff;">▸ Край</span> клетки — стена<br>
+<span style="color:#7aa2ff;">▸ Центр</span> клетки — заливка<br>
+<span style="color:#7aa2ff;">▸ 2× клик</span> — фигура<br><br>
+<b>Стена</b>: 1 клик — тонкая, 2 — толстая, 3 — убрать<br><br>
+<b>Фигура</b>: стрелки — двигать, Del — удалить<br><br>
+<b>Прочее</b>: колёсико — зум, ПКМ — панорама, Ctrl+Z — отмена
+</span></span>
+      </div>
       <div class="row">
-        <button class="active" data-mode="paint">Заливка</button>
-        <button data-mode="border">Стена</button>
-        <button data-mode="shapes">Объект</button>
+        <button class="active" data-mode="draw">Рисовать</button>
         <button data-mode="line">Линия</button>
         <button data-mode="erase">Стёрка</button>
-      </div>
-      <div class="row" style="margin-top:6px;">
-        <button id="trailToggle" style="font-size:12px;">🖊 След за объектом</button>
+        <button id="trailToggle" class="active" style="font-size:12px;">🖊 След за фигурой</button>
       </div>
       <div class="row" style="margin-top:8px;">
         <label>Цвет</label>
@@ -101,7 +125,37 @@
       </div>
       <div id="palette" class="palette"></div>
       <div style="margin-top:8px;"><button id="clearDraw">Очистить</button></div>
-      <div class="muted" style="margin-top:6px;">Объект: клик — поставить, стрелки — двигать, Del — удалить. Колёсико — зум, ПКМ — панорама.</div>
+    </div>
+
+    <!-- Recent notifications -->
+    <div class="card" id="feedCard">
+      <div class="title" style="font-size:12px;color:#9aa4b2;">Чат</div>
+      <div id="feedList" style="font-size:12px;color:#ced4da;display:flex;flex-direction:column;gap:4px;height:250px;overflow-y:auto;"></div>
+    </div>
+
+    <!-- Admin (creator only) -->
+    <div class="card hidden" id="creatorCard" style="border-color:rgba(255,80,80,.25);background:rgba(255,50,50,.06);">
+      <div class="title" style="color:#ff6b6b;">Admin</div>
+      <div class="row" style="margin-bottom:8px;align-items:center;gap:6px;">
+        <button id="viewMapBtn">Показать лабиринт</button>
+        <button id="broadcastMapBtn">Показать всем</button>
+        <span class="info-icon" id="adminInfoIcon" style="color:#ff6b6b;border-color:rgba(255,107,107,.3);">i<span class="tooltip" id="adminInfoTip">Чит / Дебаг: показывает настоящую карту лабиринта и полную историю ходов. Только для отладки!</span></span>
+      </div>
+      <div class="row">
+        <label style="display:flex;gap:6px;align-items:center;cursor:pointer;min-width:auto;">
+          <input type="checkbox" id="turnsToggle" checked/>
+          Очерёдность ходов
+        </label>
+      </div>
+    </div>
+
+  </div>
+    <!-- Chat (always visible at bottom) -->
+    <div class="sidebar-bottom">
+      <div class="row" style="gap:4px;">
+        <input id="chatInput" type="text" placeholder="Сообщение..." style="flex:1;min-width:0;"/>
+        <button id="chatSend" style="flex-shrink:0;">↵</button>
+      </div>
     </div>
   </aside>
 
@@ -110,6 +164,7 @@
       <span style="font-weight:600;">Labyrinth</span>
       <span class="muted" id="playerLabel"></span>
       <span style="flex:1"></span>
+      <button id="helpBtn" style="font-size:12px;padding:3px 10px;">? Правила</button>
       <span class="muted" id="coordLabel">(—, —)</span>
       <span class="muted" id="zoomLabel">1.00x</span>
     </div>
@@ -118,10 +173,72 @@
 </div>
 <div id="toastContainer"></div>
 
-<div id="mapOverlay" class="hidden">
-  <div class="inner">
+<div id="mapOverlay" class="hidden" style="top:60px;right:20px;">
+  <div class="titlebar" id="mapTitlebar">
+    <span style="font-size:12px;color:#9aa4b2;">Карта</span>
     <button class="close" id="closeMap">&times;</button>
+  </div>
+  <div class="inner">
+    <div id="replayControls" style="display:flex;gap:8px;align-items:center;margin-bottom:10px;flex-wrap:wrap;">
+      <button id="replayFirst" title="В начало">⏮</button>
+      <button id="replayPrev" title="Назад">◀</button>
+      <span id="replayStep" style="font-size:13px;min-width:80px;text-align:center;">0 / 0</span>
+      <button id="replayNext" title="Вперёд">▶</button>
+      <button id="replayLast" title="В конец">⏭</button>
+      <button id="replayExportGif" title="Экспорт GIF" style="margin-left:auto;font-size:12px;">📥 GIF</button>
+    </div>
+    <div id="replayLogEntry" style="font-size:12px;color:#9aa4b2;margin-bottom:8px;min-height:18px;"></div>
     <div id="mapContent"></div>
+    <details style="margin-top:10px;">
+      <summary style="cursor:pointer;font-size:12px;color:#9aa4b2;">Полный лог действий</summary>
+      <div id="replayFullLog" style="max-height:200px;overflow-y:auto;font-size:11px;color:#868e96;margin-top:6px;line-height:1.6;"></div>
+    </details>
+  </div>
+</div>
+
+<div id="helpOverlay" class="hidden">
+  <div class="inner" style="max-width:600px;">
+    <button class="close" id="closeHelp">&times;</button>
+    <h2 style="margin:0 0 12px;font-size:18px;">Правила игры «Лабиринт»</h2>
+    <div style="font-size:13px;line-height:1.6;color:#ced4da;max-height:75vh;overflow-y:auto;">
+      <p><b>Цель:</b> найти сокровище и вынести его через выход из лабиринта.</p>
+
+      <p><b>Поле:</b> прямоугольный лабиринт. Клетки бывают: пустые, больница, арсенал, сокровище, выход. Игроки не видят карту — они рисуют её сами по мере исследования.</p>
+
+      <p><b>Ход:</b> на своём ходу можно сделать одно действие:</p>
+      <ul style="margin:4px 0;padding-left:20px;">
+        <li><b>Шаг</b> — на 1 клетку в любом направлении. Если стена — «врезался в стену», ход потрачен.</li>
+        <li><b>Атака</b> (использование оружия) — тратит ход.</li>
+        <li><b>Фонарь</b> — показывает 3 клетки вперёд, не тратит ход (но тратит заряд).</li>
+      </ul>
+
+      <p><b>Стены:</b> если шаг упирается во внутреннюю стену — «врезался в стену». Если в границу лабиринта — «врезался во внешнюю стену».</p>
+
+      <p><b>Сокровище:</b> встав на клетку с сокровищем, игрок его подбирает. Если игрока убьют — сокровище падает на землю и может быть подобрано другим.</p>
+
+      <p><b>Выход:</b> выход — проход на внешней стене. С сокровищем — победа! Без сокровища — просто сообщение.</p>
+
+      <h3 style="font-size:14px;margin:12px 0 6px;">Оружие</h3>
+      <ul style="margin:4px 0;padding-left:20px;">
+        <li><b>Нож</b> — бьёт на 1 клетку. Ломается после удара. Чинится в арсенале.</li>
+        <li><b>Дробовик</b> — стреляет на 1 клетку вперёд, поражает 3 клетки в ширину. Подбирается на карте.</li>
+        <li><b>Ружьё</b> — стреляет на 3 клетки прямо. Подбирается на карте.</li>
+        <li><b>Фонарь</b> — освещает 3 клетки в направлении. После использования выпадает в случайное место.</li>
+      </ul>
+
+      <h3 style="font-size:14px;margin:12px 0 6px;">Локации</h3>
+      <ul style="margin:4px 0;padding-left:20px;">
+        <li><b>Больница</b> — убитые игроки телепортируются сюда.</li>
+        <li><b>Арсенал</b> — чинит все предметы.</li>
+      </ul>
+
+      <h3 style="font-size:14px;margin:12px 0 6px;">Подсказки</h3>
+      <p>Если рядом (на соседней клетке без стены между вами) находится другой игрок или бот — вы почувствуете дыхание.</p>
+
+      <h3 style="font-size:14px;margin:12px 0 6px;">Рисование</h3>
+      <p>Вы можете рисовать свою карту на холсте: заливать клетки, ставить стены, размещать объекты, рисовать линии. Объект можно двигать стрелками — если включён режим «след», за ним останется цветная линия.</p>
+      <p style="color:#868e96;font-size:11px;margin-top:8px;">Стрелки: ход · Shift+стрелка: атака · Ctrl/Alt+стрелка: предмет · Cmd/Ctrl+Z: отмена рисования</p>
+    </div>
   </div>
 </div>
 

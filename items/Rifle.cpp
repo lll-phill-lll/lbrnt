@@ -18,14 +18,14 @@ static bool step_forward(const LabyrinthMap& map, size_t& x, size_t& y, Directio
 	return false;
 }
 
-static void hospitalize(Game& game, LabyrinthMap& map, const std::string& victim, std::vector<std::string>& messages) {
+static void hospitalize(Game& game, LabyrinthMap& map, const std::string& victim, Direction dir, std::vector<std::string>& messages) {
 	bool sent = false;
 	if (auto* loc = getLocationFor(CellContent::Hospital)) {
 		if (auto* hosp = dynamic_cast<HospitalLocation*>(loc)) {
 			sent = hosp->teleportToHospital(game, map, victim);
 		}
 	}
-	if (sent) messages.push_back("Игрок " + victim + " отправлен в больницу");
+	if (sent) messages.push_back(std::string("Ружьё ") + dir_ru(dir) + ": игрок " + victim + " отправлен в больницу");
 	else messages.push_back("Больница не найдена");
 }
 
@@ -47,12 +47,12 @@ void Rifle::apply(Game& game, LabyrinthMap& map, const std::string& playerName, 
 					game.players_with_treasure.erase(kv.first);
 					game.loot_treasure[key_xy_local_r(cx, cy)] += 1;
 				}
-				hospitalize(game, map, kv.first, messages);
+				hospitalize(game, map, kv.first, dir, messages);
 				any = true;
 			}
 		}
 	}
-	if (!any) messages.push_back("Выстрел: промах");
+	if (!any) messages.push_back(std::string("Ружьё ") + dir_ru(dir) + ": промах");
 }
 
 

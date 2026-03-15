@@ -37,6 +37,58 @@ static void log_err(const std::string& msg) {
 	std::cerr << msg << "\n";
 }
 
+static void applyLogEntry(const LogEntry& e, AppState& cur) {
+	bool wasEnforced = cur.game.enforce_turns;
+	cur.game.enforce_turns = false;
+	switch (e.type) {
+		case LogType::AddPlayer:
+		case LogType::AddPlayerRandom: {
+			std::string eerr;
+			cur.game.add_player(e.name, {e.x, e.y}, cur.map, eerr);
+			break;
+		}
+		case LogType::Move:
+			cur.game.move_player(e.name, e.dir, cur.map);
+			break;
+		case LogType::Attack:
+			cur.game.attack(e.name, e.dir, cur.map);
+			break;
+		case LogType::UseItem: {
+			std::unique_ptr<Item> itm;
+			if (e.item == "knife") itm = std::make_unique<Knife>();
+			else if (e.item == "shotgun") itm = std::make_unique<Shotgun>();
+			else if (e.item == "rifle") itm = std::make_unique<Rifle>();
+			else if (e.item == "flashlight") itm = std::make_unique<Flashlight>();
+			if (itm) {
+				std::vector<std::string> msgs;
+				itm->apply(cur.game, cur.map, e.name, e.dir, msgs);
+			}
+			break;
+		}
+	}
+	cur.game.enforce_turns = wasEnforced;
+}
+
+static std::string logEntryDescription(const LogEntry& e) {
+	auto dirStr = [](Direction d) -> std::string {
+		switch(d) {
+			case Direction::Up: return "вверх";
+			case Direction::Down: return "вниз";
+			case Direction::Left: return "влево";
+			case Direction::Right: return "вправо";
+		}
+		return "";
+	};
+	switch (e.type) {
+		case LogType::AddPlayer: return e.name + " добавлен на (" + std::to_string(e.x) + "," + std::to_string(e.y) + ")";
+		case LogType::AddPlayerRandom: return e.name + " добавлен (случайно)";
+		case LogType::Move: return e.name + " → " + dirStr(e.dir);
+		case LogType::Attack: return e.name + " атакует " + dirStr(e.dir);
+		case LogType::UseItem: return e.name + " использует " + e.item + " " + dirStr(e.dir);
+	}
+	return "";
+}
+
 // User-facing formatted output: [Player]: then tab-indented messages
 static void print_user_messages(const std::string& player, const std::vector<std::string>& messages) {
 	std::cout << "[" << player << "]:" << "\n";
@@ -64,12 +116,15 @@ R"(labyrinth_cpp commands:
   set-vwall --state state.txt --x X --y Y (--present=0|1)
   set-hwall --state state.txt --x X --y Y (--present=0|1)
   set-knife --state state.txt --name NAME (--broken=0|1)
+  set-turns --state state.txt (0|1)
   add-item --state state.txt --item (knife|shotgun|rifle|flashlight) --x X --y Y [--charges N]
   add-item-random --state state.txt --item (knife|shotgun|rifle|flashlight) [--charges N]
   save-as --state state.txt --out other.txt
   export-svg --state state.txt --out maze.svg [--cell N] [--margin PX]
   export-html --state state.txt --out maze.html [--cell N] [--margin PX]
   replay-export --base base.txt --log state_with_log.txt --out-dir frames --cell N --margin PX
+  replay-list --state state.txt
+  replay-svg --state state.txt --step N
   init-turns --state state.txt
   init-base --state state.txt
   replay-export-one --state state.txt --out-dir frames --cell N --margin PX
@@ -290,7 +345,39 @@ int main(int argc, char** argv) {
 			}
 		}
 
-		js << "]}";
+		js << "],";
+
+		// Breathing detection
+		auto myPos = st.game.players[name];
+		bool breathing = false;
+		bool meInHospital = st.map.get_cell(myPos.first, myPos.second) == CellContent::Hospital;
+		for (const auto& kv : st.game.players) {
+			if (kv.first == name) continue;
+			if (st.map.get_cell(kv.second.first, kv.second.second) == CellContent::Hospital) continue;
+			size_t dx = (myPos.first > kv.second.first) ? (myPos.first - kv.second.first) : (kv.second.first - myPos.first);
+			size_t dy = (myPos.second > kv.second.second) ? (myPos.second - kv.second.second) : (kv.second.second - myPos.second);
+			if (dx + dy != 1) continue;
+			bool vis = false;
+			if (kv.second.first + 1 == myPos.first && kv.second.second == myPos.second) vis = st.map.can_move_left(myPos.first, myPos.second);
+			else if (kv.second.first == myPos.first + 1 && kv.second.second == myPos.second) vis = st.map.can_move_right(myPos.first, myPos.second);
+			else if (kv.second.second + 1 == myPos.second && kv.second.first == myPos.first) vis = st.map.can_move_up(myPos.first, myPos.second);
+			else if (kv.second.second == myPos.second + 1 && kv.second.first == myPos.first) vis = st.map.can_move_down(myPos.first, myPos.second);
+			if (vis) { breathing = true; break; }
+		}
+		if (meInHospital) breathing = false;
+		if (!breathing && !meInHospital && st.game.bot_enabled) {
+			size_t bx = st.game.bot_x, by = st.game.bot_y;
+			size_t dx = (myPos.first > bx) ? (myPos.first - bx) : (bx - myPos.first);
+			size_t dy = (myPos.second > by) ? (myPos.second - by) : (by - myPos.second);
+			if (dx + dy == 1) {
+				if (bx + 1 == myPos.first && by == myPos.second) breathing = st.map.can_move_left(myPos.first, myPos.second);
+				else if (bx == myPos.first + 1 && by == myPos.second) breathing = st.map.can_move_right(myPos.first, myPos.second);
+				else if (by + 1 == myPos.second && bx == myPos.first) breathing = st.map.can_move_up(myPos.first, myPos.second);
+				else if (by == myPos.second + 1 && bx == myPos.first) breathing = st.map.can_move_down(myPos.first, myPos.second);
+			}
+		}
+		js << "\"nearbyBreathing\":" << (breathing ? "true" : "false");
+		js << "}";
 		std::cout << js.str() << "\n";
 		return 0;
 	}
@@ -309,7 +396,7 @@ int main(int argc, char** argv) {
 		if (!AppState::save(st, state, err)) { std::cerr << err << "\n"; return 2; }
 		log_err(std::string("Игрок '") + name + "' добавлен");
 		// log
-		st.log.push_back(LogEntry{LogType::AddPlayer, name, Direction::Up, (size_t)std::stoul(sx), (size_t)std::stoul(sy)});
+		st.log.push_back(LogEntry{LogType::AddPlayer, name, Direction::Up, (size_t)std::stoul(sx), (size_t)std::stoul(sy), {}});
 		return 0; // no stdout response
 	}
 	if (cmd == "add-player-random") {
@@ -336,7 +423,7 @@ int main(int argc, char** argv) {
 		auto pos = spots[rng_pick(st, spots.size())];
 		std::string e;
 		if (!st.game.add_player(name, pos, st.map, e)) { std::cerr << e << "\n"; return 3; }
-		st.log.push_back(LogEntry{LogType::AddPlayerRandom, name, Direction::Up, pos.first, pos.second});
+		st.log.push_back(LogEntry{LogType::AddPlayerRandom, name, Direction::Up, pos.first, pos.second, {}});
 		if (!AppState::save(st, state, err)) { std::cerr << err << "\n"; return 2; }
 		log_err(std::string("Игрок '") + name + "' добавлен на " + std::to_string(pos.first) + "," + std::to_string(pos.second));
 		return 0; // no stdout response
@@ -363,7 +450,7 @@ int main(int argc, char** argv) {
 			if (itp != st.game.players.end()) { oldpos = itp->second; had_old = true; }
 		}
 		auto out = st.game.move_player(name, dir, st.map);
-		st.log.push_back(LogEntry{LogType::Move, name, dir, 0, 0});
+		st.log.push_back(LogEntry{LogType::Move, name, dir, 0, 0, {}});
 		if (!AppState::save(st, state, err)) { std::cerr << err << "\n"; return 2; }
 		// stderr detailed log
 		if (had_old) {
@@ -415,8 +502,8 @@ int main(int argc, char** argv) {
 		AppState st; std::string err;
 		if (!AppState::load(st, state, err)) { std::cerr << err << "\n"; return 2; }
 		auto out = st.game.use_item(name, item, dir, st.map);
+		st.log.push_back(LogEntry{LogType::UseItem, name, dir, 0, 0, item});
 		if (!AppState::save(st, state, err)) { std::cerr << err << "\n"; return 2; }
-		// stderr detailed log
 		{
 			std::ostringstream es;
 			es << "USE " << name << " item=" << item << " dir=" << sdir << (out.used ? " [applied]" : " [failed]");
@@ -507,7 +594,7 @@ int main(int argc, char** argv) {
 		AppState st; std::string err;
 		if (!AppState::load(st, state, err)) { std::cerr << err << "\n"; return 2; }
 		auto out = st.game.attack(name, dir, st.map);
-		st.log.push_back(LogEntry{LogType::Attack, name, dir, 0, 0});
+		st.log.push_back(LogEntry{LogType::Attack, name, dir, 0, 0, {}});
 		if (!AppState::save(st, state, err)) { std::cerr << err << "\n"; return 2; }
 		// stderr detailed log
 		{
@@ -560,24 +647,7 @@ int main(int argc, char** argv) {
 		}
 		int step = 1;
 		for (const auto& e : stlog.log) {
-			switch (e.type) {
-				case LogType::AddPlayer: {
-					std::string eerr;
-					cur.game.add_player(e.name, {e.x, e.y}, cur.map, eerr);
-					break;
-				}
-				case LogType::AddPlayerRandom: {
-					std::string eerr;
-					cur.game.add_player(e.name, {e.x, e.y}, cur.map, eerr);
-					break;
-				}
-				case LogType::Move:
-					cur.game.move_player(e.name, e.dir, cur.map);
-					break;
-				case LogType::Attack:
-					cur.game.attack(e.name, e.dir, cur.map);
-					break;
-			}
+			applyLogEntry(e, cur);
 			char buf[64];
 			std::snprintf(buf, sizeof(buf), "/frame_%04d.svg", step++);
 			std::string svg = render_svg(cur, cell, margin);
@@ -690,6 +760,35 @@ int main(int argc, char** argv) {
 		}
 		return 0;
 	}
+	if (cmd == "replay-list") {
+		std::string state;
+		if (!get_arg(argc, argv, std::string("--state"), state)) { usage(); return 1; }
+		AppState st; std::string err;
+		if (!AppState::load(st, state, err)) { std::cerr << err << "\n"; return 2; }
+		std::ostringstream js;
+		js << "{\"total\":" << st.log.size() << ",\"entries\":[";
+		for (size_t i = 0; i < st.log.size(); ++i) {
+			if (i) js << ",";
+			js << "\"" << jsonEscape(logEntryDescription(st.log[i])) << "\"";
+		}
+		js << "]}";
+		std::cout << js.str() << "\n";
+		return 0;
+	}
+	if (cmd == "replay-svg") {
+		std::string state, sstep;
+		if (!get_arg(argc, argv, std::string("--state"), state) ||
+		    !get_arg(argc, argv, std::string("--step"), sstep)) { usage(); return 1; }
+		int target = std::stoi(sstep);
+		AppState st; std::string err;
+		if (!AppState::load(st, state, err)) { std::cerr << err << "\n"; return 2; }
+		AppState cur; cur.map = st.base_map; cur.game = st.base_game;
+		int limit = std::min(target, (int)st.log.size());
+		for (int i = 0; i < limit; ++i) applyLogEntry(st.log[i], cur);
+		std::string svg = render_svg(cur, 32.0f, 16.0f);
+		std::cout << svg;
+		return 0;
+	}
 	if (cmd == "init-base") {
 		std::string state;
 		if (!get_arg(argc, argv, std::string("--state"), state)) { usage(); return 1; }
@@ -718,24 +817,7 @@ int main(int argc, char** argv) {
 		}
 		int step = 1;
 		for (const auto& e : st.log) {
-			switch (e.type) {
-				case LogType::AddPlayer: {
-					std::string eerr;
-					cur.game.add_player(e.name, {e.x, e.y}, cur.map, eerr);
-					break;
-				}
-				case LogType::AddPlayerRandom: {
-					std::string eerr;
-					cur.game.add_player(e.name, {e.x, e.y}, cur.map, eerr);
-					break;
-				}
-				case LogType::Move:
-					cur.game.move_player(e.name, e.dir, cur.map);
-					break;
-				case LogType::Attack:
-					cur.game.attack(e.name, e.dir, cur.map);
-					break;
-			}
+			applyLogEntry(e, cur);
 			char buf[64];
 			std::snprintf(buf, sizeof(buf), "/frame_%04d.svg", step++);
 			std::string svg = render_svg(cur, cell, margin);
@@ -756,6 +838,18 @@ int main(int argc, char** argv) {
 		else st.game.broken_knife.erase(name);
 		if (!AppState::save(st, state, err)) { std::cerr << err << "\n"; return 2; }
 		std::cout << "OK\n"; return 0;
+	}
+	if (cmd == "set-turns") {
+		std::string state;
+		if (!get_arg(argc, argv, std::string("--state"), state)) { usage(); return 1; }
+		if (argc < 3) { usage(); return 1; }
+		int val = std::stoi(argv[argc - 1]);
+		AppState st; std::string err;
+		if (!AppState::load(st, state, err)) { std::cerr << err << "\n"; return 2; }
+		st.game.enforce_turns = (val != 0);
+		if (!AppState::save(st, state, err)) { std::cerr << err << "\n"; return 2; }
+		std::cout << (st.game.enforce_turns ? "Turns ON" : "Turns OFF") << "\n";
+		return 0;
 	}
 	usage();
 	return 1;

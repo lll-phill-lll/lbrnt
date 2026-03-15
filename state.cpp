@@ -135,6 +135,8 @@ bool AppState::save(const AppState& st, const std::string& path, std::string& er
 				f << "MOVE " << e.name << " " << dir_to_cstr(e.dir) << "\n"; break;
 			case LogType::Attack:
 				f << "ATTACK " << e.name << " " << dir_to_cstr(e.dir) << "\n"; break;
+			case LogType::UseItem:
+				f << "USE " << e.name << " " << e.item << " " << dir_to_cstr(e.dir) << "\n"; break;
 			case LogType::AddPlayer:
 				f << "ADD " << e.name << " " << e.x << " " << e.y << "\n"; break;
 			case LogType::AddPlayerRandom:
@@ -357,6 +359,10 @@ bool AppState::load(AppState& st, const std::string& path, std::string& err) {
 			if (kind == "MOVE" || kind == "ATTACK") {
 				std::string name, sdir; f >> name >> sdir;
 				LogEntry e; e.type = (kind=="MOVE") ? LogType::Move : LogType::Attack; e.name = name; e.dir = cstr_to_dir(sdir);
+				st.log.push_back(e);
+			} else if (kind == "USE") {
+				std::string name, item, sdir; f >> name >> item >> sdir;
+				LogEntry e; e.type = LogType::UseItem; e.name = name; e.item = item; e.dir = cstr_to_dir(sdir);
 				st.log.push_back(e);
 			} else if (kind == "ADD" || kind == "ADDR") {
 				std::string name; size_t x, y; f >> name >> x >> y;

@@ -5,6 +5,8 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { spawn } from 'child_process';
 import fs from 'fs';
+import sharp from 'sharp';
+import GIFEncoder from 'gif-encoder-2';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -21,6 +23,65 @@ const io = new SocketIOServer(server, { cors: { origin: true, credentials: true 
 app.use(express.static(path.join(__dirname, 'public')));
 app.get('/', (_req, res) => res.sendFile(path.join(__dirname, 'public', 'lobby.html')));
 app.get('/game', (_req, res) => res.sendFile(path.join(__dirname, 'public', 'game.html')));
+
+app.get('/api/replay-gif', async (req, res) => {
+  const room = req.query.room;
+  const creator = req.query.creator;
+  if (!room || !creator) return res.status(400).send('Missing params');
+  const meta = readMeta(room);
+  if (!meta || meta.creator !== creator) return res.status(403).send('Forbidden');
+  const sf = stateFile(room);
+  if (!fs.existsSync(sf)) return res.status(404).send('Room not found');
+  try {
+    const listRes = await runLab(['replay-list', '--state', sf]);
+    if (listRes.code !== 0) throw new Error(listRes.err);
+    const { total } = JSON.parse(listRes.out);
+
+    const svgs = [];
+    for (let i = 0; i <= total; i++) {
+      let svgText;
+      if (i === total) {
+        const tmpSvg = sf + '.tmp.svg';
+        const r = await runLab(['export-svg', '--state', sf, '--out', tmpSvg]);
+        if (r.code !== 0) throw new Error(r.err);
+        svgText = fs.readFileSync(tmpSvg, 'utf8');
+        fs.unlinkSync(tmpSvg);
+      } else {
+        const r = await runLab(['replay-svg', '--state', sf, '--step', String(i)]);
+        if (r.code !== 0) throw new Error(r.err);
+        svgText = r.out;
+      }
+      svgs.push(svgText);
+    }
+
+    const firstPng = await sharp(Buffer.from(svgs[0])).png().toBuffer();
+    const firstMeta = await sharp(firstPng).metadata();
+    const w = firstMeta.width, h = firstMeta.height;
+
+    const encoder = new GIFEncoder(w, h);
+    encoder.setDelay(200);
+    encoder.setRepeat(0);
+    encoder.start();
+
+    for (const svg of svgs) {
+      const png = await sharp(Buffer.from(svg))
+        .resize(w, h)
+        .flatten({ background: { r: 11, g: 13, b: 18 } })
+        .ensureAlpha()
+        .raw()
+        .toBuffer();
+      encoder.addFrame(png);
+    }
+
+    encoder.finish();
+    const gifBuf = encoder.out.getData();
+    res.set({ 'Content-Type': 'image/gif', 'Content-Disposition': 'attachment; filename="replay.gif"' });
+    res.send(gifBuf);
+  } catch (e) {
+    console.error('GIF export error:', e);
+    res.status(500).send('Error: ' + (e?.message || e));
+  }
+});
 
 function splitLines(s) {
   if (!s) return [];
@@ -80,6 +141,7 @@ function parseTurnInfo(room) {
 
 // In-memory room lobby state (waiting players before game starts)
 const rooms = new Map();
+const broadcastActiveRooms = new Set();
 
 function broadcastWaiting(roomId) {
   const r = rooms.get(roomId);
@@ -164,7 +226,26 @@ io.on('connection', (socket) => {
       const r = rooms.get(roomId);
 
       if (r.started) {
-        // Late join: add player to running game
+        // Reconnect to running game: check if player already exists in state
+        const stateExists = fs.existsSync(stateFile(roomId));
+        if (stateExists) {
+          const txt = fs.readFileSync(stateFile(roomId), 'utf8');
+          const playersLine = txt.split('\n').find(l => l.startsWith('PLAYERS '));
+          const playerNames = [];
+          if (playersLine) {
+            const count = Number(playersLine.split(/\s+/)[1]);
+            const lines = txt.split('\n');
+            const idx = lines.indexOf(playersLine);
+            for (let i = 1; i <= count && idx + i < lines.length; i++) {
+              const pname = lines[idx + i].split(/\s+/)[0];
+              if (pname) playerNames.push(pname);
+            }
+          }
+          if (playerNames.includes(name)) {
+            return cb?.({ ok: true, started: true });
+          }
+        }
+        // New player joining a running game
         await enqueue(roomId, async () => {
           const res = await runLab(['add-player-random', '--state', stateFile(roomId), '--name', name]);
           if (res.code !== 0) throw new Error(res.err || res.out || 'Не удалось добавить игрока');
@@ -172,7 +253,20 @@ io.on('connection', (socket) => {
         return cb?.({ ok: true, started: true });
       }
 
-      if (r.waiting.some(w => w.name === name)) return cb?.({ ok: false, error: 'Имя уже занято' });
+      // If same name exists but their socket is disconnected, allow reconnect
+      const existing = r.waiting.find(w => w.name === name);
+      if (existing) {
+        const oldSocket = io.sockets.sockets.get(existing.socketId);
+        if (!oldSocket || !oldSocket.connected) {
+          existing.socketId = socket.id;
+          myRoom = roomId;
+          myName = name;
+          socket.join('lobby:' + roomId);
+          broadcastWaiting(roomId);
+          return cb?.({ ok: true, started: false });
+        }
+        return cb?.({ ok: false, error: 'Имя уже занято' });
+      }
 
       r.waiting.push({ name, socketId: socket.id });
       myRoom = roomId;
@@ -202,6 +296,8 @@ io.on('connection', (socket) => {
         }
         // Initialize turn order so players see it immediately
         await runLab(['init-turns', '--state', stateFile(myRoom)]);
+        // Snapshot base state for replay (after weapons + players are placed)
+        await runLab(['init-base', '--state', stateFile(myRoom)]);
       });
 
       r.started = true;
@@ -277,6 +373,17 @@ io.on('connection', (socket) => {
         // Send updated inventory to acting player
         const status = await fetchPlayerStatus(myRoom, myName);
         if (status) socket.emit('playerStatus', status);
+        // Auto-rebroadcast map if broadcast is active
+        if (broadcastActiveRooms.has(myRoom)) {
+          try {
+            await enqueue(myRoom, async () => {
+              const res = await runLab(['export-svg', '--state', stateFile(myRoom), '--out', svgFile(myRoom)]);
+              if (res.code !== 0) throw new Error(res.err || 'export-svg failed');
+            });
+            const svg = fs.readFileSync(svgFile(myRoom), 'utf8');
+            io.to('game:' + myRoom).emit('mapRevealed', { svg });
+          } catch {}
+        }
         cb?.({ ok: true });
       } catch (e) {
         socket.emit('feedback', { lines: [e?.message || String(e)], who: myName });
@@ -314,21 +421,93 @@ io.on('connection', (socket) => {
     }
   });
 
+  socket.on('setTurns', async (payload, cb) => {
+    if (!myRoom || !myName) return cb?.({ ok: false, error: 'Не в игре' });
+    const meta = readMeta(myRoom);
+    const creatorName = meta?.creator ?? rooms.get(myRoom)?.creatorName ?? null;
+    if (creatorName !== myName) return cb?.({ ok: false, error: 'Только создатель' });
+    const val = payload?.enabled ? '1' : '0';
+    try {
+      let msg;
+      await enqueue(myRoom, async () => {
+        const res = await runLab(['set-turns', '--state', stateFile(myRoom), val]);
+        msg = res.out?.trim();
+        if (res.code !== 0) throw new Error(res.err || 'set-turns failed');
+      });
+      const turn = parseTurnInfo(myRoom);
+      io.to('game:' + myRoom).emit('turn', turn);
+      io.to('game:' + myRoom).emit('turnsToggled', { enabled: !!payload?.enabled });
+      cb?.({ ok: true, message: msg });
+    } catch (e) {
+      cb?.({ ok: false, error: e?.message || String(e) });
+    }
+  });
+
   socket.on('viewMap', async (_payload, cb) => {
     if (!myRoom || !myName) return cb?.({ ok: false, error: 'Не в комнате' });
     const meta = readMeta(myRoom);
     const creatorName = meta?.creator ?? rooms.get(myRoom)?.creatorName ?? null;
     if (creatorName !== myName) return cb?.({ ok: false, error: 'Только создатель может смотреть карту' });
     try {
+      let svg, replayList;
+      await enqueue(myRoom, async () => {
+        const svgRes = await runLab(['export-svg', '--state', stateFile(myRoom), '--out', svgFile(myRoom)]);
+        if (svgRes.code !== 0) throw new Error(svgRes.err || 'export-svg failed');
+        const listRes = await runLab(['replay-list', '--state', stateFile(myRoom)]);
+        if (listRes.code !== 0) throw new Error(listRes.err || 'replay-list failed');
+        replayList = JSON.parse(listRes.out);
+      });
+      svg = fs.readFileSync(svgFile(myRoom), 'utf8');
+      cb?.({ ok: true, svg, replay: replayList });
+    } catch (e) {
+      cb?.({ ok: false, error: e?.message || String(e) });
+    }
+  });
+
+  socket.on('replaySvg', async (payload, cb) => {
+    if (!myRoom || !myName) return cb?.({ ok: false, error: 'Не в комнате' });
+    const meta = readMeta(myRoom);
+    const creatorName = meta?.creator ?? rooms.get(myRoom)?.creatorName ?? null;
+    if (creatorName !== myName) return cb?.({ ok: false, error: 'Только создатель' });
+    const step = Number(payload?.step ?? 0);
+    try {
+      let svg;
+      await enqueue(myRoom, async () => {
+        const res = await runLab(['replay-svg', '--state', stateFile(myRoom), '--step', String(step)]);
+        if (res.code !== 0) throw new Error(res.err || 'replay-svg failed');
+        svg = res.out;
+      });
+      cb?.({ ok: true, svg });
+    } catch (e) {
+      cb?.({ ok: false, error: e?.message || String(e) });
+    }
+  });
+
+  socket.on('broadcastMap', async (_payload, cb) => {
+    if (!myRoom || !myName) return cb?.({ ok: false, error: 'Не в комнате' });
+    const meta = readMeta(myRoom);
+    const creatorName = meta?.creator ?? rooms.get(myRoom)?.creatorName ?? null;
+    if (creatorName !== myName) return cb?.({ ok: false, error: 'Только создатель' });
+    try {
       await enqueue(myRoom, async () => {
         const res = await runLab(['export-svg', '--state', stateFile(myRoom), '--out', svgFile(myRoom)]);
         if (res.code !== 0) throw new Error(res.err || 'export-svg failed');
       });
       const svg = fs.readFileSync(svgFile(myRoom), 'utf8');
-      cb?.({ ok: true, svg });
+      broadcastActiveRooms.add(myRoom);
+      io.to('game:' + myRoom).emit('mapRevealed', { svg });
+      cb?.({ ok: true });
     } catch (e) {
       cb?.({ ok: false, error: e?.message || String(e) });
     }
+  });
+
+  socket.on('chatMessage', (payload, cb) => {
+    if (!myRoom || !myName) return cb?.({ ok: false });
+    const text = String(payload?.text || '').trim();
+    if (!text) return cb?.({ ok: false });
+    io.to('game:' + myRoom).emit('chatMsg', { who: myName, text });
+    cb?.({ ok: true });
   });
 
   socket.on('disconnect', () => {
