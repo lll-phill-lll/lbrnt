@@ -103,7 +103,10 @@
     if (msg?.who === session.name) return;
     toastFeedback(msg.lines || [], msg.who);
   });
-  socket.on('turn', t => { lastBreathing = false; updateTurn(t); refreshStatus(); });
+  socket.on('turn', t => {
+    updateTurn(t);
+    if (t?.current === session.name) { lastBreathing = false; refreshStatus(); }
+  });
 
   // ── Chat ──
   const chatInput = $('chatInput');
