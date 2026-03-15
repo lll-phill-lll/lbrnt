@@ -6,6 +6,7 @@
 #include "items/Rifle.hpp"
 #include "items/Flashlight.hpp"
 #include <iostream>
+#include <algorithm>
 #include <filesystem>
 #include <fstream>
 #include <random>

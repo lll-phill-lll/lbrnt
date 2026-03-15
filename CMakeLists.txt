@@ -41,10 +41,10 @@ add_executable(labyrinth
 	locations/Arsenal.cpp
 )
 
-if (APPLE)
-	target_compile_options(labyrinth PRIVATE -Wall -Wextra -Wpedantic)
-else()
-	target_compile_options(labyrinth PRIVATE -Wall -Wextra -Wpedantic)
+target_compile_options(labyrinth PRIVATE -Wall -Wextra -Wpedantic)
+
+if (NOT APPLE)
+	target_link_libraries(labyrinth PRIVATE stdc++fs)
 endif()
 
 
