@@ -452,6 +452,15 @@
   function worldToScreen(wx,wy) { const s=sizePx(); return {sx:panX+wx*s, sy:panY+wy*s}; }
   function cellCenter(cx,cy) { return worldToScreen(cx+.5,cy+.5); }
   function pickEdge(fx,fy) { const dT=fy,dB=1-fy,dL=fx,dR=1-fx; let e='top',b=dT; if(dR<b){b=dR;e='right';}if(dB<b){b=dB;e='bottom';}if(dL<b){b=dL;e='left';} return e; }
+  function pastelFill(hex) {
+    const r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16);
+    const bg = 11; // background ~#0b0d12
+    const mix = 0.3;
+    const pr = Math.round(bg + (r - bg) * mix);
+    const pg = Math.round(bg + (g - bg) * mix);
+    const pb = Math.round(bg + (b - bg) * mix);
+    return `rgb(${pr},${pg},${pb})`;
+  }
   function ensureCell(cx,cy) { const k=keyOf(cx,cy); let c=cells.get(k); if(!c){c={};cells.set(k,c);} return c; }
   function deleteCellIfEmpty(cx,cy) { const k=keyOf(cx,cy),c=cells.get(k); if(!c)return; if(!c.fill&&!(c.edges&&(c.edges.top||c.edges.right||c.edges.bottom||c.edges.left))) cells.delete(k); }
   function applyPaint(cx,cy) { ensureCell(cx,cy).fill=activeColor; render(); }
@@ -496,7 +505,7 @@
     for(const [k,c] of cells.entries()){
       const{x:cx,y:cy}=parseKey(k); if(cx<left||cx>right||cy<top||cy>bottom)continue;
       const x=panX+cx*s, y=panY+cy*s;
-      if(c.fill){ctx.save();ctx.globalAlpha=0.25;ctx.fillStyle=c.fill;ctx.fillRect(x,y,s,s);ctx.restore();}
+      if(c.fill){ctx.fillStyle=pastelFill(c.fill);ctx.fillRect(x,y,s,s);}
       if(c.edges){const e=c.edges;const dr=(edge,x1,y1,x2,y2)=>{if(!edge)return;ctx.strokeStyle=edge.c||'#fff';ctx.lineWidth=Math.max(1,edge.w||1);ctx.setLineDash([]);ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke();};dr(e.top,x,y,x+s,y);dr(e.right,x+s,y,x+s,y+s);dr(e.bottom,x,y+s,x+s,y+s);dr(e.left,x,y,x,y+s);}
     }
     // Break all lines into cell-to-cell segments, then group & offset overlapping ones
