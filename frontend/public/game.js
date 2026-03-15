@@ -390,28 +390,39 @@
       if(c.fill){ctx.fillStyle=c.fill;ctx.fillRect(x,y,s,s);}
       if(c.edges){const e=c.edges;const dr=(edge,x1,y1,x2,y2)=>{if(!edge)return;ctx.strokeStyle=edge.c||'#fff';ctx.lineWidth=Math.max(1,edge.w||1);ctx.setLineDash([]);ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke();};dr(e.top,x,y,x+s,y);dr(e.right,x+s,y,x+s,y+s);dr(e.bottom,x,y+s,x+s,y+s);dr(e.left,x,y,x,y+s);}
     }
-    // Group lines by normalized path to offset overlapping ones
-    const lineGroups = new Map();
-    for (let i = 0; i < lines.length; i++) {
-      const ln = lines[i];
-      const k = (ln.ax < ln.bx || (ln.ax === ln.bx && ln.ay <= ln.by))
-        ? `${ln.ax},${ln.ay}-${ln.bx},${ln.by}`
-        : `${ln.bx},${ln.by}-${ln.ax},${ln.ay}`;
-      let g = lineGroups.get(k); if (!g) { g = []; lineGroups.set(k, g); } g.push(i);
+    // Break all lines into cell-to-cell segments, then group & offset overlapping ones
+    const segs = [];
+    for (const ln of lines) {
+      const dx = ln.bx - ln.ax, dy = ln.by - ln.ay;
+      const steps = Math.max(Math.abs(dx), Math.abs(dy));
+      if (steps === 0) continue;
+      const sx = dx / steps, sy = dy / steps;
+      for (let t = 0; t < steps; t++) {
+        const x0 = Math.round(ln.ax + sx * t), y0 = Math.round(ln.ay + sy * t);
+        const x1 = Math.round(ln.ax + sx * (t + 1)), y1 = Math.round(ln.ay + sy * (t + 1));
+        segs.push({ ax: x0, ay: y0, bx: x1, by: y1, color: ln.color, w: ln.w, type: ln.type });
+      }
     }
-    const lineOffset = new Float32Array(lines.length);
-    for (const arr of lineGroups.values()) {
+    const segGroups = new Map();
+    for (let i = 0; i < segs.length; i++) {
+      const sg = segs[i];
+      const k = (sg.ax < sg.bx || (sg.ax === sg.bx && sg.ay <= sg.by))
+        ? `${sg.ax},${sg.ay}-${sg.bx},${sg.by}` : `${sg.bx},${sg.by}-${sg.ax},${sg.ay}`;
+      let g = segGroups.get(k); if (!g) { g = []; segGroups.set(k, g); } g.push(i);
+    }
+    const segOffset = new Float32Array(segs.length);
+    const gap = Math.max(3, Math.min(sizePx() * 0.2, 8));
+    for (const arr of segGroups.values()) {
       const n = arr.length; if (n <= 1) continue;
-      const gap = Math.min(sizePx() * 0.18, 6);
-      for (let j = 0; j < n; j++) lineOffset[arr[j]] = (j - (n - 1) / 2) * gap;
+      for (let j = 0; j < n; j++) segOffset[arr[j]] = (j - (n - 1) / 2) * gap;
     }
-    for (let i = 0; i < lines.length; i++) {
-      const ln = lines[i];
-      const a = cellCenter(ln.ax, ln.ay), b = cellCenter(ln.bx, ln.by);
+    for (let i = 0; i < segs.length; i++) {
+      const sg = segs[i];
+      const a = cellCenter(sg.ax, sg.ay), b = cellCenter(sg.bx, sg.by);
       let dx = b.sx - a.sx, dy = b.sy - a.sy, len = Math.sqrt(dx * dx + dy * dy) || 1;
-      const px = -dy / len, py = dx / len, off = lineOffset[i];
-      ctx.save(); ctx.strokeStyle = ln.color; ctx.lineWidth = Math.max(1, ln.w); ctx.lineCap = 'round';
-      ctx.setLineDash(ln.type === 'dashed' ? [10, 6] : ln.type === 'dotted' ? [2, 6] : []);
+      const px = -dy / len, py = dx / len, off = segOffset[i];
+      ctx.save(); ctx.strokeStyle = sg.color; ctx.lineWidth = Math.max(1, sg.w); ctx.lineCap = 'round';
+      ctx.setLineDash(sg.type === 'dashed' ? [10, 6] : sg.type === 'dotted' ? [2, 6] : []);
       ctx.beginPath(); ctx.moveTo(a.sx + px * off, a.sy + py * off); ctx.lineTo(b.sx + px * off, b.sy + py * off); ctx.stroke(); ctx.restore();
     }
     if(drawMode==='line'&&lineStart&&hover){const a=cellCenter(lineStart.cx,lineStart.cy),b=cellCenter(hover.cx,hover.cy);ctx.save();ctx.globalAlpha=.5;ctx.strokeStyle=activeColor;ctx.lineWidth=2;ctx.setLineDash([6,4]);ctx.lineCap='round';ctx.beginPath();ctx.moveTo(a.sx,a.sy);ctx.lineTo(b.sx,b.sy);ctx.stroke();ctx.restore();}
