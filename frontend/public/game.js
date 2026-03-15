@@ -366,14 +366,28 @@
       .finally(() => { btn.disabled = false; btn.textContent = '📥 GIF'; });
   });
   closeMap.addEventListener('click', () => mapOverlay.classList.add('hidden'));
-  mapOverlay.addEventListener('click', e => { if (e.target === mapOverlay) mapOverlay.classList.add('hidden'); });
+
+  // Draggable map popup
+  {
+    const tb = $('mapTitlebar');
+    let dragX=0, dragY=0, startX=0, startY=0, dragging=false;
+    tb.addEventListener('pointerdown', e => {
+      dragging=true; startX=e.clientX; startY=e.clientY;
+      const rect=mapOverlay.getBoundingClientRect();
+      dragX=rect.left; dragY=rect.top;
+      tb.setPointerCapture(e.pointerId);
+    });
+    tb.addEventListener('pointermove', e => {
+      if(!dragging) return;
+      mapOverlay.style.left=(dragX+e.clientX-startX)+'px';
+      mapOverlay.style.top=(dragY+e.clientY-startY)+'px';
+      mapOverlay.style.right='auto';
+    });
+    tb.addEventListener('pointerup', () => { dragging=false; });
+  }
   document.addEventListener('keydown', e => {
     if (mapOverlay.classList.contains('hidden')) return;
-    if (e.key === 'ArrowLeft') { e.preventDefault(); gotoStep(replayCurrentStep - 1); }
-    else if (e.key === 'ArrowRight') { e.preventDefault(); gotoStep(replayCurrentStep + 1); }
-    else if (e.key === 'Home') { e.preventDefault(); gotoStep(0); }
-    else if (e.key === 'End') { e.preventDefault(); gotoStep(replayTotal); }
-    else if (e.key === 'Escape') { e.preventDefault(); mapOverlay.classList.add('hidden'); }
+    if (e.key === 'Escape') { e.preventDefault(); mapOverlay.classList.add('hidden'); }
   });
 
   // ── Broadcast map to all players (creator) ──

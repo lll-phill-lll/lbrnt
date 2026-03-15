@@ -45,9 +45,15 @@
     .palette{display:grid;grid-template-columns:repeat(6,1fr);gap:3px;margin-top:6px;}
     .sw{width:100%;aspect-ratio:1/1;border-radius:4px;border:2px solid transparent;cursor:pointer;}
     .sw.active{border-color:#fff;box-shadow:0 0 0 2px rgba(122,162,255,.3);}
-    #mapOverlay,#helpOverlay{position:fixed;inset:0;z-index:100;background:rgba(0,0,0,.85);display:flex;justify-content:center;align-items:center;}
-    #mapOverlay .inner{background:#1a1d26;border:1px solid rgba(255,255,255,.15);border-radius:14px;padding:16px;max-width:92vw;max-height:92vh;overflow:auto;position:relative;}
-    #mapOverlay .close{position:absolute;top:8px;right:12px;background:none;border:none;color:#e9edf7;font-size:22px;cursor:pointer;}
+    #helpOverlay{position:fixed;inset:0;z-index:100;background:rgba(0,0,0,.85);display:flex;justify-content:center;align-items:center;}
+    #helpOverlay .inner{background:#1a1d26;border:1px solid rgba(255,255,255,.15);border-radius:14px;padding:16px;max-width:92vw;max-height:92vh;overflow:auto;position:relative;}
+    #helpOverlay .close{position:absolute;top:8px;right:12px;background:none;border:none;color:#e9edf7;font-size:22px;cursor:pointer;}
+    #mapOverlay{position:fixed;z-index:150;background:#1a1d26;border:1px solid rgba(255,255,255,.2);border-radius:12px;padding:12px;width:520px;max-width:90vw;max-height:85vh;overflow:auto;box-shadow:0 8px 32px rgba(0,0,0,.6);resize:both;}
+    #mapOverlay .inner{position:relative;}
+    #mapOverlay .titlebar{cursor:grab;padding:0 0 8px;display:flex;align-items:center;justify-content:space-between;user-select:none;border-bottom:1px solid rgba(255,255,255,.08);margin-bottom:8px;}
+    #mapOverlay .titlebar:active{cursor:grabbing;}
+    #mapOverlay .close{background:none;border:none;color:#e9edf7;font-size:18px;cursor:pointer;padding:0 4px;}
+    #mapContent svg{width:100%;height:auto;display:block;}
     #replayControls button{font-size:14px;padding:4px 10px;}
     #replayFullLog .log-line{padding:2px 4px;border-radius:3px;}
     #replayFullLog .log-line:hover{background:rgba(255,255,255,.05);}
@@ -167,9 +173,12 @@
 </div>
 <div id="toastContainer"></div>
 
-<div id="mapOverlay" class="hidden">
-  <div class="inner">
+<div id="mapOverlay" class="hidden" style="top:60px;right:20px;">
+  <div class="titlebar" id="mapTitlebar">
+    <span style="font-size:12px;color:#9aa4b2;">Карта</span>
     <button class="close" id="closeMap">&times;</button>
+  </div>
+  <div class="inner">
     <div id="replayControls" style="display:flex;gap:8px;align-items:center;margin-bottom:10px;flex-wrap:wrap;">
       <button id="replayFirst" title="В начало">⏮</button>
       <button id="replayPrev" title="Назад">◀</button>
