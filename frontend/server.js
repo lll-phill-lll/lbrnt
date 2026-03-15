@@ -141,6 +141,7 @@ function parseTurnInfo(room) {
 
 // In-memory room lobby state (waiting players before game starts)
 const rooms = new Map();
+const broadcastActiveRooms = new Set();
 
 function broadcastWaiting(roomId) {
   const r = rooms.get(roomId);
@@ -372,6 +373,17 @@ io.on('connection', (socket) => {
         // Send updated inventory to acting player
         const status = await fetchPlayerStatus(myRoom, myName);
         if (status) socket.emit('playerStatus', status);
+        // Auto-rebroadcast map if broadcast is active
+        if (broadcastActiveRooms.has(myRoom)) {
+          try {
+            await enqueue(myRoom, async () => {
+              const res = await runLab(['export-svg', '--state', stateFile(myRoom), '--out', svgFile(myRoom)]);
+              if (res.code !== 0) throw new Error(res.err || 'export-svg failed');
+            });
+            const svg = fs.readFileSync(svgFile(myRoom), 'utf8');
+            io.to('game:' + myRoom).emit('mapRevealed', { svg });
+          } catch {}
+        }
         cb?.({ ok: true });
       } catch (e) {
         socket.emit('feedback', { lines: [e?.message || String(e)], who: myName });
@@ -482,6 +494,7 @@ io.on('connection', (socket) => {
         if (res.code !== 0) throw new Error(res.err || 'export-svg failed');
       });
       const svg = fs.readFileSync(svgFile(myRoom), 'utf8');
+      broadcastActiveRooms.add(myRoom);
       io.to('game:' + myRoom).emit('mapRevealed', { svg });
       cb?.({ ok: true });
     } catch (e) {

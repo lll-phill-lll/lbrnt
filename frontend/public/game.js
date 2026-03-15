@@ -429,15 +429,18 @@
   });
 
   socket.on('mapRevealed', data => {
-    if (data?.svg) {
-      mapPopupMode = 'broadcast';
+    if (!data?.svg) return;
+    if (mapPopupMode === 'broadcast' && !mapOverlay.classList.contains('hidden')) {
       mapContent.innerHTML = data.svg;
-      $('replayControls').style.display = 'none';
-      $('replayLogEntry').style.display = 'none';
-      const details = mapOverlay.querySelector('details');
-      if (details) details.style.display = 'none';
-      mapOverlay.classList.remove('hidden');
+      return;
     }
+    mapPopupMode = 'broadcast';
+    mapContent.innerHTML = data.svg;
+    $('replayControls').style.display = 'none';
+    $('replayLogEntry').style.display = 'none';
+    const details = mapOverlay.querySelector('details');
+    if (details) details.style.display = 'none';
+    mapOverlay.classList.remove('hidden');
   });
 
   // ── Turns toggle (creator only) ──
