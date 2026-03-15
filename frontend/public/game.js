@@ -98,14 +98,17 @@
     const lines = Array.isArray(msg?.lines) ? msg.lines : [String(msg?.lines ?? msg ?? '')];
     toastFeedback(lines, msg?.who || session.name);
     refreshStatus();
+    refreshMapPopup();
   });
   socket.on('gameBroadcast', msg => {
     if (msg?.who === session.name) return;
     toastFeedback(msg.lines || [], msg.who);
+    refreshMapPopup();
   });
   socket.on('turn', t => {
     updateTurn(t);
     if (t?.current === session.name) { lastBreathing = false; refreshStatus(); }
+    refreshMapPopup();
   });
 
   // ── Chat ──
@@ -281,6 +284,30 @@
   const replayLogEntry  = $('replayLogEntry');
   const replayFullLog   = $('replayFullLog');
 
+  let mapPopupMode = 'none'; // 'replay' | 'broadcast' | 'none'
+
+  async function refreshMapPopup() {
+    if (mapOverlay.classList.contains('hidden')) return;
+    if (mapPopupMode !== 'replay') return;
+    if (replayCurrentStep !== replayTotal) return;
+    const resp = await emit('viewMap', {});
+    if (resp?.ok && resp.svg) {
+      mapContent.innerHTML = resp.svg;
+      if (resp.replay) {
+        replayEntries = resp.replay.entries;
+        replayTotal = resp.replay.total;
+        replayCurrentStep = replayTotal;
+        renderReplayStep(replayCurrentStep);
+        replayFullLog.innerHTML = replayEntries.map((e, i) =>
+          `<div class="log-line${i === replayCurrentStep - 1 ? ' active' : ''}" data-step="${i + 1}" style="cursor:pointer;padding:2px 4px;">${i + 1}. ${e}</div>`
+        ).join('');
+        replayFullLog.querySelectorAll('.log-line').forEach(el => {
+          el.addEventListener('click', () => gotoStep(Number(el.dataset.step)));
+        });
+      }
+    }
+  }
+
   function renderReplayStep(step) {
     replayStepLabel.textContent = `${step} / ${replayTotal}`;
     replayLogEntry.textContent = step > 0 && step <= replayEntries.length
@@ -319,6 +346,7 @@
   }
 
   viewMapBtn.addEventListener('click', async () => {
+    mapPopupMode = 'replay';
     $('replayControls').style.display = '';
     $('replayLogEntry').style.display = '';
     const det = mapOverlay.querySelector('details');
@@ -365,13 +393,14 @@
     }).catch(e => toastSystem('Ошибка экспорта: ' + (e?.message || e)))
       .finally(() => { btn.disabled = false; btn.textContent = '📥 GIF'; });
   });
-  closeMap.addEventListener('click', () => mapOverlay.classList.add('hidden'));
+  closeMap.addEventListener('click', () => { mapOverlay.classList.add('hidden'); mapPopupMode = 'none'; });
 
   // Draggable map popup
   {
     const tb = $('mapTitlebar');
     let dragX=0, dragY=0, startX=0, startY=0, dragging=false;
     tb.addEventListener('pointerdown', e => {
+      if (e.target.closest('button')) return;
       dragging=true; startX=e.clientX; startY=e.clientY;
       const rect=mapOverlay.getBoundingClientRect();
       dragX=rect.left; dragY=rect.top;
@@ -387,7 +416,7 @@
   }
   document.addEventListener('keydown', e => {
     if (mapOverlay.classList.contains('hidden')) return;
-    if (e.key === 'Escape') { e.preventDefault(); mapOverlay.classList.add('hidden'); }
+    if (e.key === 'Escape') { e.preventDefault(); mapOverlay.classList.add('hidden'); mapPopupMode = 'none'; }
   });
 
   // ── Broadcast map to all players (creator) ──
@@ -401,8 +430,8 @@
 
   socket.on('mapRevealed', data => {
     if (data?.svg) {
+      mapPopupMode = 'broadcast';
       mapContent.innerHTML = data.svg;
-      // Hide replay controls for broadcast view
       $('replayControls').style.display = 'none';
       $('replayLogEntry').style.display = 'none';
       const details = mapOverlay.querySelector('details');
