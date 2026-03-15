@@ -33,6 +33,7 @@
   const paletteEl    = $('palette');
   const creatorCard  = $('creatorCard');
   const viewMapBtn   = $('viewMapBtn');
+  const broadcastMapBtn = $('broadcastMapBtn');
   const mapOverlay   = $('mapOverlay');
   const mapContent   = $('mapContent');
   const closeMap     = $('closeMap');
@@ -285,6 +286,10 @@
   }
 
   viewMapBtn.addEventListener('click', async () => {
+    $('replayControls').style.display = '';
+    $('replayLogEntry').style.display = '';
+    const det = mapOverlay.querySelector('details');
+    if (det) det.style.display = '';
     viewMapBtn.textContent = 'Загрузка...';
     const resp = await emit('viewMap', {});
     viewMapBtn.textContent = 'Показать лабиринт';
@@ -318,6 +323,27 @@
     else if (e.key === 'Home') { e.preventDefault(); gotoStep(0); }
     else if (e.key === 'End') { e.preventDefault(); gotoStep(replayTotal); }
     else if (e.key === 'Escape') { e.preventDefault(); mapOverlay.classList.add('hidden'); }
+  });
+
+  // ── Broadcast map to all players (creator) ──
+  broadcastMapBtn.addEventListener('click', async () => {
+    broadcastMapBtn.textContent = 'Отправка...';
+    const resp = await emit('broadcastMap', {});
+    broadcastMapBtn.textContent = 'Показать всем';
+    if (resp?.ok) toastSystem('Карта отправлена всем игрокам');
+    else toastSystem('Ошибка: ' + (resp?.error || ''));
+  });
+
+  socket.on('mapRevealed', data => {
+    if (data?.svg) {
+      mapContent.innerHTML = data.svg;
+      // Hide replay controls for broadcast view
+      $('replayControls').style.display = 'none';
+      $('replayLogEntry').style.display = 'none';
+      const details = mapOverlay.querySelector('details');
+      if (details) details.style.display = 'none';
+      mapOverlay.classList.remove('hidden');
+    }
   });
 
   // ── Turns toggle (creator only) ──

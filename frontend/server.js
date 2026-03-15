@@ -410,6 +410,24 @@ io.on('connection', (socket) => {
     }
   });
 
+  socket.on('broadcastMap', async (_payload, cb) => {
+    if (!myRoom || !myName) return cb?.({ ok: false, error: 'Не в комнате' });
+    const meta = readMeta(myRoom);
+    const creatorName = meta?.creator ?? rooms.get(myRoom)?.creatorName ?? null;
+    if (creatorName !== myName) return cb?.({ ok: false, error: 'Только создатель' });
+    try {
+      await enqueue(myRoom, async () => {
+        const res = await runLab(['export-svg', '--state', stateFile(myRoom), '--out', svgFile(myRoom)]);
+        if (res.code !== 0) throw new Error(res.err || 'export-svg failed');
+      });
+      const svg = fs.readFileSync(svgFile(myRoom), 'utf8');
+      io.to('game:' + myRoom).emit('mapRevealed', { svg });
+      cb?.({ ok: true });
+    } catch (e) {
+      cb?.({ ok: false, error: e?.message || String(e) });
+    }
+  });
+
   socket.on('disconnect', () => {
     if (!myRoom || !rooms.has(myRoom)) return;
     const r = rooms.get(myRoom);
