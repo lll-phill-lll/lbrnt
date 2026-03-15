@@ -255,7 +255,10 @@ io.on('connection', (socket) => {
     return null;
   }
 
-  function gameAction(argsBuilder) {
+  const DIR_RU = { up: 'вверх', down: 'вниз', left: 'влево', right: 'вправо' };
+  const ITEM_RU = { knife: 'нож', shotgun: 'дробовик', rifle: 'ружьё', flashlight: 'фонарь' };
+
+  function gameAction(argsBuilder, actionDesc) {
     return async (payload, cb) => {
       if (!myRoom || !myName) return cb?.({ ok: false, error: 'Не в игре' });
       try {
@@ -265,23 +268,35 @@ io.on('connection', (socket) => {
           feedback = splitLines(res.out);
           if (res.code !== 0 && res.err) feedback.push(res.err);
         });
-        socket.emit('feedback', { lines: feedback });
+        socket.emit('feedback', { lines: feedback, who: myName });
         const turn = parseTurnInfo(myRoom);
         io.to('game:' + myRoom).emit('turn', turn);
+        // Broadcast action summary to other players
+        const desc = typeof actionDesc === 'function' ? actionDesc(payload) : actionDesc;
+        io.to('game:' + myRoom).emit('gameBroadcast', { who: myName, lines: feedback, desc });
         // Send updated inventory to acting player
         const status = await fetchPlayerStatus(myRoom, myName);
         if (status) socket.emit('playerStatus', status);
         cb?.({ ok: true });
       } catch (e) {
-        socket.emit('feedback', { lines: [e?.message || String(e)] });
+        socket.emit('feedback', { lines: [e?.message || String(e)], who: myName });
         cb?.({ ok: false, error: e?.message || String(e) });
       }
     };
   }
 
-  socket.on('move', gameAction(p => ['move', '--state', stateFile(myRoom), '--name', myName, String(p?.dir || '')]));
-  socket.on('attack', gameAction(p => ['attack', '--state', stateFile(myRoom), '--name', myName, String(p?.dir || '')]));
-  socket.on('use', gameAction(p => ['use-item', '--state', stateFile(myRoom), '--name', myName, '--item', String(p?.item || ''), String(p?.dir || '')]));
+  socket.on('move', gameAction(
+    p => ['move', '--state', stateFile(myRoom), '--name', myName, String(p?.dir || '')],
+    p => `шагнул ${DIR_RU[p?.dir] || p?.dir}`
+  ));
+  socket.on('attack', gameAction(
+    p => ['attack', '--state', stateFile(myRoom), '--name', myName, String(p?.dir || '')],
+    p => `ударил ножом ${DIR_RU[p?.dir] || p?.dir}`
+  ));
+  socket.on('use', gameAction(
+    p => ['use-item', '--state', stateFile(myRoom), '--name', myName, '--item', String(p?.item || ''), String(p?.dir || '')],
+    p => `использовал ${ITEM_RU[p?.item] || p?.item} ${DIR_RU[p?.dir] || p?.dir}`
+  ));
 
   // ─── Player status (inventory) ───
   socket.on('getPlayerStatus', async (_payload, cb) => {

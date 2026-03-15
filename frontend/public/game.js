@@ -27,8 +27,6 @@
   const itemsPanel   = $('itemsPanel');
   let currentItems = [];
   let selectedItemId = null;
-  const logOut       = $('logOut');
-  const logSys       = $('logSys');
   const drawColorEl  = $('drawColor');
   const WALL_WIDTH = 4, TRAIL_WIDTH = 2, LINE_WIDTH = 2;
   const clearDrawEl  = $('clearDraw');
@@ -39,37 +37,54 @@
   const mapContent   = $('mapContent');
   const closeMap     = $('closeMap');
   const roomTitle    = $('roomTitle');
+  const toastContainer = $('toastContainer');
 
   roomTitle.textContent = `Комната: ${session.room}`;
   playerLabel.textContent = session.name;
 
-  function appendTo(el, line) { el.textContent += line + '\n'; el.scrollTop = el.scrollHeight; }
-  function logFeedback(line) { appendTo(logOut, line); }
-  function logSystem(line) { appendTo(logSys, line); }
+  function showToast(text, cls, duration) {
+    const el = document.createElement('div');
+    el.className = 'toast ' + (cls || '');
+    el.innerHTML = text;
+    toastContainer.appendChild(el);
+    const ttl = duration || 3500;
+    setTimeout(() => { el.classList.add('out'); setTimeout(() => el.remove(), 250); }, ttl);
+    while (toastContainer.children.length > 6) toastContainer.firstChild.remove();
+  }
+  function toastFeedback(lines, who) {
+    const isSelf = who === session.name;
+    const prefix = who ? `<span class="toast-who">${who}</span>` : '';
+    const body = (Array.isArray(lines) ? lines : [lines]).join('<br>');
+    showToast(prefix + body, isSelf ? 'self' : 'other');
+  }
+  function toastSystem(text) { showToast(text, 'system', 2500); }
 
   // ── Socket ──
   const socket = io('/', { transports: ['websocket'] });
 
   socket.on('connect', () => {
-    logSystem('Подключено');
+    toastSystem('Подключено');
     socket.emit('enterGame', { room: session.room, name: session.name, password: session.password }, resp => {
       if (resp?.ok) {
-        logSystem('В игре');
         isCreator = !!resp.isCreator;
         if (isCreator) creatorCard.classList.remove('hidden');
         if (resp.turn) updateTurn(resp.turn);
         if (resp.playerStatus?.items) renderItemsPanel(resp.playerStatus.items);
         else refreshStatus();
       } else {
-        logSystem('Ошибка: ' + (resp?.error || ''));
+        toastSystem('Ошибка: ' + (resp?.error || ''));
       }
     });
   });
-  socket.on('disconnect', () => logSystem('Отключено'));
+  socket.on('disconnect', () => toastSystem('Отключено'));
   socket.on('feedback', msg => {
-    const arr = Array.isArray(msg?.lines) ? msg.lines : [String(msg?.lines ?? msg ?? '')];
-    arr.forEach(l => logFeedback(l));
+    const lines = Array.isArray(msg?.lines) ? msg.lines : [String(msg?.lines ?? msg ?? '')];
+    toastFeedback(lines, msg?.who || session.name);
     refreshStatus();
+  });
+  socket.on('gameBroadcast', msg => {
+    if (msg?.who === session.name) return;
+    toastFeedback(msg.lines || [], msg.who);
   });
   socket.on('turn', t => updateTurn(t));
 
@@ -222,7 +237,7 @@
       mapContent.innerHTML = resp.svg;
       mapOverlay.classList.remove('hidden');
     } else {
-      logSystem('Ошибка: ' + (resp?.error || ''));
+      toastSystem('Ошибка: ' + (resp?.error || ''));
     }
   });
   closeMap.addEventListener('click', () => mapOverlay.classList.add('hidden'));
