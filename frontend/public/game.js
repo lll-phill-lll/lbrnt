@@ -53,7 +53,7 @@
     el.className = 'toast ' + (cls || '');
     el.innerHTML = text;
     toastContainer.appendChild(el);
-    const ttl = duration || 3500;
+    const ttl = duration || 5500;
     setTimeout(() => { el.classList.add('out'); setTimeout(() => el.remove(), 250); }, ttl);
     while (toastContainer.children.length > 6) toastContainer.firstChild.remove();
   }
@@ -61,17 +61,20 @@
   const feedListEl = document.getElementById('feedList');
   function addFeedEntry(html) {
     feedHistory.push(html);
-    if (feedHistory.length > 3) feedHistory.shift();
-    if (feedListEl) feedListEl.innerHTML = feedHistory.map(h => `<div style="border-bottom:1px solid rgba(255,255,255,.06);padding:3px 0;">${h}</div>`).join('');
+    if (feedHistory.length > 5) feedHistory.shift();
+    if (feedListEl) feedListEl.innerHTML = feedHistory.map(h => `<div style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.08);border-radius:10px;padding:5px 10px;line-height:1.4;">${h}</div>`).join('');
   }
   function toastFeedback(lines, who) {
-    const isSelf = who === session.name;
     const prefix = who ? `<span class="toast-who">${who}:</span> ` : '';
     const body = (Array.isArray(lines) ? lines : [lines]).join('<br>');
-    showToast(prefix + body, isSelf ? 'self' : 'other');
-    addFeedEntry(prefix + body);
+    const isSelf = who === session.name;
+    showToast(prefix + body, isSelf ? 'self' : 'other', 5000);
   }
-  function toastSystem(text) { showToast(text, 'system', 2500); addFeedEntry(text); }
+  function toastSystem(text) { showToast(text, 'system', 5000); }
+  function chatToFeed(text, who) {
+    const prefix = who ? `<span class="toast-who">${who}:</span> ` : '';
+    addFeedEntry(prefix + text);
+  }
 
   // ── Socket ──
   const socket = io('/', { transports: ['websocket'] });
@@ -115,7 +118,7 @@
   chatInput.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); sendChat(); } });
   socket.on('chatMsg', msg => {
     if (!msg?.who || !msg?.text) return;
-    toastFeedback([msg.text], msg.who);
+    chatToFeed(msg.text, msg.who);
   });
 
   const turnOrderEl = $('turnOrder');
