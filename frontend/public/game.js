@@ -456,11 +456,12 @@
   function pickEdge(fx,fy) { const dT=fy,dB=1-fy,dL=fx,dR=1-fx; let e='top',b=dT; if(dR<b){b=dR;e='right';}if(dB<b){b=dB;e='bottom';}if(dL<b){b=dL;e='left';} return e; }
   function pastelFill(hex) {
     const r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16);
-    const bg = 11; // background ~#0b0d12
-    const mix = 0.3;
-    const pr = Math.round(bg + (r - bg) * mix);
-    const pg = Math.round(bg + (g - bg) * mix);
-    const pb = Math.round(bg + (b - bg) * mix);
+    const max = Math.max(r,g,b) || 1;
+    const nr = r/max, ng = g/max, nb = b/max;
+    const base = 35, boost = 30;
+    const pr = Math.round(base + nr * boost);
+    const pg = Math.round(base + ng * boost);
+    const pb = Math.round(base + nb * boost);
     return `rgb(${pr},${pg},${pb})`;
   }
   function ensureCell(cx,cy) { const k=keyOf(cx,cy); let c=cells.get(k); if(!c){c={};cells.set(k,c);} return c; }
@@ -634,8 +635,11 @@
     if(drawMode!=='draw') return;
     const rect=canvas.getBoundingClientRect(), mx=e.clientX-rect.left, my=e.clientY-rect.top;
     const{cx,cy}=screenToCell(mx,my);
-    const sh=shapeAt(cx,cy);
-    if(!sh){pushUndo();const ns={id:makeId(),kind:'circle',cx,cy,color:activeColor};shapes.push(ns);selectedShape=ns;render();saveDraw();}
+    if(!shapeAt(cx,cy)){
+      popUndo(); popUndo();
+      pushUndo();
+      const ns={id:makeId(),kind:'circle',cx,cy,color:activeColor};shapes.push(ns);selectedShape=ns;render();saveDraw();
+    }
   });
 
   clearDrawEl.addEventListener('click', () => { if(!confirm('Очистить все рисунки?'))return; pushUndo();cells.clear();shapes=[];selectedShape=null;lines=[];lineStart=null;render();saveDraw(); });
