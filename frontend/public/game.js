@@ -28,7 +28,7 @@
   let currentItems = [];
   let selectedItemId = null;
   const drawColorEl  = $('drawColor');
-  const WALL_WIDTH = 4, TRAIL_WIDTH = 2, LINE_WIDTH = 2;
+  const WALL_THIN = 3, WALL_THICK = 6, TRAIL_WIDTH = 2, LINE_WIDTH = 2;
   const clearDrawEl  = $('clearDraw');
   const paletteEl    = $('palette');
   const creatorCard  = $('creatorCard');
@@ -467,7 +467,18 @@
   function ensureCell(cx,cy) { const k=keyOf(cx,cy); let c=cells.get(k); if(!c){c={};cells.set(k,c);} return c; }
   function deleteCellIfEmpty(cx,cy) { const k=keyOf(cx,cy),c=cells.get(k); if(!c)return; if(!c.fill&&!(c.edges&&(c.edges.top||c.edges.right||c.edges.bottom||c.edges.left))) cells.delete(k); }
   function applyPaint(cx,cy) { ensureCell(cx,cy).fill=activeColor; render(); }
-  function applyBorder(cx,cy,edge) { const c=ensureCell(cx,cy); if(!c.edges)c.edges={}; c.edges[edge]={w:WALL_WIDTH,c:activeColor}; render(); }
+  function applyBorder(cx,cy,edge,cycle) {
+    const c=ensureCell(cx,cy); if(!c.edges)c.edges={};
+    const cur=c.edges[edge];
+    if(cycle) {
+      if(!cur) c.edges[edge]={w:WALL_THIN,c:activeColor};
+      else if(cur.w<WALL_THICK) c.edges[edge]={w:WALL_THICK,c:activeColor};
+      else { delete c.edges[edge]; deleteCellIfEmpty(cx,cy); }
+    } else {
+      if(!cur) c.edges[edge]={w:WALL_THIN,c:activeColor};
+    }
+    render();
+  }
   function applyErase(cx,cy,fx,fy) { const c=cells.get(keyOf(cx,cy)); if(!c)return; delete c.fill; if(c.edges){const edge=pickEdge(fx,fy),close=Math.min(fx,1-fx,fy,1-fy); if(close<.18)delete c.edges[edge]; else delete c.edges; if(c.edges&&!c.edges.top&&!c.edges.right&&!c.edges.bottom&&!c.edges.left)delete c.edges;} deleteCellIfEmpty(cx,cy); render(); }
   function shapeAt(cx,cy) { for(let i=shapes.length-1;i>=0;i--) if(shapes[i].cx===cx&&shapes[i].cy===cy) return shapes[i]; return null; }
 
@@ -578,7 +589,7 @@
       for(let i=0;i<n;i++){const sh=arr[i],gx=i%grid,gy=Math.floor(i/grid),sx0=x0+gx*s*sub,sy0=y0+gy*s*sub,sw=s*sub,shh=s*sub,px=sw*pad,py=shh*pad,rx=sx0+px,ry=sy0+py,rw=sw-2*px,rh=shh-2*py;ctx.save();ctx.fillStyle=sh.color;ctx.strokeStyle='rgba(0,0,0,0.35)';ctx.lineWidth=Math.max(1,1.2*zoom);ctx.setLineDash([]);if(sh.kind==='rect'){ctx.beginPath();ctx.rect(rx,ry,rw,rh);ctx.fill();ctx.stroke();}else if(sh.kind==='circle'){const r=Math.min(rw,rh)/2;ctx.beginPath();ctx.arc(rx+rw/2,ry+rh/2,r,0,Math.PI*2);ctx.fill();ctx.stroke();}else if(sh.kind==='tri'){ctx.beginPath();ctx.moveTo(rx+rw/2,ry);ctx.lineTo(rx+rw,ry+rh);ctx.lineTo(rx,ry+rh);ctx.closePath();ctx.fill();ctx.stroke();}if(sh===selectedShape){ctx.strokeStyle='rgba(255,255,255,0.75)';ctx.lineWidth=Math.max(1,2*zoom);ctx.setLineDash([6,4]);ctx.strokeRect(rx,ry,rw,rh);}ctx.restore();}
     }
     if(hover){const x=panX+hover.cx*s,y=panY+hover.cy*s;ctx.strokeStyle='rgba(255,255,255,0.3)';ctx.lineWidth=1;ctx.setLineDash([]);ctx.strokeRect(x+.5,y+.5,s-1,s-1);}
-    if(drawMode==='draw'&&borderPreview){const{cx,cy,edge}=borderPreview,x=panX+cx*s,y=panY+cy*s;ctx.save();ctx.globalAlpha=.35;ctx.strokeStyle=activeColor;ctx.lineWidth=WALL_WIDTH;ctx.setLineDash([]);ctx.lineCap='butt';ctx.beginPath();if(edge==='top'){ctx.moveTo(x,y);ctx.lineTo(x+s,y);}if(edge==='right'){ctx.moveTo(x+s,y);ctx.lineTo(x+s,y+s);}if(edge==='bottom'){ctx.moveTo(x,y+s);ctx.lineTo(x+s,y+s);}if(edge==='left'){ctx.moveTo(x,y);ctx.lineTo(x,y+s);}ctx.stroke();ctx.restore();}
+    if(drawMode==='draw'&&borderPreview){const{cx,cy,edge}=borderPreview,x=panX+cx*s,y=panY+cy*s;ctx.save();ctx.globalAlpha=.35;ctx.strokeStyle=activeColor;ctx.lineWidth=WALL_THIN;ctx.setLineDash([]);ctx.lineCap='butt';ctx.beginPath();if(edge==='top'){ctx.moveTo(x,y);ctx.lineTo(x+s,y);}if(edge==='right'){ctx.moveTo(x+s,y);ctx.lineTo(x+s,y+s);}if(edge==='bottom'){ctx.moveTo(x,y+s);ctx.lineTo(x+s,y+s);}if(edge==='left'){ctx.moveTo(x,y);ctx.lineTo(x,y+s);}ctx.stroke();ctx.restore();}
   }
 
   canvas.addEventListener('contextmenu', e => e.preventDefault());
@@ -601,7 +612,7 @@
       const nearEdge = Math.min(fx,1-fx,fy,1-fy) < EDGE_ZONE;
       const sh = shapeAt(cx,cy);
       if(sh){drawLock='shape';pushUndo();selectedShape=sh;draggingShape=sh;dragPrevCX=sh.cx;dragPrevCY=sh.cy;render();}
-      else if(nearEdge){drawLock='border';pushUndo();applyBorder(cx,cy,pickEdge(fx,fy));}
+      else if(nearEdge){drawLock='border';pushUndo();applyBorder(cx,cy,pickEdge(fx,fy),true);}
       else{drawLock='paint';pushUndo();applyPaint(cx,cy);}
     }
     else if(drawMode==='erase'){pushUndo();applyErase(cx,cy,fx,fy);}
