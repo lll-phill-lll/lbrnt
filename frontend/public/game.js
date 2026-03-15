@@ -474,9 +474,9 @@
   function pickEdge(fx,fy) { const dT=fy,dB=1-fy,dL=fx,dR=1-fx; let e='top',b=dT; if(dR<b){b=dR;e='right';}if(dB<b){b=dB;e='bottom';}if(dL<b){b=dL;e='left';} return e; }
   function pastelFill(hex) {
     const r=parseInt(hex.slice(1,3),16), g=parseInt(hex.slice(3,5),16), b=parseInt(hex.slice(5,7),16);
-    const pr=Math.round(r*0.3+255*0.7);
-    const pg=Math.round(g*0.3+255*0.7);
-    const pb=Math.round(b*0.3+255*0.7);
+    const pr=Math.round(r*0.15+40);
+    const pg=Math.round(g*0.15+40);
+    const pb=Math.round(b*0.15+40);
     return `rgb(${pr},${pg},${pb})`;
   }
   function ensureCell(cx,cy) { const k=keyOf(cx,cy); let c=cells.get(k); if(!c){c={};cells.set(k,c);} return c; }
