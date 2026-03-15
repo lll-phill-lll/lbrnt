@@ -51,6 +51,7 @@ struct Game {
 	std::unordered_map<long long, std::unordered_map<std::string,int>> ground_items;
 
 	bool add_player(const std::string& name, std::pair<size_t,size_t> at, const LabyrinthMap& map, std::string& err);
+	void init_turns();
 	MoveOutcome move_player(const std::string& name, Direction dir, LabyrinthMap& map);
 	AttackOutcome attack(const std::string& name, Direction dir, LabyrinthMap& map);
 	UseOutcome use_item(const std::string& name, const std::string& itemId, Direction dir, LabyrinthMap& map);
