@@ -70,7 +70,7 @@
         isCreator = !!resp.isCreator;
         if (isCreator) creatorCard.classList.remove('hidden');
         if (resp.turn) updateTurn(resp.turn);
-        if (resp.playerStatus?.items) renderItemsPanel(resp.playerStatus.items);
+        if (resp.playerStatus) handlePlayerStatus(resp.playerStatus);
         else refreshStatus();
       } else {
         toastSystem('Ошибка: ' + (resp?.error || ''));
@@ -188,13 +188,16 @@
     if (currentItems.length > 0 && !selectedItemId) selectedItemId = currentItems[0].id;
   }
 
-  socket.on('playerStatus', data => {
+  function handlePlayerStatus(data) {
     if (data?.items) renderItemsPanel(data.items);
-  });
+    if (data?.nearbyBreathing) toastSystem('Вы чувствуете чьё-то дыхание поблизости...');
+  }
+
+  socket.on('playerStatus', data => handlePlayerStatus(data));
 
   function refreshStatus() {
     emit('getPlayerStatus', {}).then(resp => {
-      if (resp?.ok && resp.items) renderItemsPanel(resp.items);
+      if (resp?.ok) handlePlayerStatus(resp);
     });
   }
 

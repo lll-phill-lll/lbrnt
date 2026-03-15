@@ -181,7 +181,14 @@ MoveOutcome Game::move_player(const std::string& name, Direction dir, LabyrinthM
 	if (!can) {
 		out.moved = false;
 		out.position = pos;
-		out.messages.push_back(std::string("Врезался в стену (") + dir_ru(dir) + ")");
+		bool outer = false;
+		switch (dir) {
+			case Direction::Left:  outer = (pos.first == 0); break;
+			case Direction::Right: outer = (pos.first + 1 >= map.width); break;
+			case Direction::Up:    outer = (pos.second == 0); break;
+			case Direction::Down:  outer = (pos.second + 1 >= map.height); break;
+		}
+		out.messages.push_back(std::string(outer ? "Врезался во внешнюю стену (" : "Врезался в стену (") + dir_ru(dir) + ")");
 		consume_action_or_advance(*this);
 		return out;
 	}
