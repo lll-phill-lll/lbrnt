@@ -381,9 +381,8 @@
   // ══════════════════════════════════════════
 
   const COLORS = [
-    "#ff6b6b","#f06595","#cc5de8","#5c7cfa",
-    "#339af0","#20c997","#51cf66","#fcc419",
-    "#ff922b","#ced4da","#868e96","#ffffff",
+    "#001219","#005f73","#0a9396","#94d2bd","#e9d8a6",
+    "#ee9b00","#ca6702","#bb3e03","#ae2012","#9b2226",
   ];
   let activeColor = COLORS[0];
   const STORAGE_KEY = 'lab_draw_v2_' + session.room + '_' + session.name;
