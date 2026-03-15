@@ -62,7 +62,7 @@
   function addFeedEntry(html) {
     feedHistory.push(html);
     if (feedHistory.length > 5) feedHistory.shift();
-    if (feedListEl) feedListEl.innerHTML = feedHistory.map(h => `<div style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.08);border-radius:10px;padding:5px 10px;line-height:1.4;">${h}</div>`).join('');
+    if (feedListEl) { feedListEl.innerHTML = feedHistory.map(h => `<div style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.08);border-radius:10px;padding:5px 10px;line-height:1.4;">${h}</div>`).join(''); feedListEl.scrollTop = feedListEl.scrollHeight; }
   }
   function toastFeedback(lines, who) {
     const prefix = who ? `<span class="toast-who">${who}:</span> ` : '';
@@ -103,7 +103,7 @@
     if (msg?.who === session.name) return;
     toastFeedback(msg.lines || [], msg.who);
   });
-  socket.on('turn', t => updateTurn(t));
+  socket.on('turn', t => { lastBreathing = false; updateTurn(t); refreshStatus(); });
 
   // ── Chat ──
   const chatInput = $('chatInput');
@@ -539,7 +539,24 @@
     }
     render();
   }
-  function applyErase(cx,cy,fx,fy) { const c=cells.get(keyOf(cx,cy)); if(!c)return; delete c.fill; if(c.edges){const edge=pickEdge(fx,fy),close=Math.min(fx,1-fx,fy,1-fy); if(close<.18)delete c.edges[edge]; else delete c.edges; if(c.edges&&!c.edges.top&&!c.edges.right&&!c.edges.bottom&&!c.edges.left)delete c.edges;} deleteCellIfEmpty(cx,cy); render(); }
+  function applyErase(cx,cy,fx,fy) {
+    const c=cells.get(keyOf(cx,cy));
+    if(c) {
+      delete c.fill;
+      if(c.edges){const edge=pickEdge(fx,fy),close=Math.min(fx,1-fx,fy,1-fy); if(close<.18)delete c.edges[edge]; else delete c.edges; if(c.edges&&!c.edges.top&&!c.edges.right&&!c.edges.bottom&&!c.edges.left)delete c.edges;}
+      deleteCellIfEmpty(cx,cy);
+    }
+    const sh=shapeAt(cx,cy);
+    if(sh){if(sh===selectedShape)selectedShape=null;shapes.splice(shapes.indexOf(sh),1);}
+    lines=lines.filter(ln=>{
+      const minX=Math.min(ln.ax,ln.bx),maxX=Math.max(ln.ax,ln.bx);
+      const minY=Math.min(ln.ay,ln.by),maxY=Math.max(ln.ay,ln.by);
+      if(ln.ax===ln.bx){ return !(cx===ln.ax && cy>=minY && cy<maxY); }
+      if(ln.ay===ln.by){ return !(cy===ln.ay && cx>=minX && cx<maxX); }
+      return true;
+    });
+    render();
+  }
   function shapeAt(cx,cy) { for(let i=shapes.length-1;i>=0;i--) if(shapes[i].cx===cx&&shapes[i].cy===cy) return shapes[i]; return null; }
 
   function hasTrail(ax,ay,bx,by,color) {

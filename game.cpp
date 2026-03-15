@@ -37,7 +37,7 @@ static bool is_players_turn(Game& g, const std::string& name) {
 	if (g.turn_order.empty()) return true;
 	return g.turn_order[g.turn_index] == name;
 }
-static void advance_turn(Game& g) {
+static void advance_turn(Game& g, LabyrinthMap& map) {
 	if (!g.enforce_turns) return;
 	if (g.turn_order.empty()) return;
 	std::string next_name;
@@ -49,7 +49,10 @@ static void advance_turn(Game& g) {
 				if (g.bot_enabled) { next_name = cand; break; }
 				continue;
 			}
-			if (g.players.count(cand)) { next_name = cand; break; }
+			if (!g.players.count(cand)) continue;
+			auto& pos = g.players[cand];
+			if (map.get_cell(pos.first, pos.second) == CellContent::Hospital) continue;
+			next_name = cand; break;
 		}
 	}
 	std::vector<std::string> filtered;
@@ -69,10 +72,10 @@ static void advance_turn(Game& g) {
 	g.turn_index = next_idx % g.turn_order.size();
 	g.actions_left = std::max(1, g.actions_per_turn);
 }
-static void consume_action_or_advance(Game& g) {
+static void consume_action_or_advance(Game& g, LabyrinthMap& map) {
 	if (!g.enforce_turns) return;
 	if (g.actions_left > 0) g.actions_left -= 1;
-	if (g.actions_left <= 0) advance_turn(g);
+	if (g.actions_left <= 0) advance_turn(g, map);
 }
 void Game::init_turns() {
 	ensure_turns_initialized(*this);
@@ -174,7 +177,7 @@ MoveOutcome Game::move_player(const std::string& name, Direction dir, LabyrinthM
 			} else {
 				out.messages.push_back("Выход найден на внешней стене, но без сокровища.");
 			}
-			consume_action_or_advance(*this);
+			consume_action_or_advance(*this, map);
 			return out;
 		}
 	}
@@ -189,7 +192,7 @@ MoveOutcome Game::move_player(const std::string& name, Direction dir, LabyrinthM
 			case Direction::Down:  outer = (pos.second + 1 >= map.height); break;
 		}
 		out.messages.push_back(std::string(outer ? "Врезался во внешнюю стену (" : "Врезался в стену (") + dir_ru(dir) + ")");
-		if (enforce_turns) { actions_left = 0; advance_turn(*this); }
+		if (enforce_turns) { actions_left = 0; advance_turn(*this, map); }
 		return out;
 	}
 	std::pair<size_t,size_t> new_pos{static_cast<size_t>(nx), static_cast<size_t>(ny)};
@@ -282,7 +285,7 @@ MoveOutcome Game::move_player(const std::string& name, Direction dir, LabyrinthM
 			if (visible) out.messages.push_back("Вы чувствуете чьё-то дыхание поблизости.");
 		}
 	}
-	consume_action_or_advance(*this);
+	consume_action_or_advance(*this, map);
 	return out;
 }
 
@@ -322,9 +325,9 @@ UseOutcome Game::use_item(const std::string& name, const std::string& itemId, Di
 		std::string id = item->id();
 		if (id == "knife" || id == "rifle" || id == "shotgun") {
 			actions_left = 0;
-			advance_turn(*this);
+			advance_turn(*this, map);
 		} else {
-			consume_action_or_advance(*this);
+			consume_action_or_advance(*this, map);
 		}
 	}
 	return out;
@@ -332,14 +335,14 @@ UseOutcome Game::use_item(const std::string& name, const std::string& itemId, Di
 
 // Bot AI: move towards nearest player up to bot_steps_per_turn, then attempt kill 50% if adjacent at end
 void Game::run_bot_turn(LabyrinthMap& map, std::vector<std::string>& messages) {
-	if (!bot_enabled) { advance_turn(*this); return; }
+	if (!bot_enabled) { advance_turn(*this, map); return; }
 	// gather targets
-	if (players.empty()) { advance_turn(*this); return; }
+	if (players.empty()) { advance_turn(*this, map); return; }
 	// BFS from bot to nearest player
 	std::vector<std::vector<bool>> vis(map.height, std::vector<bool>(map.width,false));
 	std::vector<std::vector<std::pair<int,int>>> prev(map.height, std::vector<std::pair<int,int>>(map.width, {-1,-1}));
 	std::queue<std::pair<size_t,size_t>> q;
-	if (bot_x >= map.width || bot_y >= map.height) { advance_turn(*this); return; }
+	if (bot_x >= map.width || bot_y >= map.height) { advance_turn(*this, map); return; }
 	q.push({bot_x, bot_y}); vis[bot_y][bot_x] = true;
 	std::pair<size_t,size_t> goal{map.width, map.height};
 	auto is_player = [&](size_t x, size_t y)->bool{
@@ -419,7 +422,7 @@ void Game::run_bot_turn(LabyrinthMap& map, std::vector<std::string>& messages) {
 	}
 	// advance to next actor
 	actions_left = 0;
-	advance_turn(*this);
+	advance_turn(*this, map);
 }
 
 
