@@ -59,7 +59,7 @@
   }
   function toastFeedback(lines, who) {
     const isSelf = who === session.name;
-    const prefix = who ? `<span class="toast-who">${who}</span>` : '';
+    const prefix = who ? `<span class="toast-who">${who}:</span> ` : '';
     const body = (Array.isArray(lines) ? lines : [lines]).join('<br>');
     showToast(prefix + body, isSelf ? 'self' : 'other');
   }
