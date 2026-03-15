@@ -403,6 +403,7 @@
 
   let drawMode = 'draw';
   const EDGE_ZONE = 0.22;
+  let drawLock = null;
   let cellSize = 28, zoom = 1.0, panX = 0, panY = 0, dpr = 1;
   const cells = new Map();
   let shapes = [], selectedShape = null, lines = [], lineStart = null;
@@ -598,9 +599,9 @@
     if(drawMode==='draw'){
       const nearEdge = Math.min(fx,1-fx,fy,1-fy) < EDGE_ZONE;
       const sh = shapeAt(cx,cy);
-      if(sh){pushUndo();selectedShape=sh;draggingShape=sh;dragPrevCX=sh.cx;dragPrevCY=sh.cy;render();}
-      else if(nearEdge){pushUndo();applyBorder(cx,cy,pickEdge(fx,fy));}
-      else{pushUndo();applyPaint(cx,cy);}
+      if(sh){drawLock='shape';pushUndo();selectedShape=sh;draggingShape=sh;dragPrevCX=sh.cx;dragPrevCY=sh.cy;render();}
+      else if(nearEdge){drawLock='border';pushUndo();applyBorder(cx,cy,pickEdge(fx,fy));}
+      else{drawLock='paint';pushUndo();applyPaint(cx,cy);}
     }
     else if(drawMode==='erase'){pushUndo();applyErase(cx,cy,fx,fy);}
     else if(drawMode==='line'){if(!lineStart){lineStart={cx,cy};}else{pushUndo();lines.push({id:makeId(),ax:lineStart.cx,ay:lineStart.cy,bx:cx,by:cy,color:activeColor,type:'solid',w:LINE_WIDTH});lineStart=null;render();saveDraw();}}
@@ -621,21 +622,20 @@
     if(draggingShape){if(trailDraw&&(cell.cx!==dragPrevCX||cell.cy!==dragPrevCY)){addTrail(dragPrevCX,dragPrevCY,cell.cx,cell.cy,draggingShape.color);dragPrevCX=cell.cx;dragPrevCY=cell.cy;}else if(!trailDraw){dragPrevCX=cell.cx;dragPrevCY=cell.cy;}draggingShape.cx=cell.cx;draggingShape.cy=cell.cy;render();lastPX=mx;lastPY=my;return;}
     if(e.buttons&1){
       if(drawMode==='draw'){
-        const nearEdge = Math.min(cell.fx,1-cell.fx,cell.fy,1-cell.fy) < EDGE_ZONE;
-        if(nearEdge) applyBorder(cell.cx,cell.cy,pickEdge(cell.fx,cell.fy));
-        else applyPaint(cell.cx,cell.cy);
+        if(drawLock==='border') applyBorder(cell.cx,cell.cy,pickEdge(cell.fx,cell.fy));
+        else if(drawLock==='paint') applyPaint(cell.cx,cell.cy);
       } else if(drawMode==='erase') applyErase(cell.cx,cell.cy,cell.fx,cell.fy);
     }
 
     lastPX=mx;lastPY=my;
   });
-  canvas.addEventListener('pointerup', e => { pointerDown=false;panning=false;draggingShape=null;canvas.releasePointerCapture(e.pointerId);saveDraw(); });
+  canvas.addEventListener('pointerup', e => { pointerDown=false;panning=false;draggingShape=null;drawLock=null;canvas.releasePointerCapture(e.pointerId);saveDraw(); });
   canvas.addEventListener('dblclick', e => {
     if(drawMode!=='draw') return;
     const rect=canvas.getBoundingClientRect(), mx=e.clientX-rect.left, my=e.clientY-rect.top;
     const{cx,cy}=screenToCell(mx,my);
     const sh=shapeAt(cx,cy);
-    if(!sh){pushUndo();const ns={id:makeId(),kind:'rect',cx,cy,color:activeColor};shapes.push(ns);selectedShape=ns;render();saveDraw();}
+    if(!sh){pushUndo();const ns={id:makeId(),kind:'circle',cx,cy,color:activeColor};shapes.push(ns);selectedShape=ns;render();saveDraw();}
   });
 
   clearDrawEl.addEventListener('click', () => { if(!confirm('Очистить все рисунки?'))return; pushUndo();cells.clear();shapes=[];selectedShape=null;lines=[];lineStart=null;render();saveDraw(); });
