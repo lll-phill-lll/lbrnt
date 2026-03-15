@@ -503,20 +503,44 @@
         ? `${sg.ax},${sg.ay}-${sg.bx},${sg.by}` : `${sg.bx},${sg.by}-${sg.ax},${sg.ay}`;
       let g = segGroups.get(k); if (!g) { g = []; segGroups.set(k, g); } g.push(i);
     }
-    const segOffset = new Float32Array(segs.length);
-    const gap = Math.max(3, Math.min(sizePx() * 0.2, 8));
-    for (const arr of segGroups.values()) {
-      const n = arr.length; if (n <= 1) continue;
-      for (let j = 0; j < n; j++) segOffset[arr[j]] = (j - (n - 1) / 2) * gap;
-    }
+    const drawnGroups = new Set();
     for (let i = 0; i < segs.length; i++) {
       const sg = segs[i];
+      const k = (sg.ax < sg.bx || (sg.ax === sg.bx && sg.ay <= sg.by))
+        ? `${sg.ax},${sg.ay}-${sg.bx},${sg.by}` : `${sg.bx},${sg.by}-${sg.ax},${sg.ay}`;
+      if (drawnGroups.has(k)) continue;
+      drawnGroups.add(k);
+      const group = segGroups.get(k);
+      const colors = []; const seen = new Set();
+      for (const idx of group) {
+        const c = segs[idx].color;
+        if (!seen.has(c)) { seen.add(c); colors.push(c); }
+      }
       const a = cellCenter(sg.ax, sg.ay), b = cellCenter(sg.bx, sg.by);
-      let dx = b.sx - a.sx, dy = b.sy - a.sy, len = Math.sqrt(dx * dx + dy * dy) || 1;
-      const px = -dy / len, py = dx / len, off = segOffset[i];
-      ctx.save(); ctx.strokeStyle = sg.color; ctx.lineWidth = Math.max(1, sg.w); ctx.lineCap = 'round';
-      ctx.setLineDash(sg.type === 'dashed' ? [10, 6] : sg.type === 'dotted' ? [2, 6] : []);
-      ctx.beginPath(); ctx.moveTo(a.sx + px * off, a.sy + py * off); ctx.lineTo(b.sx + px * off, b.sy + py * off); ctx.stroke(); ctx.restore();
+      const lw = Math.max(1, sg.w);
+      if (colors.length === 1) {
+        ctx.save(); ctx.strokeStyle = colors[0]; ctx.lineWidth = lw; ctx.lineCap = 'round';
+        ctx.setLineDash(sg.type === 'dashed' ? [10, 6] : sg.type === 'dotted' ? [2, 6] : []);
+        ctx.beginPath(); ctx.moveTo(a.sx, a.sy); ctx.lineTo(b.sx, b.sy); ctx.stroke(); ctx.restore();
+      } else {
+        const dx = b.sx - a.sx, dy = b.sy - a.sy;
+        const totalLen = Math.sqrt(dx * dx + dy * dy) || 1;
+        const dashLen = Math.max(4, Math.min(sizePx() * 0.25, 10));
+        const n = colors.length;
+        let drawn = 0;
+        let ci = 0;
+        while (drawn < totalLen) {
+          const segLen = Math.min(dashLen, totalLen - drawn);
+          const t0 = drawn / totalLen, t1 = (drawn + segLen) / totalLen;
+          ctx.save(); ctx.strokeStyle = colors[ci % n]; ctx.lineWidth = lw + 1; ctx.lineCap = 'butt';
+          ctx.beginPath();
+          ctx.moveTo(a.sx + dx * t0, a.sy + dy * t0);
+          ctx.lineTo(a.sx + dx * t1, a.sy + dy * t1);
+          ctx.stroke(); ctx.restore();
+          drawn += segLen;
+          ci++;
+        }
+      }
     }
     if(drawMode==='line'&&lineStart&&hover){const a=cellCenter(lineStart.cx,lineStart.cy),b=cellCenter(hover.cx,hover.cy);ctx.save();ctx.globalAlpha=.5;ctx.strokeStyle=activeColor;ctx.lineWidth=2;ctx.setLineDash([6,4]);ctx.lineCap='round';ctx.beginPath();ctx.moveTo(a.sx,a.sy);ctx.lineTo(b.sx,b.sy);ctx.stroke();ctx.restore();}
     const byCell=new Map();
