@@ -64,6 +64,7 @@ R"(labyrinth_cpp commands:
   set-vwall --state state.txt --x X --y Y (--present=0|1)
   set-hwall --state state.txt --x X --y Y (--present=0|1)
   set-knife --state state.txt --name NAME (--broken=0|1)
+  set-turns --state state.txt (0|1)
   add-item --state state.txt --item (knife|shotgun|rifle|flashlight) --x X --y Y [--charges N]
   add-item-random --state state.txt --item (knife|shotgun|rifle|flashlight) [--charges N]
   save-as --state state.txt --out other.txt
@@ -756,6 +757,18 @@ int main(int argc, char** argv) {
 		else st.game.broken_knife.erase(name);
 		if (!AppState::save(st, state, err)) { std::cerr << err << "\n"; return 2; }
 		std::cout << "OK\n"; return 0;
+	}
+	if (cmd == "set-turns") {
+		std::string state;
+		if (!get_arg(argc, argv, std::string("--state"), state)) { usage(); return 1; }
+		if (argc < 3) { usage(); return 1; }
+		int val = std::stoi(argv[argc - 1]);
+		AppState st; std::string err;
+		if (!AppState::load(st, state, err)) { std::cerr << err << "\n"; return 2; }
+		st.game.enforce_turns = (val != 0);
+		if (!AppState::save(st, state, err)) { std::cerr << err << "\n"; return 2; }
+		std::cout << (st.game.enforce_turns ? "Turns ON" : "Turns OFF") << "\n";
+		return 0;
 	}
 	usage();
 	return 1;

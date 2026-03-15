@@ -90,8 +90,18 @@
 
   const turnOrderEl = $('turnOrder');
   function updateTurn(t) {
+    const enforce = t?.enforce !== false;
     const cur = t?.current;
     const order = Array.isArray(t?.order) ? t.order : [];
+
+    if (!enforce) {
+      turnInfo.textContent = 'Свободный режим — ходят все';
+      turnInfo.style.color = '#9aa4b2';
+      turnOrderEl.innerHTML = '';
+      turnsToggle.checked = false;
+      return;
+    }
+    turnsToggle.checked = true;
     if (!cur) { turnInfo.textContent = 'Ожидание...'; turnOrderEl.innerHTML = ''; return; }
     const isMe = cur === session.name;
     turnInfo.textContent = isMe ? '>>> Ваш ход! <<<' : `Ходит: ${cur}`;
@@ -242,6 +252,20 @@
   });
   closeMap.addEventListener('click', () => mapOverlay.classList.add('hidden'));
   mapOverlay.addEventListener('click', e => { if (e.target === mapOverlay) mapOverlay.classList.add('hidden'); });
+
+  // ── Turns toggle (creator only) ──
+  const turnsToggle = $('turnsToggle');
+  turnsToggle.addEventListener('change', async () => {
+    const resp = await emit('setTurns', { enabled: turnsToggle.checked });
+    if (!resp?.ok) {
+      toastSystem('Ошибка: ' + (resp?.error || ''));
+      turnsToggle.checked = !turnsToggle.checked;
+    }
+  });
+  socket.on('turnsToggled', data => {
+    turnsToggle.checked = !!data?.enabled;
+    toastSystem(data?.enabled ? 'Очерёдность ходов включена' : 'Очерёдность ходов отключена — ходят все');
+  });
 
   // ══════════════════════════════════════════
   //  DRAWING ENGINE

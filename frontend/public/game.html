@@ -79,7 +79,15 @@
     <!-- Creator controls -->
     <div class="card hidden" id="creatorCard">
       <div class="title">Управление</div>
-      <button id="viewMapBtn">Показать лабиринт</button>
+      <div class="row" style="margin-bottom:8px;">
+        <button id="viewMapBtn">Показать лабиринт</button>
+      </div>
+      <div class="row">
+        <label style="display:flex;gap:6px;align-items:center;cursor:pointer;min-width:auto;">
+          <input type="checkbox" id="turnsToggle" checked/>
+          Очерёдность ходов
+        </label>
+      </div>
     </div>
 
     <!-- Drawing tools -->

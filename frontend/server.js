@@ -314,6 +314,28 @@ io.on('connection', (socket) => {
     }
   });
 
+  socket.on('setTurns', async (payload, cb) => {
+    if (!myRoom || !myName) return cb?.({ ok: false, error: 'Не в игре' });
+    const meta = readMeta(myRoom);
+    const creatorName = meta?.creator ?? rooms.get(myRoom)?.creatorName ?? null;
+    if (creatorName !== myName) return cb?.({ ok: false, error: 'Только создатель' });
+    const val = payload?.enabled ? '1' : '0';
+    try {
+      let msg;
+      await enqueue(myRoom, async () => {
+        const res = await runLab(['set-turns', '--state', stateFile(myRoom), val]);
+        msg = res.out?.trim();
+        if (res.code !== 0) throw new Error(res.err || 'set-turns failed');
+      });
+      const turn = parseTurnInfo(myRoom);
+      io.to('game:' + myRoom).emit('turn', turn);
+      io.to('game:' + myRoom).emit('turnsToggled', { enabled: !!payload?.enabled });
+      cb?.({ ok: true, message: msg });
+    } catch (e) {
+      cb?.({ ok: false, error: e?.message || String(e) });
+    }
+  });
+
   socket.on('viewMap', async (_payload, cb) => {
     if (!myRoom || !myName) return cb?.({ ok: false, error: 'Не в комнате' });
     const meta = readMeta(myRoom);
