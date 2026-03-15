@@ -40,6 +40,10 @@
     #mapOverlay{position:fixed;inset:0;z-index:100;background:rgba(0,0,0,.85);display:flex;justify-content:center;align-items:center;}
     #mapOverlay .inner{background:#1a1d26;border:1px solid rgba(255,255,255,.15);border-radius:14px;padding:16px;max-width:92vw;max-height:92vh;overflow:auto;position:relative;}
     #mapOverlay .close{position:absolute;top:8px;right:12px;background:none;border:none;color:#e9edf7;font-size:22px;cursor:pointer;}
+    #replayControls button{font-size:14px;padding:4px 10px;}
+    #replayFullLog .log-line{padding:2px 4px;border-radius:3px;}
+    #replayFullLog .log-line:hover{background:rgba(255,255,255,.05);}
+    #replayFullLog .log-line.active{background:rgba(122,162,255,.15);color:#e9edf7;}
     .item-card{border:1px solid rgba(255,255,255,.1);border-radius:8px;padding:8px;background:rgba(255,255,255,.03);margin-bottom:6px;}
     .item-card.disabled{opacity:.4;pointer-events:none;}
     .item-header{display:flex;align-items:center;gap:6px;margin-bottom:4px;}
@@ -53,6 +57,8 @@
     .turn-badge.current{background:rgba(81,207,102,.15);border-color:rgba(81,207,102,.4);color:#51cf66;font-weight:600;}
     .turn-badge.me{border-color:rgba(122,162,255,.4);}
     .turn-badge.me.current{background:rgba(81,207,102,.25);border-color:#51cf66;color:#fff;}
+    .cheat-hint .cheat-tooltip{display:none;position:absolute;bottom:calc(100% + 6px);left:50%;transform:translateX(-50%);background:#1a1d26;border:1px solid rgba(255,107,107,.3);border-radius:8px;padding:6px 10px;font-size:11px;line-height:1.4;color:#ff8787;white-space:normal;width:200px;z-index:200;pointer-events:none;box-shadow:0 4px 12px rgba(0,0,0,.5);}
+    .cheat-hint:hover .cheat-tooltip{display:block;}
   </style>
 </head>
 <body>
@@ -79,8 +85,12 @@
     <!-- Creator controls -->
     <div class="card hidden" id="creatorCard">
       <div class="title">Управление</div>
-      <div class="row" style="margin-bottom:8px;">
+      <div class="row" style="margin-bottom:8px;align-items:center;">
         <button id="viewMapBtn">Показать лабиринт</button>
+        <span class="cheat-hint" style="flex-shrink:0;position:relative;cursor:help;">
+          <span style="width:16px;height:16px;border-radius:50%;border:1px solid rgba(255,255,255,.2);display:inline-flex;align-items:center;justify-content:center;font-size:10px;color:#ff6b6b;">⚠</span>
+          <span class="cheat-tooltip">Чит / Дебаг: показывает настоящую карту лабиринта и полную историю ходов. Только для отладки!</span>
+        </span>
       </div>
       <div class="row">
         <label style="display:flex;gap:6px;align-items:center;cursor:pointer;min-width:auto;">
@@ -129,7 +139,19 @@
 <div id="mapOverlay" class="hidden">
   <div class="inner">
     <button class="close" id="closeMap">&times;</button>
+    <div id="replayControls" style="display:flex;gap:8px;align-items:center;margin-bottom:10px;flex-wrap:wrap;">
+      <button id="replayFirst" title="В начало">⏮</button>
+      <button id="replayPrev" title="Назад">◀</button>
+      <span id="replayStep" style="font-size:13px;min-width:80px;text-align:center;">0 / 0</span>
+      <button id="replayNext" title="Вперёд">▶</button>
+      <button id="replayLast" title="В конец">⏭</button>
+    </div>
+    <div id="replayLogEntry" style="font-size:12px;color:#9aa4b2;margin-bottom:8px;min-height:18px;"></div>
     <div id="mapContent"></div>
+    <details style="margin-top:10px;">
+      <summary style="cursor:pointer;font-size:12px;color:#9aa4b2;">Полный лог действий</summary>
+      <div id="replayFullLog" style="max-height:200px;overflow-y:auto;font-size:11px;color:#868e96;margin-top:6px;line-height:1.6;"></div>
+    </details>
   </div>
 </div>
 

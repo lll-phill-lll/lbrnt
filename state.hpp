@@ -4,12 +4,13 @@
 #include <string>
 #include <vector>
 
-enum class LogType { Move, Attack, AddPlayer, AddPlayerRandom };
+enum class LogType { Move, Attack, UseItem, AddPlayer, AddPlayerRandom };
 struct LogEntry {
 	LogType type{LogType::Move};
 	std::string name;
-	Direction dir{Direction::Up}; // for move/attack
-	size_t x{0}, y{0};           // for add-player (resolved pos for random)
+	Direction dir{Direction::Up};
+	size_t x{0}, y{0};
+	std::string item;             // for UseItem
 };
 
 struct AppState {

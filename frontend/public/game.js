@@ -238,20 +238,87 @@
     }
   }, { passive: false });
 
-  // ── View map (creator) ──
+  // ── View map + replay (creator) ──
+  let replayEntries = [];
+  let replayTotal = 0;
+  let replayCurrentStep = 0;
+  let replayLoading = false;
+  const replayStepLabel = $('replayStep');
+  const replayLogEntry  = $('replayLogEntry');
+  const replayFullLog   = $('replayFullLog');
+
+  function renderReplayStep(step) {
+    replayStepLabel.textContent = `${step} / ${replayTotal}`;
+    replayLogEntry.textContent = step > 0 && step <= replayEntries.length
+      ? `${step}. ${replayEntries[step - 1]}` : step === 0 ? 'Начальное состояние' : '';
+    replayFullLog.querySelectorAll('.log-line').forEach((el, i) => {
+      el.classList.toggle('active', i === step - 1);
+    });
+    const activeLine = replayFullLog.querySelector('.log-line.active');
+    if (activeLine) activeLine.scrollIntoView({ block: 'nearest' });
+  }
+
+  async function loadReplaySvg(step) {
+    if (replayLoading) return;
+    replayLoading = true;
+    if (step === replayTotal) {
+      const resp = await emit('viewMap', {});
+      replayLoading = false;
+      if (resp?.ok && resp.svg) {
+        mapContent.innerHTML = resp.svg;
+        if (resp.replay) { replayEntries = resp.replay.entries; replayTotal = resp.replay.total; }
+      }
+      return;
+    }
+    const resp = await emit('replaySvg', { step });
+    replayLoading = false;
+    if (resp?.ok && resp.svg) mapContent.innerHTML = resp.svg;
+    else toastSystem('Ошибка: ' + (resp?.error || ''));
+  }
+
+  async function gotoStep(step) {
+    step = Math.max(0, Math.min(step, replayTotal));
+    if (step === replayCurrentStep) return;
+    replayCurrentStep = step;
+    renderReplayStep(step);
+    await loadReplaySvg(step);
+  }
+
   viewMapBtn.addEventListener('click', async () => {
     viewMapBtn.textContent = 'Загрузка...';
     const resp = await emit('viewMap', {});
     viewMapBtn.textContent = 'Показать лабиринт';
     if (resp?.ok && resp.svg) {
+      replayEntries = resp.replay?.entries || [];
+      replayTotal = resp.replay?.total || 0;
+      replayCurrentStep = replayTotal;
       mapContent.innerHTML = resp.svg;
+      renderReplayStep(replayCurrentStep);
+      replayFullLog.innerHTML = replayEntries.map((e, i) =>
+        `<div class="log-line${i === replayCurrentStep - 1 ? ' active' : ''}" data-step="${i + 1}" style="cursor:pointer;padding:2px 4px;">${i + 1}. ${e}</div>`
+      ).join('');
+      replayFullLog.querySelectorAll('.log-line').forEach(el => {
+        el.addEventListener('click', () => gotoStep(Number(el.dataset.step)));
+      });
       mapOverlay.classList.remove('hidden');
     } else {
       toastSystem('Ошибка: ' + (resp?.error || ''));
     }
   });
+  $('replayFirst').addEventListener('click', () => gotoStep(0));
+  $('replayPrev').addEventListener('click', () => gotoStep(replayCurrentStep - 1));
+  $('replayNext').addEventListener('click', () => gotoStep(replayCurrentStep + 1));
+  $('replayLast').addEventListener('click', () => gotoStep(replayTotal));
   closeMap.addEventListener('click', () => mapOverlay.classList.add('hidden'));
   mapOverlay.addEventListener('click', e => { if (e.target === mapOverlay) mapOverlay.classList.add('hidden'); });
+  document.addEventListener('keydown', e => {
+    if (mapOverlay.classList.contains('hidden')) return;
+    if (e.key === 'ArrowLeft') { e.preventDefault(); gotoStep(replayCurrentStep - 1); }
+    else if (e.key === 'ArrowRight') { e.preventDefault(); gotoStep(replayCurrentStep + 1); }
+    else if (e.key === 'Home') { e.preventDefault(); gotoStep(0); }
+    else if (e.key === 'End') { e.preventDefault(); gotoStep(replayTotal); }
+    else if (e.key === 'Escape') { e.preventDefault(); mapOverlay.classList.add('hidden'); }
+  });
 
   // ── Turns toggle (creator only) ──
   const turnsToggle = $('turnsToggle');
