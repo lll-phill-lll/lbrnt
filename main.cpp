@@ -42,6 +42,7 @@ R"(labyrinth_cpp commands:
   add-item-random --state state.txt --item (knife|shotgun|rifle|flashlight) [--charges N]
   save-as --state state.txt --out other.txt
   export-svg --state state.txt --out maze.svg [--cell N] [--margin PX]
+  export-html --state state.txt --out maze.html [--cell N] [--margin PX]
   replay-export --base base.txt --log state_with_log.txt --out-dir frames --cell N --margin PX
   init-base --state state.txt
   replay-export-one --state state.txt --out-dir frames --cell N --margin PX
@@ -564,6 +565,23 @@ int main(int argc, char** argv) {
 		f << svg;
 		log_err(std::string("SVG сохранён: ") + out);
 		return 0; // no stdout response
+	}
+	if (cmd == "export-html") {
+		std::string state, out, scell, smargin;
+		if (!get_arg(argc, argv, std::string("--state"), state) ||
+		    !get_arg(argc, argv, std::string("--out"), out)) { usage(); return 1; }
+		float cell = 32.0f;
+		if (get_arg(argc, argv, std::string("--cell"), scell)) cell = std::stof(scell);
+		float margin = cell * 0.5f;
+		if (get_arg(argc, argv, std::string("--margin"), smargin)) margin = std::stof(smargin);
+		AppState st; std::string err;
+		if (!AppState::load(st, state, err)) { std::cerr << err << "\n"; return 2; }
+		auto html = render_html(st, cell, margin);
+		std::ofstream f(out);
+		if (!f) { std::cerr << "Не могу записать HTML\n"; return 2; }
+		f << html;
+		log_err(std::string("HTML сохранён: ") + out);
+		return 0;
 	}
 	if (cmd == "init-base") {
 		std::string state;

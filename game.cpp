@@ -23,10 +23,10 @@ static void ensure_turns_initialized(Game& g) {
 	std::vector<std::string> names;
 	names.reserve(g.players.size());
 	for (const auto& kv : g.players) names.push_back(kv.first);
-	if (g.bot_enabled) names.push_back("bot");
 	std::mt19937 gen{rand_u32()};
 	std::shuffle(names.begin(), names.end(), gen);
 	g.turn_order = std::move(names);
+	if (g.bot_enabled) g.turn_order.push_back("bot");
 	g.turn_index = 0;
 	g.actions_left = std::max(1, g.actions_per_turn);
 }
@@ -39,19 +39,33 @@ static bool is_players_turn(Game& g, const std::string& name) {
 static void advance_turn(Game& g) {
 	if (!g.enforce_turns) return;
 	if (g.turn_order.empty()) return;
+	std::string next_name;
+	if (!g.turn_order.empty()) {
+		for (size_t step = 1; step <= g.turn_order.size(); ++step) {
+			size_t j = (g.turn_index + step) % g.turn_order.size();
+			const std::string& cand = g.turn_order[j];
+			if (cand == "bot") {
+				if (g.bot_enabled) { next_name = cand; break; }
+				continue;
+			}
+			if (g.players.count(cand)) { next_name = cand; break; }
+		}
+	}
 	std::vector<std::string> filtered;
 	filtered.reserve(g.turn_order.size());
 	for (const auto& n : g.turn_order) {
-		if (n == "bot") {
-			if (g.bot_enabled) filtered.push_back(n);
-		} else if (g.players.count(n)) filtered.push_back(n);
+		if (n == "bot") continue;
+		if (g.players.count(n)) filtered.push_back(n);
 	}
+	if (g.bot_enabled) filtered.push_back("bot");
 	if (filtered.empty()) { g.turn_order.clear(); g.turn_index = 0; return; }
-	std::string current = g.turn_order[g.turn_index];
-	size_t idx = 0;
-	for (size_t i=0;i<filtered.size();++i) if (filtered[i]==current) { idx=i; break; }
+	size_t next_idx = 0;
+	if (!next_name.empty()) {
+		auto it = std::find(filtered.begin(), filtered.end(), next_name);
+		if (it != filtered.end()) next_idx = static_cast<size_t>(it - filtered.begin());
+	}
 	g.turn_order = std::move(filtered);
-	g.turn_index = (idx + 1) % g.turn_order.size();
+	g.turn_index = next_idx % g.turn_order.size();
 	g.actions_left = std::max(1, g.actions_per_turn);
 }
 static void consume_action_or_advance(Game& g) {
@@ -75,6 +89,14 @@ bool Game::add_player(const std::string& name, std::pair<size_t,size_t> at, cons
 		std::uniform_int_distribution<size_t> dist(0, turn_order.size());
 		size_t pos = dist(gen);
 		turn_order.insert(turn_order.begin() + pos, name);
+		// ensure bot remains last
+		if (bot_enabled) {
+			auto it = std::find(turn_order.begin(), turn_order.end(), std::string("bot"));
+			if (it != turn_order.end() && (it + 1) != turn_order.end()) {
+				turn_order.erase(it);
+				turn_order.push_back("bot");
+			}
+		}
 	}
 	// ensure bot present in order if enabled
 	if (enforce_turns && bot_enabled) {
@@ -147,6 +169,7 @@ MoveOutcome Game::move_player(const std::string& name, Direction dir, LabyrinthM
 			} else {
 				out.messages.push_back("Выход найден на внешней стене, но без сокровища.");
 			}
+			consume_action_or_advance(*this);
 			return out;
 		}
 	}
