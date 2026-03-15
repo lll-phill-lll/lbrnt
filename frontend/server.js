@@ -59,7 +59,7 @@ app.get('/api/replay-gif', async (req, res) => {
     const w = firstMeta.width, h = firstMeta.height;
 
     const encoder = new GIFEncoder(w, h);
-    encoder.setDelay(1000);
+    encoder.setDelay(200);
     encoder.setRepeat(0);
     encoder.start();
 
