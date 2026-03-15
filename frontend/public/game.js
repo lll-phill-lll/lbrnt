@@ -686,7 +686,8 @@
   canvas.addEventListener('dblclick', e => {
     if(drawMode!=='draw') return;
     const rect=canvas.getBoundingClientRect(), mx=e.clientX-rect.left, my=e.clientY-rect.top;
-    const{cx,cy}=screenToCell(mx,my);
+    const{cx,cy,fx,fy}=screenToCell(mx,my);
+    if(Math.min(fx,1-fx,fy,1-fy) < EDGE_ZONE) return;
     if(!shapeAt(cx,cy)){
       popUndo(); popUndo();
       pushUndo();
