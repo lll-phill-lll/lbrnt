@@ -95,14 +95,10 @@
     <div class="card">
       <div class="title">Рисование</div>
       <div class="row">
-        <button class="active" data-mode="paint">Заливка</button>
-        <button data-mode="border">Стена</button>
-        <button data-mode="shapes">Объект</button>
+        <button class="active" data-mode="draw">Рисовать</button>
         <button data-mode="line">Линия</button>
         <button data-mode="erase">Стёрка</button>
-      </div>
-      <div class="row" style="margin-top:6px;">
-        <button id="trailToggle" style="font-size:12px;">🖊 След за объектом</button>
+        <button id="trailToggle" style="font-size:12px;">🖊 След</button>
       </div>
       <div class="row" style="margin-top:8px;">
         <label>Цвет</label>
@@ -110,7 +106,7 @@
       </div>
       <div id="palette" class="palette"></div>
       <div style="margin-top:8px;"><button id="clearDraw">Очистить</button></div>
-      <div class="muted" style="margin-top:6px;">Объект: клик — поставить, стрелки — двигать, Del — удалить. Колёсико — зум, ПКМ — панорама.</div>
+      <div class="muted" style="margin-top:6px;">Край клетки — стена · Центр — заливка · Двойной клик — объект · Стрелки — двигать · Del — удалить</div>
     </div>
 
     <!-- Admin (creator only) -->
