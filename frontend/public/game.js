@@ -435,19 +435,23 @@
     trailToggleEl.classList.toggle('active', trailDraw);
   });
 
-  const drawInfoIcon = $('drawInfoIcon'), drawInfoTip = $('drawInfoTip');
-  drawInfoIcon.addEventListener('mouseenter', () => {
-    const r = drawInfoIcon.getBoundingClientRect();
-    let x = r.right + 8, y = r.top;
-    drawInfoTip.style.display = 'block';
-    const tw = drawInfoTip.offsetWidth, th = drawInfoTip.offsetHeight;
-    if (x + tw > window.innerWidth) x = r.left - tw - 8;
-    if (y + th > window.innerHeight) y = window.innerHeight - th - 8;
-    if (y < 4) y = 4;
-    drawInfoTip.style.left = x + 'px';
-    drawInfoTip.style.top = y + 'px';
-  });
-  drawInfoIcon.addEventListener('mouseleave', () => { drawInfoTip.style.display = 'none'; });
+  function setupInfoTip(iconId, tipId) {
+    const icon = $(iconId), tip = $(tipId);
+    if (!icon || !tip) return;
+    icon.addEventListener('mouseenter', () => {
+      const r = icon.getBoundingClientRect();
+      let x = r.right + 8, y = r.top;
+      tip.style.display = 'block';
+      const tw = tip.offsetWidth, th = tip.offsetHeight;
+      if (x + tw > window.innerWidth) x = r.left - tw - 8;
+      if (y + th > window.innerHeight) y = window.innerHeight - th - 8;
+      if (y < 4) y = 4;
+      tip.style.left = x + 'px'; tip.style.top = y + 'px';
+    });
+    icon.addEventListener('mouseleave', () => { tip.style.display = 'none'; });
+  }
+  setupInfoTip('drawInfoIcon', 'drawInfoTip');
+  setupInfoTip('adminInfoIcon', 'adminInfoTip');
 
   document.querySelectorAll('[data-mode]').forEach(btn => {
     btn.addEventListener('click', () => {
