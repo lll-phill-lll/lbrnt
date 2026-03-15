@@ -2,6 +2,7 @@
 set -euo pipefail
 
 PORT="${PORT:-5173}"
+DOMAIN="${DOMAIN:-_}"
 PROJECT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
 echo "=== Labyrinth deploy script (Ubuntu) ==="
@@ -11,7 +12,7 @@ echo ""
 # ── 1. System dependencies ──
 echo ">> Installing system packages..."
 sudo apt-get update -qq
-sudo apt-get install -y -qq build-essential cmake curl >/dev/null
+sudo apt-get install -y -qq build-essential cmake curl nginx >/dev/null
 
 # ── 2. Node.js (if not installed or too old) ──
 NODE_MIN=18
@@ -66,7 +67,7 @@ if [ -f "$PROJECT_DIR/.labyrinth.pid" ]; then
   rm -f "$PROJECT_DIR/.labyrinth.pid"
 fi
 
-# ── 7. Launch ──
+# ── 7. Launch Node.js server ──
 echo ""
 echo ">> Starting server on port $PORT..."
 cd "$PROJECT_DIR/frontend"
@@ -75,17 +76,56 @@ SERVER_PID=$!
 echo "$SERVER_PID" > "$PROJECT_DIR/.labyrinth.pid"
 
 sleep 1
-if kill -0 "$SERVER_PID" 2>/dev/null; then
-  echo ""
-  echo "============================================"
-  echo "  Labyrinth is running!"
-  echo "  http://$(hostname -I | awk '{print $1}'):$PORT"
-  echo "  PID: $SERVER_PID"
-  echo "  Log: $PROJECT_DIR/labyrinth.log"
-  echo "  Stop: kill $SERVER_PID"
-  echo "============================================"
-else
+if ! kill -0 "$SERVER_PID" 2>/dev/null; then
   echo "ERROR: Server failed to start. Check labyrinth.log"
   cat "$PROJECT_DIR/labyrinth.log"
   exit 1
 fi
+
+# ── 8. Configure nginx reverse proxy ──
+echo ""
+echo ">> Configuring nginx..."
+
+NGINX_CONF="/etc/nginx/sites-available/labyrinth"
+sudo tee "$NGINX_CONF" > /dev/null <<NGINX
+server {
+    listen 80;
+    server_name $DOMAIN;
+
+    location / {
+        proxy_pass http://127.0.0.1:$PORT;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade \$http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
+        proxy_read_timeout 86400;
+    }
+}
+NGINX
+
+sudo ln -sf "$NGINX_CONF" /etc/nginx/sites-enabled/labyrinth
+sudo rm -f /etc/nginx/sites-enabled/default
+
+if sudo nginx -t 2>&1; then
+  sudo systemctl reload nginx
+  echo "   nginx configured and reloaded"
+else
+  echo "ERROR: nginx config test failed"
+  exit 1
+fi
+
+IP=$(hostname -I | awk '{print $1}')
+echo ""
+echo "============================================"
+echo "  Labyrinth is running!"
+echo ""
+echo "  http://$IP  (port 80, via nginx)"
+echo "  Internal: 127.0.0.1:$PORT"
+echo ""
+echo "  PID: $SERVER_PID"
+echo "  Log: $PROJECT_DIR/labyrinth.log"
+echo "  Stop: kill $SERVER_PID"
+echo "============================================"
