@@ -164,7 +164,26 @@ io.on('connection', (socket) => {
       const r = rooms.get(roomId);
 
       if (r.started) {
-        // Late join: add player to running game
+        // Reconnect to running game: check if player already exists in state
+        const stateExists = fs.existsSync(stateFile(roomId));
+        if (stateExists) {
+          const txt = fs.readFileSync(stateFile(roomId), 'utf8');
+          const playersLine = txt.split('\n').find(l => l.startsWith('PLAYERS '));
+          const playerNames = [];
+          if (playersLine) {
+            const count = Number(playersLine.split(/\s+/)[1]);
+            const lines = txt.split('\n');
+            const idx = lines.indexOf(playersLine);
+            for (let i = 1; i <= count && idx + i < lines.length; i++) {
+              const pname = lines[idx + i].split(/\s+/)[0];
+              if (pname) playerNames.push(pname);
+            }
+          }
+          if (playerNames.includes(name)) {
+            return cb?.({ ok: true, started: true });
+          }
+        }
+        // New player joining a running game
         await enqueue(roomId, async () => {
           const res = await runLab(['add-player-random', '--state', stateFile(roomId), '--name', name]);
           if (res.code !== 0) throw new Error(res.err || res.out || 'Не удалось добавить игрока');
@@ -172,7 +191,20 @@ io.on('connection', (socket) => {
         return cb?.({ ok: true, started: true });
       }
 
-      if (r.waiting.some(w => w.name === name)) return cb?.({ ok: false, error: 'Имя уже занято' });
+      // If same name exists but their socket is disconnected, allow reconnect
+      const existing = r.waiting.find(w => w.name === name);
+      if (existing) {
+        const oldSocket = io.sockets.sockets.get(existing.socketId);
+        if (!oldSocket || !oldSocket.connected) {
+          existing.socketId = socket.id;
+          myRoom = roomId;
+          myName = name;
+          socket.join('lobby:' + roomId);
+          broadcastWaiting(roomId);
+          return cb?.({ ok: true, started: false });
+        }
+        return cb?.({ ok: false, error: 'Имя уже занято' });
+      }
 
       r.waiting.push({ name, socketId: socket.id });
       myRoom = roomId;
