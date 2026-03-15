@@ -467,15 +467,42 @@
   function ensureCell(cx,cy) { const k=keyOf(cx,cy); let c=cells.get(k); if(!c){c={};cells.set(k,c);} return c; }
   function deleteCellIfEmpty(cx,cy) { const k=keyOf(cx,cy),c=cells.get(k); if(!c)return; if(!c.fill&&!(c.edges&&(c.edges.top||c.edges.right||c.edges.bottom||c.edges.left))) cells.delete(k); }
   function applyPaint(cx,cy) { ensureCell(cx,cy).fill=activeColor; render(); }
-  function applyBorder(cx,cy,edge,cycle) {
+  function neighborEdge(cx,cy,edge) {
+    if(edge==='right')  return {nx:cx+1,ny:cy,ne:'left'};
+    if(edge==='left')   return {nx:cx-1,ny:cy,ne:'right'};
+    if(edge==='bottom') return {nx:cx,ny:cy+1,ne:'top'};
+    if(edge==='top')    return {nx:cx,ny:cy-1,ne:'bottom'};
+  }
+  function getWall(cx,cy,edge) {
+    const c=cells.get(keyOf(cx,cy));
+    const cur=c&&c.edges&&c.edges[edge];
+    if(cur) return cur;
+    const{nx,ny,ne}=neighborEdge(cx,cy,edge);
+    const n=cells.get(keyOf(nx,ny));
+    return n&&n.edges&&n.edges[ne] || null;
+  }
+  function setWall(cx,cy,edge,val) {
     const c=ensureCell(cx,cy); if(!c.edges)c.edges={};
-    const cur=c.edges[edge];
+    c.edges[edge]=val;
+    const{nx,ny,ne}=neighborEdge(cx,cy,edge);
+    const n=cells.get(keyOf(nx,ny));
+    if(n&&n.edges&&n.edges[ne]) { n.edges[ne]=val; }
+  }
+  function removeWall(cx,cy,edge) {
+    const c=cells.get(keyOf(cx,cy));
+    if(c&&c.edges) { delete c.edges[edge]; deleteCellIfEmpty(cx,cy); }
+    const{nx,ny,ne}=neighborEdge(cx,cy,edge);
+    const n=cells.get(keyOf(nx,ny));
+    if(n&&n.edges) { delete n.edges[ne]; deleteCellIfEmpty(nx,ny); }
+  }
+  function applyBorder(cx,cy,edge,cycle) {
+    const cur=getWall(cx,cy,edge);
     if(cycle) {
-      if(!cur) c.edges[edge]={w:WALL_THIN,c:activeColor};
-      else if(cur.w<WALL_THICK) c.edges[edge]={w:WALL_THICK,c:activeColor};
-      else { delete c.edges[edge]; deleteCellIfEmpty(cx,cy); }
+      if(!cur) setWall(cx,cy,edge,{w:WALL_THIN,c:activeColor});
+      else if(cur.w<WALL_THICK) setWall(cx,cy,edge,{w:WALL_THICK,c:activeColor});
+      else removeWall(cx,cy,edge);
     } else {
-      if(!cur) c.edges[edge]={w:WALL_THIN,c:activeColor};
+      if(!cur) setWall(cx,cy,edge,{w:WALL_THIN,c:activeColor});
     }
     render();
   }
