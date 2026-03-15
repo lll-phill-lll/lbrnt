@@ -9,7 +9,9 @@
     *,*::before,*::after{box-sizing:border-box;}
     html,body{margin:0;height:100%;font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Arial;background:#0b0d12;color:#e9edf7;}
     .wrap{display:grid;grid-template-columns:var(--sidebar) 1fr;height:100vh;}
-    .sidebar{padding:12px;border-right:1px solid rgba(255,255,255,.12);background:rgba(14,16,22,.95);overflow-y:auto;display:flex;flex-direction:column;gap:10px;}
+    .sidebar{padding:0;border-right:1px solid rgba(255,255,255,.12);background:rgba(14,16,22,.95);display:flex;flex-direction:column;}
+    .sidebar-scroll{flex:1;min-height:0;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:10px;}
+    .sidebar-bottom{padding:8px 12px;border-top:1px solid rgba(255,255,255,.08);flex-shrink:0;}
     .content{display:flex;flex-direction:column;min-width:0;min-height:0;}
     .topbar{padding:8px 12px;border-bottom:1px solid rgba(255,255,255,.12);background:rgba(14,16,22,.95);display:flex;gap:10px;align-items:center;flex-shrink:0;}
     .viewer{flex:1;min-height:0;position:relative;overflow:hidden;}
@@ -65,6 +67,7 @@
 <body>
 <div class="wrap">
   <aside class="sidebar">
+  <div class="sidebar-scroll">
     <!-- Game info -->
     <div class="card">
       <div class="title" id="roomTitle">Комната</div>
@@ -124,8 +127,9 @@
       <div class="muted" style="margin-top:6px;">Объект: клик — поставить, стрелки — двигать, Del — удалить. Колёсико — зум, ПКМ — панорама.</div>
     </div>
 
-    <!-- Chat -->
-    <div class="card" style="margin-top:auto;">
+  </div>
+    <!-- Chat (always visible at bottom) -->
+    <div class="sidebar-bottom">
       <div class="row" style="gap:4px;">
         <input id="chatInput" type="text" placeholder="Сообщение..." style="flex:1;min-width:0;"/>
         <button id="chatSend" style="flex-shrink:0;">↵</button>
