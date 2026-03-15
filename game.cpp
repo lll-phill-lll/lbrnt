@@ -189,7 +189,7 @@ MoveOutcome Game::move_player(const std::string& name, Direction dir, LabyrinthM
 			case Direction::Down:  outer = (pos.second + 1 >= map.height); break;
 		}
 		out.messages.push_back(std::string(outer ? "Врезался во внешнюю стену (" : "Врезался в стену (") + dir_ru(dir) + ")");
-		consume_action_or_advance(*this);
+		if (enforce_turns) { actions_left = 0; advance_turn(*this); }
 		return out;
 	}
 	std::pair<size_t,size_t> new_pos{static_cast<size_t>(nx), static_cast<size_t>(ny)};

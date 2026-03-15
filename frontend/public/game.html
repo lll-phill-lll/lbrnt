@@ -82,27 +82,13 @@
           <button data-move="right">→</button>
         </div>
       </div>
-      <div id="itemsPanel" style="margin-top:8px;"></div>
-      <div class="muted" style="margin-top:8px;">Стрелки: ход · Shift+стрелка: атака · Ctrl/Alt+стрелка: предмет</div>
     </div>
 
-    <!-- Creator controls -->
-    <div class="card hidden" id="creatorCard">
-      <div class="title">Управление</div>
-      <div class="row" style="margin-bottom:8px;align-items:center;gap:6px;">
-        <button id="viewMapBtn">Показать лабиринт</button>
-        <button id="broadcastMapBtn">Показать всем</button>
-        <span class="cheat-hint" style="flex-shrink:0;position:relative;cursor:help;">
-          <span style="width:16px;height:16px;border-radius:50%;border:1px solid rgba(255,255,255,.2);display:inline-flex;align-items:center;justify-content:center;font-size:10px;color:#ff6b6b;">⚠</span>
-          <span class="cheat-tooltip">Чит / Дебаг: показывает настоящую карту лабиринта и полную историю ходов. Только для отладки!</span>
-        </span>
-      </div>
-      <div class="row">
-        <label style="display:flex;gap:6px;align-items:center;cursor:pointer;min-width:auto;">
-          <input type="checkbox" id="turnsToggle" checked/>
-          Очерёдность ходов
-        </label>
-      </div>
+    <!-- Items -->
+    <div class="card" id="itemsCard">
+      <div class="title">Предметы</div>
+      <div id="itemsPanel"></div>
+      <div class="muted" style="margin-top:6px;font-size:11px;">Стрелки — двигать объект · Кнопки — ход/атака</div>
     </div>
 
     <!-- Drawing tools -->
@@ -125,6 +111,25 @@
       <div id="palette" class="palette"></div>
       <div style="margin-top:8px;"><button id="clearDraw">Очистить</button></div>
       <div class="muted" style="margin-top:6px;">Объект: клик — поставить, стрелки — двигать, Del — удалить. Колёсико — зум, ПКМ — панорама.</div>
+    </div>
+
+    <!-- Admin (creator only) -->
+    <div class="card hidden" id="creatorCard" style="border-color:rgba(255,80,80,.25);background:rgba(255,50,50,.06);">
+      <div class="title" style="color:#ff6b6b;">Admin</div>
+      <div class="row" style="margin-bottom:8px;align-items:center;gap:6px;">
+        <button id="viewMapBtn">Показать лабиринт</button>
+        <button id="broadcastMapBtn">Показать всем</button>
+        <span class="cheat-hint" style="flex-shrink:0;position:relative;cursor:help;">
+          <span style="width:16px;height:16px;border-radius:50%;border:1px solid rgba(255,255,255,.2);display:inline-flex;align-items:center;justify-content:center;font-size:10px;color:#ff6b6b;">⚠</span>
+          <span class="cheat-tooltip">Чит / Дебаг: показывает настоящую карту лабиринта и полную историю ходов. Только для отладки!</span>
+        </span>
+      </div>
+      <div class="row">
+        <label style="display:flex;gap:6px;align-items:center;cursor:pointer;min-width:auto;">
+          <input type="checkbox" id="turnsToggle" checked/>
+          Очерёдность ходов
+        </label>
+      </div>
     </div>
 
   </div>

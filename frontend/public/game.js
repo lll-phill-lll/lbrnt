@@ -227,25 +227,17 @@
     const dirs = { ArrowUp:'up', ArrowDown:'down', ArrowLeft:'left', ArrowRight:'right' };
     const dir = dirs[e.key];
     if (!dir) return;
-    if (drawMode === 'shapes' && selectedShape) {
-      e.preventDefault();
-      pushUndo();
-      const oldCX = selectedShape.cx, oldCY = selectedShape.cy;
-      const step = e.shiftKey ? 5 : 1;
-      if (dir === 'left') selectedShape.cx -= step;
-      if (dir === 'right') selectedShape.cx += step;
-      if (dir === 'up') selectedShape.cy -= step;
-      if (dir === 'down') selectedShape.cy += step;
-      if (trailDraw) addTrail(oldCX,oldCY,selectedShape.cx,selectedShape.cy,selectedShape.color);
-      render(); saveDraw(); return;
-    }
+    if (!selectedShape) return;
     e.preventDefault();
-    if (e.shiftKey) doAttack(dir);
-    else if (e.ctrlKey || e.altKey) {
-      const usable = currentItems.find(i => i.charges > 0 && !i.broken);
-      if (usable) doUse(dir, usable.id);
-    }
-    else doMove(dir);
+    pushUndo();
+    const oldCX = selectedShape.cx, oldCY = selectedShape.cy;
+    const step = e.shiftKey ? 5 : 1;
+    if (dir === 'left') selectedShape.cx -= step;
+    if (dir === 'right') selectedShape.cx += step;
+    if (dir === 'up') selectedShape.cy -= step;
+    if (dir === 'down') selectedShape.cy += step;
+    if (trailDraw) addTrail(oldCX,oldCY,selectedShape.cx,selectedShape.cy,selectedShape.color);
+    render(); saveDraw();
   }, { passive: false });
 
   window.addEventListener('keydown', e => {
@@ -504,7 +496,7 @@
     for(const [k,c] of cells.entries()){
       const{x:cx,y:cy}=parseKey(k); if(cx<left||cx>right||cy<top||cy>bottom)continue;
       const x=panX+cx*s, y=panY+cy*s;
-      if(c.fill){ctx.fillStyle=c.fill;ctx.fillRect(x,y,s,s);}
+      if(c.fill){ctx.save();ctx.globalAlpha=0.25;ctx.fillStyle=c.fill;ctx.fillRect(x,y,s,s);ctx.restore();}
       if(c.edges){const e=c.edges;const dr=(edge,x1,y1,x2,y2)=>{if(!edge)return;ctx.strokeStyle=edge.c||'#fff';ctx.lineWidth=Math.max(1,edge.w||1);ctx.setLineDash([]);ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke();};dr(e.top,x,y,x+s,y);dr(e.right,x+s,y,x+s,y+s);dr(e.bottom,x,y+s,x+s,y+s);dr(e.left,x,y,x,y+s);}
     }
     // Break all lines into cell-to-cell segments, then group & offset overlapping ones
