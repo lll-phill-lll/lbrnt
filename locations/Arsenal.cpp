@@ -39,13 +39,24 @@ void ArsenalLocation::onExit(Game& /*game*/, LabyrinthMap& /*map*/, const std::s
 
 void ArsenalLocation::onPlaced(Game& /*game*/, LabyrinthMap& map) {
 	using P = std::vector<std::pair<int,int>>;
-	std::vector<P> patterns = {
-		{{0,0},{1,0},{0,1},{1,1}},
-		{{0,0},{1,0},{2,0},{0,1},{1,1},{2,1}},
-		{{0,0},{1,0},{0,1},{1,1},{0,2},{1,2}},
-		{{0,0},{1,0},{2,0},{0,1},{1,1},{2,1},{0,2},{1,2},{2,2}},
-		{{1,0},{0,1},{1,1},{2,1},{1,2}},
-	};
+	std::vector<P> patterns;
+	size_t area = map.width * map.height;
+	if (area <= 100) {
+		patterns = {
+			{{0,0},{1,0}},
+			{{0,0},{0,1}},
+			{{0,0},{1,0},{2,0}},
+			{{0,0},{0,1},{0,2}},
+			{{0,0},{1,0},{0,1}},
+		};
+	} else {
+		patterns = {
+			{{0,0},{1,0},{0,1},{1,1}},
+			{{0,0},{1,0},{2,0},{0,1},{1,1},{2,1}},
+			{{0,0},{1,0},{0,1},{1,1},{0,2},{1,2}},
+			{{1,0},{0,1},{1,1},{2,1},{1,2}},
+		};
+	}
 	std::mt19937 gen{rand_u32()};
 	std::vector<std::pair<size_t,size_t>> dummy;
 	LocationUtils::pick_and_place_location_cluster(map, CellContent::Arsenal, patterns, gen, dummy);
