@@ -341,8 +341,10 @@ int main(int argc, char** argv) {
 		// Breathing detection
 		auto myPos = st.game.players[name];
 		bool breathing = false;
+		bool meInHospital = st.map.get_cell(myPos.first, myPos.second) == CellContent::Hospital;
 		for (const auto& kv : st.game.players) {
 			if (kv.first == name) continue;
+			if (st.map.get_cell(kv.second.first, kv.second.second) == CellContent::Hospital) continue;
 			size_t dx = (myPos.first > kv.second.first) ? (myPos.first - kv.second.first) : (kv.second.first - myPos.first);
 			size_t dy = (myPos.second > kv.second.second) ? (myPos.second - kv.second.second) : (kv.second.second - myPos.second);
 			if (dx + dy != 1) continue;
@@ -353,7 +355,8 @@ int main(int argc, char** argv) {
 			else if (kv.second.second == myPos.second + 1 && kv.second.first == myPos.first) vis = st.map.can_move_down(myPos.first, myPos.second);
 			if (vis) { breathing = true; break; }
 		}
-		if (!breathing && st.game.bot_enabled) {
+		if (meInHospital) breathing = false;
+		if (!breathing && !meInHospital && st.game.bot_enabled) {
 			size_t bx = st.game.bot_x, by = st.game.bot_y;
 			size_t dx = (myPos.first > bx) ? (myPos.first - bx) : (bx - myPos.first);
 			size_t dy = (myPos.second > by) ? (myPos.second - by) : (by - myPos.second);
