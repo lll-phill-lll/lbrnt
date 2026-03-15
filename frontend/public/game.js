@@ -381,9 +381,9 @@
   // ══════════════════════════════════════════
 
   const COLORS = [
-    "#ffcc66","#ff6b6b","#f06595","#cc5de8","#845ef7","#5c7cfa",
-    "#339af0","#22b8cf","#20c997","#51cf66","#94d82d","#fcc419",
-    "#ffffff","#ced4da","#868e96","#495057","#212529","#000000",
+    "#ff6b6b","#f06595","#cc5de8","#5c7cfa",
+    "#339af0","#20c997","#51cf66","#fcc419",
+    "#ff922b","#ced4da","#868e96","#ffffff",
   ];
   let activeColor = COLORS[0];
   const STORAGE_KEY = 'lab_draw_v2_' + session.room + '_' + session.name;
@@ -472,13 +472,12 @@
   function worldToScreen(wx,wy) { const s=sizePx(); return {sx:panX+wx*s, sy:panY+wy*s}; }
   function cellCenter(cx,cy) { return worldToScreen(cx+.5,cy+.5); }
   function pickEdge(fx,fy) { const dT=fy,dB=1-fy,dL=fx,dR=1-fx; let e='top',b=dT; if(dR<b){b=dR;e='right';}if(dB<b){b=dB;e='bottom';}if(dL<b){b=dL;e='left';} return e; }
-  function neonColor(hex) {
-    let r=parseInt(hex.slice(1,3),16), g=parseInt(hex.slice(3,5),16), b=parseInt(hex.slice(5,7),16);
-    const mx=Math.max(r,g,b)||1;
-    r=Math.min(255,Math.round(r/mx*255));
-    g=Math.min(255,Math.round(g/mx*255));
-    b=Math.min(255,Math.round(b/mx*255));
-    return `rgb(${r},${g},${b})`;
+  function pastelFill(hex) {
+    const r=parseInt(hex.slice(1,3),16), g=parseInt(hex.slice(3,5),16), b=parseInt(hex.slice(5,7),16);
+    const pr=Math.round(r*0.18+30);
+    const pg=Math.round(g*0.18+30);
+    const pb=Math.round(b*0.18+30);
+    return `rgb(${pr},${pg},${pb})`;
   }
   function ensureCell(cx,cy) { const k=keyOf(cx,cy); let c=cells.get(k); if(!c){c={};cells.set(k,c);} return c; }
   function deleteCellIfEmpty(cx,cy) { const k=keyOf(cx,cy),c=cells.get(k); if(!c)return; if(!c.fill&&!(c.edges&&(c.edges.top||c.edges.right||c.edges.bottom||c.edges.left))) cells.delete(k); }
@@ -562,8 +561,8 @@
     for(const [k,c] of cells.entries()){
       const{x:cx,y:cy}=parseKey(k); if(cx<left||cx>right||cy<top||cy>bottom)continue;
       const x=panX+cx*s, y=panY+cy*s;
-      if(c.fill){ctx.fillStyle=c.fill;ctx.fillRect(x,y,s,s);}
-      if(c.edges){const e=c.edges;const dr=(edge,x1,y1,x2,y2)=>{if(!edge)return;ctx.strokeStyle=neonColor(edge.c||'#ffffff');ctx.lineWidth=Math.max(1,edge.w||1);ctx.setLineDash([]);ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke();};dr(e.top,x,y,x+s,y);dr(e.right,x+s,y,x+s,y+s);dr(e.bottom,x,y+s,x+s,y+s);dr(e.left,x,y,x,y+s);}
+      if(c.fill){ctx.fillStyle=pastelFill(c.fill);ctx.fillRect(x,y,s,s);}
+      if(c.edges){const e=c.edges;const dr=(edge,x1,y1,x2,y2)=>{if(!edge)return;ctx.strokeStyle=edge.c||'#fff';ctx.lineWidth=Math.max(1,edge.w||1);ctx.setLineDash([]);ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke();};dr(e.top,x,y,x+s,y);dr(e.right,x+s,y,x+s,y+s);dr(e.bottom,x,y+s,x+s,y+s);dr(e.left,x,y,x,y+s);}
     }
     // Break all lines into cell-to-cell segments, then group & offset overlapping ones
     const segs = [];
@@ -601,7 +600,7 @@
       const a = cellCenter(sg.ax, sg.ay), b = cellCenter(sg.bx, sg.by);
       const lw = Math.max(1, sg.w);
       if (colors.length === 1) {
-        ctx.save(); ctx.strokeStyle = neonColor(colors[0]); ctx.lineWidth = lw; ctx.lineCap = 'round';
+        ctx.save(); ctx.strokeStyle = colors[0]; ctx.lineWidth = lw; ctx.lineCap = 'round';
         ctx.setLineDash(sg.type === 'dashed' ? [10, 6] : sg.type === 'dotted' ? [2, 6] : []);
         ctx.beginPath(); ctx.moveTo(a.sx, a.sy); ctx.lineTo(b.sx, b.sy); ctx.stroke(); ctx.restore();
       } else {
@@ -614,7 +613,7 @@
         while (drawn < totalLen) {
           const segLen = Math.min(dashLen, totalLen - drawn);
           const t0 = drawn / totalLen, t1 = (drawn + segLen) / totalLen;
-          ctx.save(); ctx.strokeStyle = neonColor(colors[ci % n]); ctx.lineWidth = lw + 1; ctx.lineCap = 'butt';
+          ctx.save(); ctx.strokeStyle = colors[ci % n]; ctx.lineWidth = lw + 1; ctx.lineCap = 'butt';
           ctx.beginPath();
           ctx.moveTo(a.sx + dx * t0, a.sy + dy * t0);
           ctx.lineTo(a.sx + dx * t1, a.sy + dy * t1);
@@ -629,7 +628,7 @@
     for(const sh of shapes){const k=keyOf(sh.cx,sh.cy);let a=byCell.get(k);if(!a){a=[];byCell.set(k,a);}a.push(sh);}
     for(const [k,arr] of byCell.entries()){
       const{x:cx,y:cy}=parseKey(k), x0=panX+cx*s, y0=panY+cy*s, n=arr.length, grid=Math.ceil(Math.sqrt(n)), sub=1/grid, pad=.12;
-      for(let i=0;i<n;i++){const sh=arr[i],gx=i%grid,gy=Math.floor(i/grid),sx0=x0+gx*s*sub,sy0=y0+gy*s*sub,sw=s*sub,shh=s*sub,px=sw*pad,py=shh*pad,rx=sx0+px,ry=sy0+py,rw=sw-2*px,rh=shh-2*py;ctx.save();ctx.fillStyle=neonColor(sh.color);ctx.strokeStyle='rgba(0,0,0,0.35)';ctx.lineWidth=Math.max(1,1.2*zoom);ctx.setLineDash([]);if(sh.kind==='rect'){ctx.beginPath();ctx.rect(rx,ry,rw,rh);ctx.fill();ctx.stroke();}else if(sh.kind==='circle'){const r=Math.min(rw,rh)/2;ctx.beginPath();ctx.arc(rx+rw/2,ry+rh/2,r,0,Math.PI*2);ctx.fill();ctx.stroke();}else if(sh.kind==='tri'){ctx.beginPath();ctx.moveTo(rx+rw/2,ry);ctx.lineTo(rx+rw,ry+rh);ctx.lineTo(rx,ry+rh);ctx.closePath();ctx.fill();ctx.stroke();}if(sh===selectedShape){ctx.strokeStyle='rgba(255,255,255,0.75)';ctx.lineWidth=Math.max(1,2*zoom);ctx.setLineDash([6,4]);ctx.strokeRect(rx,ry,rw,rh);}ctx.restore();}
+      for(let i=0;i<n;i++){const sh=arr[i],gx=i%grid,gy=Math.floor(i/grid),sx0=x0+gx*s*sub,sy0=y0+gy*s*sub,sw=s*sub,shh=s*sub,px=sw*pad,py=shh*pad,rx=sx0+px,ry=sy0+py,rw=sw-2*px,rh=shh-2*py;ctx.save();ctx.fillStyle=sh.color;ctx.strokeStyle='rgba(0,0,0,0.35)';ctx.lineWidth=Math.max(1,1.2*zoom);ctx.setLineDash([]);if(sh.kind==='rect'){ctx.beginPath();ctx.rect(rx,ry,rw,rh);ctx.fill();ctx.stroke();}else if(sh.kind==='circle'){const r=Math.min(rw,rh)/2;ctx.beginPath();ctx.arc(rx+rw/2,ry+rh/2,r,0,Math.PI*2);ctx.fill();ctx.stroke();}else if(sh.kind==='tri'){ctx.beginPath();ctx.moveTo(rx+rw/2,ry);ctx.lineTo(rx+rw,ry+rh);ctx.lineTo(rx,ry+rh);ctx.closePath();ctx.fill();ctx.stroke();}if(sh===selectedShape){ctx.strokeStyle='rgba(255,255,255,0.75)';ctx.lineWidth=Math.max(1,2*zoom);ctx.setLineDash([6,4]);ctx.strokeRect(rx,ry,rw,rh);}ctx.restore();}
     }
     if(hover){const x=panX+hover.cx*s,y=panY+hover.cy*s;ctx.strokeStyle='rgba(255,255,255,0.3)';ctx.lineWidth=1;ctx.setLineDash([]);ctx.strokeRect(x+.5,y+.5,s-1,s-1);}
     if(drawMode==='draw'&&borderPreview){const{cx,cy,edge}=borderPreview,x=panX+cx*s,y=panY+cy*s;ctx.save();ctx.globalAlpha=.35;ctx.strokeStyle=activeColor;ctx.lineWidth=WALL_THIN;ctx.setLineDash([]);ctx.lineCap='butt';ctx.beginPath();if(edge==='top'){ctx.moveTo(x,y);ctx.lineTo(x+s,y);}if(edge==='right'){ctx.moveTo(x+s,y);ctx.lineTo(x+s,y+s);}if(edge==='bottom'){ctx.moveTo(x,y+s);ctx.lineTo(x+s,y+s);}if(edge==='left'){ctx.moveTo(x,y);ctx.lineTo(x,y+s);}ctx.stroke();ctx.restore();}
