@@ -131,10 +131,12 @@
     return new Promise(resolve => socket.emit(ev, payload, resp => resolve(resp)));
   }
 
+  let creatorToken = null;
   function goToGame(room, name, password) {
-    const params = new URLSearchParams({ room, name, password: password || '' });
-    sessionStorage.setItem('lab_session', JSON.stringify({ room, name, password: password || '' }));
-    window.location.href = '/game?' + params.toString();
+    const sess = { room, name, password: password || '' };
+    if (creatorToken) sess.creatorToken = creatorToken;
+    sessionStorage.setItem('lab_session', JSON.stringify(sess));
+    window.location.href = '/game?' + new URLSearchParams({ room, name, password: password || '' }).toString();
   }
 
   // ── Create Room ──
@@ -159,6 +161,7 @@
     if (resp?.ok) {
       createdRoom = room;
       creatorName = name;
+      if (resp.creatorToken) creatorToken = resp.creatorToken;
       $('createView').classList.add('hidden');
       $('waitingRoomView').classList.remove('hidden');
       $('wrRoomName').textContent = room;
@@ -209,12 +212,13 @@
   });
 
   // ── Live updates ──
+  function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
   socket.on('waitingList', (data) => {
     const names = data?.players || [];
     if (createdRoom) {
-      $('wrPlayers').innerHTML = names.length ? names.map(n => '<span>' + n + '</span>').join(' ') : 'Пока никого...';
+      $('wrPlayers').innerHTML = names.length ? names.map(n => '<span>' + esc(n) + '</span>').join(' ') : 'Пока никого...';
     }
-    $('wsPlayers').innerHTML = names.length ? names.map(n => '<span>' + n + '</span>').join(' ') : '';
+    $('wsPlayers').innerHTML = names.length ? names.map(n => '<span>' + esc(n) + '</span>').join(' ') : '';
   });
 
   socket.on('gameStarted', () => {
