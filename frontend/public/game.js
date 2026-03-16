@@ -5,7 +5,10 @@
   const params = new URLSearchParams(window.location.search);
   let session = { room: params.get('room'), name: params.get('name'), password: params.get('password') || '' };
   if (!session.room || !session.name) {
-    try { session = JSON.parse(sessionStorage.getItem('lab_session') || '{}'); } catch {}
+    try {
+      const stored = JSON.parse(sessionStorage.getItem('lab_session') || '{}');
+      session = { ...session, ...stored };
+    } catch {}
   }
   if (!session.room || !session.name) {
     window.location.href = '/';
@@ -48,6 +51,12 @@
   roomTitle.textContent = `Комната: ${session.room}`;
   playerLabel.textContent = session.name;
 
+  function esc(s) {
+    const d = document.createElement('div');
+    d.textContent = s;
+    return d.innerHTML;
+  }
+
   function showToast(text, cls, duration) {
     const el = document.createElement('div');
     el.className = 'toast ' + (cls || '');
@@ -65,15 +74,15 @@
     if (feedListEl) { feedListEl.innerHTML = feedHistory.map(h => `<div style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.08);border-radius:10px;padding:5px 10px;line-height:1.4;">${h}</div>`).join(''); feedListEl.scrollTop = feedListEl.scrollHeight; }
   }
   function toastFeedback(lines, who) {
-    const prefix = who ? `<span class="toast-who">${who}:</span> ` : '';
-    const body = (Array.isArray(lines) ? lines : [lines]).join('<br>');
+    const prefix = who ? `<span class="toast-who">${esc(who)}:</span> ` : '';
+    const body = (Array.isArray(lines) ? lines : [lines]).map(l => esc(l)).join('<br>');
     const isSelf = who === session.name;
     showToast(prefix + body, isSelf ? 'self' : 'other', 5000);
   }
-  function toastSystem(text) { showToast(text, 'system', 5000); }
+  function toastSystem(text) { showToast(esc(text), 'system', 5000); }
   function chatToFeed(text, who) {
-    const prefix = who ? `<span class="toast-who">${who}:</span> ` : '';
-    addFeedEntry(prefix + text);
+    const prefix = who ? `<span class="toast-who">${esc(who)}:</span> ` : '';
+    addFeedEntry(prefix + esc(text));
   }
 
   // ── Socket ──
@@ -81,7 +90,7 @@
 
   socket.on('connect', () => {
     toastSystem('Подключено');
-    socket.emit('enterGame', { room: session.room, name: session.name, password: session.password }, resp => {
+    socket.emit('enterGame', { room: session.room, name: session.name, password: session.password, creatorToken: session.creatorToken || '' }, resp => {
       if (resp?.ok) {
         isCreator = !!resp.isCreator;
         if (isCreator) creatorCard.classList.remove('hidden');
@@ -188,7 +197,7 @@
       info.textContent = 'i';
       const tip = document.createElement('div');
       tip.className = 'tooltip';
-      tip.innerHTML = '<b>' + item.displayName + '</b><br>' + item.description + '<br><br><i>' + item.rechargeHint + '</i>';
+      tip.innerHTML = '<b>' + esc(item.displayName) + '</b><br>' + esc(item.description) + '<br><br><i>' + esc(item.rechargeHint) + '</i>';
       info.appendChild(tip);
       info.addEventListener('mouseenter', () => {
         const r = info.getBoundingClientRect();
@@ -380,7 +389,7 @@
     const btn = $('replayExportGif');
     btn.disabled = true;
     btn.textContent = '⏳ Генерация...';
-    const url = `/api/replay-gif?room=${encodeURIComponent(session.room)}&creator=${encodeURIComponent(session.name)}`;
+    const url = `/api/replay-gif?room=${encodeURIComponent(session.room)}&token=${encodeURIComponent(session.creatorToken || '')}`;
     fetch(url).then(r => {
       if (!r.ok) throw new Error('Ошибка ' + r.status);
       return r.blob();

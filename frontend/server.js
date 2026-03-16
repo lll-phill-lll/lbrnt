@@ -5,6 +5,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { spawn } from 'child_process';
 import fs from 'fs';
+import crypto from 'crypto';
 import sharp from 'sharp';
 import GIFEncoder from 'gif-encoder-2';
 
@@ -16,22 +17,55 @@ const ROOMS_DIR = path.join(ROOT, 'rooms');
 
 fs.mkdirSync(ROOMS_DIR, { recursive: true });
 
+// ── Input validation helpers ──
+const SAFE_ID_RE = /^[a-zA-Z0-9_-]{1,40}$/;
+const SAFE_NAME_RE = /^[^\s<>&"']{1,30}$/;
+const MAX_PASSWORD_LEN = 64;
+const MAX_CHAT_LEN = 300;
+
+function validateRoomId(id) {
+  if (typeof id !== 'string') return false;
+  return SAFE_ID_RE.test(id);
+}
+function validateName(name) {
+  if (typeof name !== 'string') return false;
+  return SAFE_NAME_RE.test(name);
+}
+function sanitizeStr(s, maxLen) {
+  return String(s || '').slice(0, maxLen);
+}
+
+const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || '').split(',').filter(Boolean);
+
 const app = express();
 const server = http.createServer(app);
-const io = new SocketIOServer(server, { cors: { origin: true, credentials: true } });
+const io = new SocketIOServer(server, {
+  cors: {
+    origin: ALLOWED_ORIGINS.length > 0
+      ? ALLOWED_ORIGINS
+      : (origin, cb) => cb(null, origin),
+    credentials: true,
+  }
+});
 
 app.use(express.static(path.join(__dirname, 'public')));
 app.get('/', (_req, res) => res.sendFile(path.join(__dirname, 'public', 'lobby.html')));
 app.get('/game', (_req, res) => res.sendFile(path.join(__dirname, 'public', 'game.html')));
 
+// Rate limit for GIF export: one concurrent request per room
+const gifInProgress = new Set();
+
 app.get('/api/replay-gif', async (req, res) => {
-  const room = req.query.room;
-  const creator = req.query.creator;
-  if (!room || !creator) return res.status(400).send('Missing params');
+  const room = String(req.query.room || '').trim();
+  const token = String(req.query.token || '');
+  if (!room || !token) return res.status(400).send('Missing params');
+  if (!validateRoomId(room)) return res.status(400).send('Invalid room id');
   const meta = readMeta(room);
-  if (!meta || meta.creator !== creator) return res.status(403).send('Forbidden');
+  if (!meta || meta.creatorToken !== token) return res.status(403).send('Forbidden');
   const sf = stateFile(room);
   if (!fs.existsSync(sf)) return res.status(404).send('Room not found');
+  if (gifInProgress.has(room)) return res.status(429).send('GIF export already in progress for this room');
+  gifInProgress.add(room);
   try {
     const listRes = await runLab(['replay-list', '--state', sf]);
     if (listRes.code !== 0) throw new Error(listRes.err);
@@ -80,6 +114,8 @@ app.get('/api/replay-gif', async (req, res) => {
   } catch (e) {
     console.error('GIF export error:', e);
     res.status(500).send('Error: ' + (e?.message || e));
+  } finally {
+    gifInProgress.delete(room);
   }
 });
 
@@ -153,25 +189,29 @@ function broadcastWaiting(roomId) {
 io.on('connection', (socket) => {
   let myRoom = null;
   let myName = null;
+  let myIsCreator = false;
 
   // ─── Lobby: create room ───
   socket.on('createRoom', async (payload, cb) => {
     try {
       const roomId = String(payload?.room || '').trim();
-      const pw = String(payload?.password || '');
+      const pw = sanitizeStr(payload?.password, MAX_PASSWORD_LEN);
       const creatorName = String(payload?.name || '').trim();
-      const width = Number(payload?.width) || 12;
-      const height = Number(payload?.height) || 12;
-      const openness = Number(payload?.openness) || 0.5;
+      if (!roomId || !validateRoomId(roomId)) return cb?.({ ok: false, error: 'ID комнаты: только a-z, 0-9, _, - (до 40 символов)' });
+      if (!creatorName || !validateName(creatorName)) return cb?.({ ok: false, error: 'Имя: 1-30 символов, без пробелов и <>&"\'' });
+      const width = Math.min(Math.max(Number(payload?.width) || 12, 4), 50);
+      const height = Math.min(Math.max(Number(payload?.height) || 12, 4), 50);
+      const openness = Math.min(Math.max(Number(payload?.openness) || 0.5, 0), 1);
       const seed = payload?.seed != null ? Number(payload.seed) : Math.floor(Math.random() * 100000);
-      const turnActions = Number(payload?.turnActions) || 1;
-      const weapons = Array.isArray(payload?.weapons) ? payload.weapons : ['shotgun', 'rifle', 'flashlight'];
-      if (!roomId) return cb?.({ ok: false, error: 'Введите ID комнаты' });
-      if (!creatorName) return cb?.({ ok: false, error: 'Введите имя' });
+      const turnActions = Math.min(Math.max(Number(payload?.turnActions) || 1, 1), 10);
+      const validWeapons = ['shotgun', 'rifle', 'flashlight'];
+      const weapons = Array.isArray(payload?.weapons) ? payload.weapons.filter(w => validWeapons.includes(w)) : validWeapons;
       if (rooms.has(roomId) || fs.existsSync(stateFile(roomId))) return cb?.({ ok: false, error: 'Комната уже существует' });
 
+      const creatorToken = crypto.randomBytes(24).toString('hex');
+
       await enqueue(roomId, async () => {
-        writeMeta(roomId, { password: pw, creator: creatorName, started: false, weapons });
+        writeMeta(roomId, { password: pw, creator: creatorName, creatorToken, started: false, weapons });
         const gen = await runLab([
           'generate', '--width', String(width), '--height', String(height),
           '--out', stateFile(roomId), '--openness', String(openness),
@@ -188,13 +228,14 @@ io.on('connection', (socket) => {
       rooms.set(roomId, {
         password: pw, started: false,
         waiting: [{ name: creatorName, socketId: socket.id }],
-        creatorName,
+        creatorName, creatorToken,
       });
       myRoom = roomId;
       myName = creatorName;
+      myIsCreator = true;
       socket.join('lobby:' + roomId);
       broadcastWaiting(roomId);
-      cb?.({ ok: true, message: `Комната "${roomId}" создана (${width}×${height}, seed=${seed})` });
+      cb?.({ ok: true, creatorToken, message: `Комната "${roomId}" создана (${width}×${height}, seed=${seed})` });
     } catch (e) {
       cb?.({ ok: false, error: e?.message || String(e) });
     }
@@ -204,10 +245,10 @@ io.on('connection', (socket) => {
   socket.on('joinRoom', async (payload, cb) => {
     try {
       const roomId = String(payload?.room || '').trim();
-      const pw = String(payload?.password || '');
+      const pw = sanitizeStr(payload?.password, MAX_PASSWORD_LEN);
       const name = String(payload?.name || '').trim();
-      if (!roomId) return cb?.({ ok: false, error: 'Введите ID комнаты' });
-      if (!name) return cb?.({ ok: false, error: 'Введите имя' });
+      if (!roomId || !validateRoomId(roomId)) return cb?.({ ok: false, error: 'ID комнаты: только a-z, 0-9, _, - (до 40 символов)' });
+      if (!name || !validateName(name)) return cb?.({ ok: false, error: 'Имя: 1-30 символов, без пробелов и <>&"\'' });
 
       const meta = readMeta(roomId);
       if (!meta && !rooms.has(roomId)) return cb?.({ ok: false, error: 'Комната не найдена' });
@@ -285,7 +326,7 @@ io.on('connection', (socket) => {
       if (!myRoom) return cb?.({ ok: false, error: 'Не в комнате' });
       const r = rooms.get(myRoom);
       if (!r) return cb?.({ ok: false, error: 'Комната не найдена' });
-      if (r.creatorName !== myName) return cb?.({ ok: false, error: 'Только создатель может начать игру' });
+      if (!myIsCreator) return cb?.({ ok: false, error: 'Только создатель может начать игру' });
       if (r.started) return cb?.({ ok: false, error: 'Игра уже начата' });
       if (r.waiting.length === 0) return cb?.({ ok: false, error: 'Нет игроков' });
 
@@ -318,8 +359,9 @@ io.on('connection', (socket) => {
     try {
       const roomId = String(payload?.room || '').trim();
       const name = String(payload?.name || '').trim();
-      const pw = String(payload?.password || '');
-      if (!roomId || !name) return cb?.({ ok: false, error: 'room and name required' });
+      const pw = sanitizeStr(payload?.password, MAX_PASSWORD_LEN);
+      if (!roomId || !validateRoomId(roomId)) return cb?.({ ok: false, error: 'Invalid room id' });
+      if (!name || !validateName(name)) return cb?.({ ok: false, error: 'Invalid name' });
       if (!fs.existsSync(stateFile(roomId))) return cb?.({ ok: false, error: 'Комната не найдена' });
 
       const meta = readMeta(roomId);
@@ -330,9 +372,11 @@ io.on('connection', (socket) => {
       myName = name;
       socket.join('game:' + roomId);
 
-      // Creator detection: check meta file (survives server restart + page reload)
-      const creatorName = meta?.creator ?? rooms.get(roomId)?.creatorName ?? null;
-      const isCreator = (creatorName === name);
+      // Creator detection: verify by secret token (not just name)
+      const suppliedToken = String(payload?.creatorToken || '');
+      const storedToken = meta?.creatorToken ?? rooms.get(roomId)?.creatorToken ?? null;
+      const isCreator = !!(storedToken && suppliedToken === storedToken);
+      myIsCreator = isCreator;
 
       const turn = parseTurnInfo(roomId);
       const status = await fetchPlayerStatus(roomId, name);
@@ -351,12 +395,15 @@ io.on('connection', (socket) => {
     return null;
   }
 
+  const VALID_DIRS = new Set(['up', 'down', 'left', 'right']);
+  const VALID_ITEMS = new Set(['knife', 'shotgun', 'rifle', 'flashlight']);
   const DIR_RU = { up: 'вверх', down: 'вниз', left: 'влево', right: 'вправо' };
   const ITEM_RU = { knife: 'нож', shotgun: 'дробовик', rifle: 'ружьё', flashlight: 'фонарь' };
 
-  function gameAction(argsBuilder, actionDesc) {
+  function gameAction(argsBuilder, actionDesc, validator) {
     return async (payload, cb) => {
       if (!myRoom || !myName) return cb?.({ ok: false, error: 'Не в игре' });
+      if (validator && !validator(payload)) return cb?.({ ok: false, error: 'Недопустимые параметры' });
       try {
         let feedback;
         await enqueue(myRoom, async () => {
@@ -394,15 +441,18 @@ io.on('connection', (socket) => {
 
   socket.on('move', gameAction(
     p => ['move', '--state', stateFile(myRoom), '--name', myName, String(p?.dir || '')],
-    p => `шагнул ${DIR_RU[p?.dir] || p?.dir}`
+    p => `шагнул ${DIR_RU[p?.dir] || p?.dir}`,
+    p => VALID_DIRS.has(p?.dir)
   ));
   socket.on('attack', gameAction(
     p => ['attack', '--state', stateFile(myRoom), '--name', myName, String(p?.dir || '')],
-    p => `ударил ножом ${DIR_RU[p?.dir] || p?.dir}`
+    p => `ударил ножом ${DIR_RU[p?.dir] || p?.dir}`,
+    p => VALID_DIRS.has(p?.dir)
   ));
   socket.on('use', gameAction(
     p => ['use-item', '--state', stateFile(myRoom), '--name', myName, '--item', String(p?.item || ''), String(p?.dir || '')],
-    p => `использовал ${ITEM_RU[p?.item] || p?.item} ${DIR_RU[p?.dir] || p?.dir}`
+    p => `использовал ${ITEM_RU[p?.item] || p?.item} ${DIR_RU[p?.dir] || p?.dir}`,
+    p => VALID_DIRS.has(p?.dir) && VALID_ITEMS.has(p?.item)
   ));
 
   // ─── Player status (inventory) ───
@@ -423,9 +473,7 @@ io.on('connection', (socket) => {
 
   socket.on('setTurns', async (payload, cb) => {
     if (!myRoom || !myName) return cb?.({ ok: false, error: 'Не в игре' });
-    const meta = readMeta(myRoom);
-    const creatorName = meta?.creator ?? rooms.get(myRoom)?.creatorName ?? null;
-    if (creatorName !== myName) return cb?.({ ok: false, error: 'Только создатель' });
+    if (!myIsCreator) return cb?.({ ok: false, error: 'Только создатель' });
     const val = payload?.enabled ? '1' : '0';
     try {
       let msg;
@@ -445,9 +493,7 @@ io.on('connection', (socket) => {
 
   socket.on('viewMap', async (_payload, cb) => {
     if (!myRoom || !myName) return cb?.({ ok: false, error: 'Не в комнате' });
-    const meta = readMeta(myRoom);
-    const creatorName = meta?.creator ?? rooms.get(myRoom)?.creatorName ?? null;
-    if (creatorName !== myName) return cb?.({ ok: false, error: 'Только создатель может смотреть карту' });
+    if (!myIsCreator) return cb?.({ ok: false, error: 'Только создатель может смотреть карту' });
     try {
       let svg, replayList;
       await enqueue(myRoom, async () => {
@@ -466,9 +512,7 @@ io.on('connection', (socket) => {
 
   socket.on('replaySvg', async (payload, cb) => {
     if (!myRoom || !myName) return cb?.({ ok: false, error: 'Не в комнате' });
-    const meta = readMeta(myRoom);
-    const creatorName = meta?.creator ?? rooms.get(myRoom)?.creatorName ?? null;
-    if (creatorName !== myName) return cb?.({ ok: false, error: 'Только создатель' });
+    if (!myIsCreator) return cb?.({ ok: false, error: 'Только создатель' });
     const step = Number(payload?.step ?? 0);
     try {
       let svg;
@@ -485,9 +529,7 @@ io.on('connection', (socket) => {
 
   socket.on('broadcastMap', async (_payload, cb) => {
     if (!myRoom || !myName) return cb?.({ ok: false, error: 'Не в комнате' });
-    const meta = readMeta(myRoom);
-    const creatorName = meta?.creator ?? rooms.get(myRoom)?.creatorName ?? null;
-    if (creatorName !== myName) return cb?.({ ok: false, error: 'Только создатель' });
+    if (!myIsCreator) return cb?.({ ok: false, error: 'Только создатель' });
     try {
       await enqueue(myRoom, async () => {
         const res = await runLab(['export-svg', '--state', stateFile(myRoom), '--out', svgFile(myRoom)]);
@@ -504,7 +546,7 @@ io.on('connection', (socket) => {
 
   socket.on('chatMessage', (payload, cb) => {
     if (!myRoom || !myName) return cb?.({ ok: false });
-    const text = String(payload?.text || '').trim();
+    const text = sanitizeStr(payload?.text, MAX_CHAT_LEN).trim();
     if (!text) return cb?.({ ok: false });
     io.to('game:' + myRoom).emit('chatMsg', { who: myName, text });
     cb?.({ ok: true });
@@ -520,6 +562,7 @@ io.on('connection', (socket) => {
 });
 
 const PORT = Number(process.env.PORT || 5173);
-server.listen(PORT, () => {
-  console.log(`Labyrinth server: http://127.0.0.1:${PORT}`);
+const HOST = process.env.HOST || '127.0.0.1';
+server.listen(PORT, HOST, () => {
+  console.log(`Labyrinth server: http://${HOST}:${PORT}`);
 });
