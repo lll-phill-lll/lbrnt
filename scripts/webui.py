@@ -302,7 +302,7 @@ def api_preset():
             ok, _ = ensure_svg()
             return jsonify({"ok": False, "stderr": "\n".join(errs), "stdout": "\n".join(outs)}), 400
     # Place one of each item randomly
-    for item in ("shotgun", "rifle", "flashlight", "knife"):
+    for item in ("shotgun", "rifle", "flashlight", "knife", "armor"):
         c, o, e = run_lab(["add-item-random", "--state", STATE, "--item", item])
         outs.append(o); errs.append(e)
         if c != 0:

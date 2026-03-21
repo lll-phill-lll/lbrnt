@@ -1,0 +1,218 @@
+12 12
+VWALLS
+1 0 0 0 0 0 0 0 0 0 0 0 1
+1 0 0 0 0 0 0 0 0 0 1 0 1
+1 0 1 0 0 1 0 0 0 0 1 0 1
+1 0 1 0 0 0 1 0 0 0 1 0 1
+1 0 0 0 1 0 0 0 0 1 0 0 1
+1 1 1 0 0 0 0 0 0 1 0 0 1
+1 1 1 0 0 0 0 1 0 1 0 0 1
+1 0 0 1 0 1 0 1 1 0 0 1 1
+1 0 0 1 1 1 0 0 1 1 0 0 1
+1 0 0 0 1 1 0 0 0 0 1 0 1
+1 0 0 0 0 1 0 1 0 0 0 0 1
+1 0 0 0 0 0 0 0 0 0 0 0 1
+HWALLS
+1 1 1 1 1 1 1 1 1 1 1 1
+0 0 0 1 0 0 1 1 0 0 0 0
+0 0 0 1 1 1 1 0 1 0 0 1
+1 0 0 0 0 0 0 0 0 0 0 0
+0 1 0 0 1 1 0 0 1 1 1 1
+0 0 0 0 1 0 0 0 1 0 0 0
+0 0 0 1 0 0 0 0 0 1 0 1
+0 0 0 0 0 1 1 0 0 1 0 0
+0 1 0 0 1 0 0 0 0 0 0 0
+0 0 1 0 0 1 1 1 0 0 0 0
+1 1 0 0 0 1 1 0 0 1 0 0
+0 0 1 0 1 0 0 0 0 0 0 1
+1 1 1 1 1 1 1 0 1 1 1 1
+CELLS
+. . . . . . . . . . . .
+. . . . . . . . . . . .
+. . . . . . . . . . . .
+. . . . . . . . . . . .
+. . . . . . . . . H H H
+. . . . . . . . . H H H
+. . . . . . . . . . . .
+. . . . . A A . . . . .
+. . . . . A A . . . . .
+. . . . . . . . . T . .
+. . . . . . . . . . . .
+. . . . . . . . . . . .
+EXIT H 12 7
+RNG 42 9
+PLAYERS 4
+Orino 9 6 0 0
+M1sha 2 6 0 0
+Dasha 0 6 0 0
+Rus2m 0 5 0 1
+TURNS 1 0 4
+Orino
+M1sha
+Dasha
+Rus2m
+ACTIONS 1 1
+BOT 0 0 0 1
+ITEMS 6
+Orino knife 1
+M1sha shotgun 1
+M1sha knife 1
+Dasha knife 1
+Rus2m flashlight 1
+Rus2m knife 0
+PCOLORS 4
+Orino #d62728
+M1sha #ff7f0e
+Dasha #2ca02c
+Rus2m #1f77b4
+LOOT_T 0
+LOOT_I 2
+7 7 knife 1
+8 10 rifle 1
+LOG 93
+ADDR Rus2m 10 2
+ADDR M1sha 3 9
+ADDR Dasha 1 9
+ADDR Orino 11 9
+MOVE Dasha up
+MOVE Orino up
+MOVE M1sha up
+MOVE Dasha up
+MOVE Rus2m up
+MOVE Orino up
+MOVE M1sha up
+MOVE Dasha left
+MOVE Rus2m up
+MOVE Orino up
+MOVE M1sha up
+MOVE Dasha up
+MOVE Rus2m up
+MOVE Orino up
+MOVE M1sha up
+MOVE Dasha up
+MOVE Rus2m up
+MOVE Orino up
+MOVE M1sha up
+MOVE Dasha up
+MOVE Rus2m left
+MOVE Orino left
+MOVE M1sha left
+MOVE Dasha left
+MOVE Rus2m left
+MOVE Orino left
+MOVE M1sha left
+MOVE Dasha left
+MOVE Rus2m left
+MOVE Orino left
+MOVE M1sha left
+MOVE Dasha left
+MOVE Rus2m left
+MOVE Orino left
+MOVE M1sha left
+MOVE Dasha left
+MOVE Rus2m left
+MOVE Orino left
+MOVE M1sha left
+MOVE Dasha left
+MOVE Rus2m left
+MOVE Orino left
+MOVE M1sha left
+MOVE Dasha left
+MOVE Rus2m left
+MOVE Orino left
+MOVE M1sha left
+MOVE Dasha left
+MOVE Rus2m left
+MOVE Orino left
+MOVE M1sha left
+MOVE Dasha left
+MOVE Rus2m left
+MOVE Orino left
+MOVE M1sha left
+MOVE Dasha left
+MOVE Rus2m down
+MOVE Orino left
+MOVE M1sha left
+MOVE Dasha left
+MOVE Rus2m down
+MOVE Orino left
+MOVE M1sha left
+MOVE Dasha down
+MOVE Rus2m left
+MOVE Orino left
+MOVE M1sha left
+MOVE Dasha left
+MOVE Rus2m right
+MOVE Orino left
+MOVE M1sha left
+MOVE Dasha left
+MOVE Rus2m down
+MOVE Orino left
+MOVE M1sha left
+MOVE Dasha left
+MOVE Rus2m left
+MOVE Orino left
+MOVE M1sha left
+MOVE Dasha left
+MOVE Rus2m down
+MOVE Orino left
+MOVE M1sha left
+MOVE Dasha left
+MOVE Rus2m down
+MOVE Orino left
+MOVE M1sha left
+MOVE Dasha left
+USE Rus2m knife down
+FINISHED 0
+BASE
+BWH 12 12
+BVWALLS
+1 0 0 0 0 0 0 0 0 0 0 0 1
+1 0 0 0 0 0 0 0 0 0 1 0 1
+1 0 1 0 0 1 0 0 0 0 1 0 1
+1 0 1 0 0 0 1 0 0 0 1 0 1
+1 0 0 0 1 0 0 0 0 1 0 0 1
+1 1 1 0 0 0 0 0 0 1 0 0 1
+1 1 1 0 0 0 0 1 0 1 0 0 1
+1 0 0 1 0 1 0 1 1 0 0 1 1
+1 0 0 1 1 1 0 0 1 1 0 0 1
+1 0 0 0 1 1 0 0 0 0 1 0 1
+1 0 0 0 0 1 0 1 0 0 0 0 1
+1 0 0 0 0 0 0 0 0 0 0 0 1
+BHWALLS
+1 1 1 1 1 1 1 1 1 1 1 1
+0 0 0 1 0 0 1 1 0 0 0 0
+0 0 0 1 1 1 1 0 1 0 0 1
+1 0 0 0 0 0 0 0 0 0 0 0
+0 1 0 0 1 1 0 0 1 1 1 1
+0 0 0 0 1 0 0 0 1 0 0 0
+0 0 0 1 0 0 0 0 0 1 0 1
+0 0 0 0 0 1 1 0 0 1 0 0
+0 1 0 0 1 0 0 0 0 0 0 0
+0 0 1 0 0 1 1 1 0 0 0 0
+1 1 0 0 0 1 1 0 0 1 0 0
+0 0 1 0 1 0 0 0 0 0 0 1
+1 1 1 1 1 1 1 0 1 1 1 1
+BCELLS
+. . . . . . . . . . . .
+. . . . . . . . . . . .
+. . . . . . . . . . . .
+. . . . . . . . . . . .
+. . . . . . . . . H H H
+. . . . . . . . . H H H
+. . . . . . . . . . . .
+. . . . . A A . . . . .
+. . . . . A A . . . . .
+. . . . . . . . . T . .
+. . . . . . . . . . . .
+. . . . . . . . . . . .
+BEXIT H 12 7
+BPLAYERS 0
+BTURNS 1 0 0
+BACTIONS 1 1
+BBOT 0 0 0 1
+BPCOLORS 0
+BITEMS 0
+BLOOT_T 0
+BLOOT_I 0
+BASE_END

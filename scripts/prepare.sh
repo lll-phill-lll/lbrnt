@@ -30,6 +30,7 @@ add_pr Orino
 add_item_rnd shotgun
 add_item_rnd rifle
 add_item_rnd flashlight
+add_item_rnd armor
 
 waitf
 svg
