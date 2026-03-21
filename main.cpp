@@ -67,6 +67,13 @@ static void applyLogEntry(const LogEntry& e, AppState& cur) {
 			}
 			break;
 		}
+		case LogType::BotMove:
+			cur.game.bot_x = e.x;
+			cur.game.bot_y = e.y;
+			break;
+		case LogType::BotKill:
+			cur.game.apply_replay_bot_kill(e.name, cur.map);
+			break;
 	}
 	cur.game.enforce_turns = wasEnforced;
 }
@@ -87,6 +94,8 @@ static std::string logEntryDescription(const LogEntry& e) {
 		case LogType::Move: return e.name + " → " + dirStr(e.dir);
 		case LogType::Attack: return e.name + " атакует " + dirStr(e.dir);
 		case LogType::UseItem: return e.name + " использует " + e.item + " " + dirStr(e.dir);
+		case LogType::BotMove: return std::string("бот → (") + std::to_string(e.x) + "," + std::to_string(e.y) + ")";
+		case LogType::BotKill: return std::string("бот убил ") + e.name;
 	}
 	return "";
 }
@@ -109,7 +118,14 @@ static void run_pending_bot_turns(AppState& st) {
 		if (st.game.turn_index >= st.game.turn_order.size()) break;
 		if (st.game.turn_order[st.game.turn_index] != "bot") break;
 		std::vector<std::string> blog;
-		st.game.run_bot_turn(st.map, blog);
+		std::vector<BotReplayStep> bot_replay;
+		st.game.run_bot_turn(st.map, blog, &bot_replay);
+		for (const auto& s : bot_replay) {
+			if (s.kind == BotReplayStep::Kind::Move)
+				st.log.push_back(LogEntry{LogType::BotMove, "", Direction::Up, s.x, s.y, {}});
+			else
+				st.log.push_back(LogEntry{LogType::BotKill, s.victim, Direction::Up, 0, 0, {}});
+		}
 		std::vector<std::string> bot_lines_for_all;
 		bot_lines_for_all.reserve(blog.size());
 		for (const auto& line : blog) {
@@ -126,8 +142,11 @@ static void run_pending_bot_turns(AppState& st) {
 				bot_lines_for_all.push_back(line);
 			}
 		}
-		if (!bot_lines_for_all.empty())
-			print_user_messages("bot", bot_lines_for_all);
+		// Одна строка = одна строка в логе; без «[bot]:» — тост и так подписывает who: bot
+		if (!bot_lines_for_all.empty()) {
+			for (const auto& line : bot_lines_for_all)
+				std::cout << line << "\n";
+		}
 	}
 	if (st.game.enforce_turns && st.game.bot_enabled && !st.game.turn_order.empty()
 	    && st.game.turn_index < st.game.turn_order.size()

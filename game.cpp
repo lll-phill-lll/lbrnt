@@ -41,13 +41,20 @@ static void advance_turn(Game& g, LabyrinthMap& map) {
 	(void)map;
 	if (!g.enforce_turns) return;
 	if (g.turn_order.empty()) return;
+	const std::string& current = g.turn_order[g.turn_index];
 	std::string next_name;
 	if (!g.turn_order.empty()) {
 		for (size_t step = 1; step <= g.turn_order.size(); ++step) {
 			size_t j = (g.turn_index + step) % g.turn_order.size();
 			const std::string& cand = g.turn_order[j];
 			if (cand == "bot") {
-				if (g.bot_enabled) { next_name = cand; break; }
+				// Бот — «следующий» только после хода живого игрока. Если только что ходил бот,
+				// не выбирать снова бота: иначе при устаревших имёнах в очереди (нет в players)
+				// цикл проходит круг, снова попадает на bot — десятки ходов подряд и «вечно ходит бот».
+				if (g.bot_enabled && current != "bot") {
+					next_name = cand;
+					break;
+				}
 				continue;
 			}
 			if (!g.players.count(cand)) continue;
@@ -335,8 +342,21 @@ UseOutcome Game::use_item(const std::string& name, const std::string& itemId, Di
 	return out;
 }
 
+void Game::apply_replay_bot_kill(const std::string& victim, LabyrinthMap& map) {
+	auto itp = players.find(victim);
+	if (itp == players.end()) return;
+	if (players_with_treasure.count(victim)) {
+		players_with_treasure.erase(victim);
+		loot_treasure[key_xy(itp->second.first, itp->second.second)] += 1;
+	}
+	if (auto* loc = getLocationFor(CellContent::Hospital)) {
+		if (auto* hosp = dynamic_cast<HospitalLocation*>(loc))
+			hosp->teleportToHospital(*this, map, victim);
+	}
+}
+
 // Bot AI: move towards nearest player up to bot_steps_per_turn, then attempt kill 50% if adjacent at end
-void Game::run_bot_turn(LabyrinthMap& map, std::vector<std::string>& messages) {
+void Game::run_bot_turn(LabyrinthMap& map, std::vector<std::string>& messages, std::vector<BotReplayStep>* replay_log) {
 	if (!bot_enabled) { advance_turn(*this, map); return; }
 	// gather targets
 	if (players.empty()) { advance_turn(*this, map); return; }
@@ -381,6 +401,13 @@ void Game::run_bot_turn(LabyrinthMap& map, std::vector<std::string>& messages) {
 		auto [nx, ny] = path.front(); path.erase(path.begin());
 		messages.push_back(std::string("Bot moves ") + std::to_string(bot_x) + "," + std::to_string(bot_y) + " -> " + std::to_string(nx) + "," + std::to_string(ny));
 		bot_x = nx; bot_y = ny;
+		if (replay_log) {
+			BotReplayStep s;
+			s.kind = BotReplayStep::Kind::Move;
+			s.x = bot_x;
+			s.y = bot_y;
+			replay_log->push_back(s);
+		}
 		steps++;
 	}
 	// attempt kill if on same cell or adjacent to any player (walls do not block)
@@ -412,6 +439,12 @@ void Game::run_bot_turn(LabyrinthMap& map, std::vector<std::string>& messages) {
 						if (hosp->teleportToHospital(*this, map, victim)) {
 							messages.push_back(std::string("Bot killed ") + victim);
 							messages.push_back(std::string("PLAYER:") + victim + ": Вас убил бот. Вы в больнице.");
+							if (replay_log) {
+								BotReplayStep ks;
+								ks.kind = BotReplayStep::Kind::Kill;
+								ks.victim = victim;
+								replay_log->push_back(ks);
+							}
 						} else {
 							messages.push_back("Bot attempted kill, hospital not found");
 						}

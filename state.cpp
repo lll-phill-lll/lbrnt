@@ -141,6 +141,10 @@ bool AppState::save(const AppState& st, const std::string& path, std::string& er
 				f << "ADD " << e.name << " " << e.x << " " << e.y << "\n"; break;
 			case LogType::AddPlayerRandom:
 				f << "ADDR " << e.name << " " << e.x << " " << e.y << "\n"; break;
+			case LogType::BotMove:
+				f << "BOTMOVE " << e.x << " " << e.y << "\n"; break;
+			case LogType::BotKill:
+				f << "BOTKILL " << e.name << "\n"; break;
 		}
 	}
 	f << "FINISHED " << (st.game.finished ? 1 : 0) << "\n";
@@ -367,6 +371,14 @@ bool AppState::load(AppState& st, const std::string& path, std::string& err) {
 			} else if (kind == "ADD" || kind == "ADDR") {
 				std::string name; size_t x, y; f >> name >> x >> y;
 				LogEntry e; e.type = (kind=="ADD") ? LogType::AddPlayer : LogType::AddPlayerRandom; e.name = name; e.x = x; e.y = y;
+				st.log.push_back(e);
+			} else if (kind == "BOTMOVE") {
+				size_t x, y; f >> x >> y;
+				LogEntry e; e.type = LogType::BotMove; e.x = x; e.y = y;
+				st.log.push_back(e);
+			} else if (kind == "BOTKILL") {
+				std::string name; f >> name;
+				LogEntry e; e.type = LogType::BotKill; e.name = name;
 				st.log.push_back(e);
 			} else {
 				err = "Неизвестная запись лога"; return false;

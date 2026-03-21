@@ -32,6 +32,13 @@ struct UseOutcome {
 	std::vector<std::string> messages;
 };
 
+/** Шаги бота для записи в replay-лог (история на карте). */
+struct BotReplayStep {
+	enum class Kind { Move, Kill } kind{Kind::Move};
+	size_t x{0}, y{0};
+	std::string victim;
+};
+
 struct Game {
 	std::unordered_map<std::string, std::pair<size_t,size_t>> players;
 	std::unordered_set<std::string> players_with_treasure;
@@ -48,7 +55,10 @@ struct Game {
 	size_t bot_y{0};
 	int bot_steps_per_turn{1};
 
-	void run_bot_turn(LabyrinthMap& map, std::vector<std::string>& messages);
+	void run_bot_turn(LabyrinthMap& map, std::vector<std::string>& messages,
+		std::vector<BotReplayStep>* replay_log = nullptr);
+	/** Только для replay: убийство ботом (как в run_bot_turn, без проверки брони). */
+	void apply_replay_bot_kill(const std::string& victim, LabyrinthMap& map);
 	// inventory: broken knife set; if name is in set -> knife broken, else active
 	std::unordered_set<std::string> broken_knife;
 	// stable per-player color hex (e.g., "#1f77b4")
