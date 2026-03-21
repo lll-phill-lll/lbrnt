@@ -126,10 +126,7 @@ static void run_pending_bot_turns(AppState& st) {
 			else
 				st.log.push_back(LogEntry{LogType::BotKill, s.victim, Direction::Up, 0, 0, {}});
 		}
-		std::vector<std::string> bot_lines_for_all;
-		bot_lines_for_all.reserve(blog.size());
 		for (const auto& line : blog) {
-			log_err(std::string("BOT: ") + line);
 			if (line.rfind("PLAYER:", 0) == 0) {
 				size_t p = line.find(':', 7);
 				if (p != std::string::npos) {
@@ -137,15 +134,14 @@ static void run_pending_bot_turns(AppState& st) {
 					std::string pmsg = line.substr(p + 1);
 					print_user_messages(pname, std::vector<std::string>{pmsg});
 				}
-			} else {
-				// Движение бота и т.д. — в stdout для веб-сервера (раньше только stderr → не попадало в лог)
-				bot_lines_for_all.push_back(line);
 			}
 		}
-		// Одна строка = одна строка в логе; без «[bot]:» — тост и так подписывает who: bot
-		if (!bot_lines_for_all.empty()) {
-			for (const auto& line : bot_lines_for_all)
-				std::cout << line << "\n";
+		// В фиде одна строка на ход бота (без пошаговых координат)
+		for (const auto& line : blog) {
+			if (line == "Бот походил") {
+				std::cout << "Бот походил\n";
+				break;
+			}
 		}
 	}
 	if (st.game.enforce_turns && st.game.bot_enabled && !st.game.turn_order.empty()
