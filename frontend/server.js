@@ -204,7 +204,7 @@ io.on('connection', (socket) => {
       const openness = Math.min(Math.max(Number(payload?.openness) || 0.5, 0), 1);
       const seed = payload?.seed != null ? Number(payload.seed) : Math.floor(Math.random() * 100000);
       const turnActions = Math.min(Math.max(Number(payload?.turnActions) || 1, 1), 10);
-      const validWeapons = ['shotgun', 'rifle', 'flashlight'];
+      const validWeapons = ['shotgun', 'rifle', 'flashlight', 'armor'];
       const weapons = Array.isArray(payload?.weapons) ? payload.weapons.filter(w => validWeapons.includes(w)) : validWeapons;
       if (rooms.has(roomId) || fs.existsSync(stateFile(roomId))) return cb?.({ ok: false, error: 'Комната уже существует' });
 
@@ -398,7 +398,7 @@ io.on('connection', (socket) => {
   const VALID_DIRS = new Set(['up', 'down', 'left', 'right']);
   const VALID_ITEMS = new Set(['knife', 'shotgun', 'rifle', 'flashlight']);
   const DIR_RU = { up: 'вверх', down: 'вниз', left: 'влево', right: 'вправо' };
-  const ITEM_RU = { knife: 'нож', shotgun: 'дробовик', rifle: 'ружьё', flashlight: 'фонарь' };
+  const ITEM_RU = { knife: 'нож', shotgun: 'дробовик', rifle: 'ружьё', flashlight: 'фонарь', armor: 'броня' };
 
   function gameAction(argsBuilder, actionDesc, validator) {
     return async (payload, cb) => {

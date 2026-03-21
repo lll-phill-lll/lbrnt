@@ -67,4 +67,8 @@ struct Game {
 	UseOutcome use_item(const std::string& name, const std::string& itemId, Direction dir, LabyrinthMap& map);
 };
 
+// Attempt to kill a victim (weapon attack). Returns true if hospitalized.
+// If victim has armor, the armor absorbs the hit and the player survives.
+bool attempt_kill(Game& game, LabyrinthMap& map, const std::string& victim, std::vector<std::string>& messages);
+
 
