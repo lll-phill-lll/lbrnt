@@ -73,31 +73,29 @@
   }
   const feedHistory = [];
   const feedListEl = document.getElementById('feedList');
-  /** kind: 'chat' | 'bot' — у бота отдельная полоска в ленте */
-  function addFeedEntry(html, kind) {
-    feedHistory.push({ html, kind: kind || 'chat' });
+  function addFeedEntry(html) {
+    feedHistory.push(html);
     if (feedHistory.length > 12) feedHistory.shift();
     if (feedListEl) {
-      feedListEl.innerHTML = feedHistory.map(({ html: h, kind: k }) => {
-        const botBar = k === 'bot' ? 'border-left:3px solid #748ffc;padding-left:8px;' : '';
-        return `<div style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.08);border-radius:10px;padding:5px 10px;line-height:1.4;${botBar}">${h}</div>`;
-      }).join('');
+      feedListEl.innerHTML = feedHistory.map(h => `<div style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.08);border-radius:10px;padding:5px 10px;line-height:1.4;">${h}</div>`).join('');
       feedListEl.scrollTop = feedListEl.scrollHeight;
     }
   }
-  function feedBotTurn() {
-    addFeedEntry(`<span class="toast-who">бот:</span> ${esc('Бот походил')}`, 'bot');
-  }
   function toastFeedback(lines, who) {
     const arr = Array.isArray(lines) ? lines : [lines];
-    const botN = arr.filter(l => String(l).trim() === 'Бот походил').length;
-    for (let i = 0; i < botN; i++) feedBotTurn();
-    const rest = arr.filter(l => String(l).trim() !== 'Бот походил');
-    if (rest.length === 0) return;
-    const prefix = who ? `<span class="toast-who">${esc(who)}:</span> ` : '';
-    const body = rest.map(l => esc(l)).join('<br>');
-    const isSelf = who === session.name;
-    showToast(prefix + body, isSelf ? 'self' : 'other', 5000);
+    const isBotLine = (l) => String(l).trim() === 'Бот походил';
+    const rest = arr.filter(l => !isBotLine(l));
+    const botCount = arr.filter(isBotLine).length;
+    if (rest.length > 0) {
+      const prefix = who ? `<span class="toast-who">${esc(who)}:</span> ` : '';
+      const body = rest.map(l => esc(l)).join('<br>');
+      const isSelf = who === session.name;
+      showToast(prefix + body, isSelf ? 'self' : 'other', 5000);
+    }
+    // Ход бота — только во всплывающих уведомлениях, не в ленте чата
+    for (let i = 0; i < botCount; i++) {
+      showToast(`<span class="toast-who">бот:</span> ${esc('Бот походил')}`, 'other', 5000);
+    }
   }
   function toastSystem(text) { showToast(esc(text), 'system', 5000); }
   function chatToFeed(text, who) {
