@@ -113,7 +113,7 @@ R"(labyrinth_cpp commands:
   add-player-random --state state.txt --name NAME
   move --state state.txt --name NAME (up|down|left|right)
   attack --state state.txt --name NAME (up|down|left|right)
-  use-item --state state.txt --name NAME --item (knife|shotgun|rifle|flashlight|armor) (up|down|left|right)
+  use-item --state state.txt --name NAME --item (knife|shotgun|rifle|flashlight) (up|down|left|right)
   set-cell --state state.txt --x X --y Y (empty|treasure|hospital|arsenal|exit)
   set-vwall --state state.txt --x X --y Y (--present=0|1)
   set-hwall --state state.txt --x X --y Y (--present=0|1)
