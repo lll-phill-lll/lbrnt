@@ -9,10 +9,76 @@ echo "=== Labyrinth deploy script (Ubuntu) ==="
 echo "Project: $PROJECT_DIR"
 echo ""
 
+# ── Helpers ──
+get_local_ip() {
+  local ip=""
+
+  if command -v ip >/dev/null 2>&1; then
+    ip=$(ip -4 route get 1.1.1.1 2>/dev/null | awk '{
+      for (i = 1; i <= NF; i++) {
+        if ($i == "src") {
+          print $(i + 1)
+          exit
+        }
+      }
+    }')
+  fi
+
+  if [ -z "$ip" ]; then
+    ip=$(hostname -I 2>/dev/null | awk '{
+      for (i = 1; i <= NF; i++) {
+        if ($i ~ /^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$/) {
+          print $i
+          exit
+        }
+      }
+    }')
+  fi
+
+  printf '%s\n' "$ip"
+}
+
+is_valid_ipv4() {
+  local ip="${1:-}"
+  [[ "$ip" =~ ^([0-9]{1,3}\.){3}[0-9]{1,3}$ ]] || return 1
+
+  local IFS=.
+  local a b c d
+  read -r a b c d <<< "$ip"
+
+  for octet in "$a" "$b" "$c" "$d"; do
+    [[ "$octet" =~ ^[0-9]+$ ]] || return 1
+    [ "$octet" -ge 0 ] && [ "$octet" -le 255 ] || return 1
+  done
+
+  return 0
+}
+
+get_public_ip() {
+  local ip=""
+  local url
+
+  command -v curl >/dev/null 2>&1 || return 0
+
+  for url in \
+    "https://api.ipify.org" \
+    "https://ipv4.icanhazip.com" \
+    "https://ifconfig.me/ip"
+  do
+    ip=$(curl -4 -fsS --max-time 5 "$url" 2>/dev/null | tr -d '[:space:]' || true)
+    if is_valid_ipv4 "$ip"; then
+      printf '%s\n' "$ip"
+      return 0
+    fi
+  done
+
+  printf '\n'
+}
+
 # ── 1. System dependencies ──
 echo ">> Installing system packages..."
 sudo apt-get update -qq
-sudo apt-get install -y -qq build-essential cmake curl nginx >/dev/null
+sudo apt-get install -y -qq build-essential cmake curl nginx iproute2 >/dev/null
 
 # ── 2. Node.js (if not installed or too old) ──
 NODE_MIN=18
@@ -117,12 +183,35 @@ else
   exit 1
 fi
 
-IP=$(hostname -I | awk '{print $1}')
+# ── 9. Detect local/public IPs ──
+LOCAL_IP="$(get_local_ip)"
+PUBLIC_IP="$(get_public_ip)"
+
+if is_valid_ipv4 "$PUBLIC_IP"; then
+  echo "$PUBLIC_IP" > "$PROJECT_DIR/public_ip.txt"
+else
+  PUBLIC_IP=""
+  rm -f "$PROJECT_DIR/public_ip.txt"
+fi
+
 echo ""
 echo "============================================"
 echo "  Labyrinth is running!"
 echo ""
-echo "  http://$IP  (port 80, via nginx)"
+
+if [ -n "$PUBLIC_IP" ]; then
+  echo "  http://$PUBLIC_IP  (public IP, port 80 — from the internet)"
+  echo "  Saved: $PROJECT_DIR/public_ip.txt"
+else
+  echo "  Public IP: could not detect (no public egress IP, outbound HTTPS blocked, or lookup service unavailable)."
+fi
+
+if [ -n "$LOCAL_IP" ]; then
+  echo "  http://$LOCAL_IP  (local network IP, port 80)"
+else
+  echo "  Local IP: could not detect."
+fi
+
 echo "  Internal: 127.0.0.1:$PORT"
 echo ""
 echo "  PID: $SERVER_PID"
