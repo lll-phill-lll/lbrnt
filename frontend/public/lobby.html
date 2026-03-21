@@ -34,6 +34,10 @@
     .hidden{display:none!important;}
     .small{font-size:12px;color:#868e96;}
     .row-compact{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;}
+    .item-grid{display:flex;flex-direction:column;gap:6px;margin-bottom:4px;max-width:320px;}
+    .item-row{display:grid;grid-template-columns:1fr 72px;gap:10px;align-items:center;}
+    .item-row label{font-size:13px;color:#ced4da;}
+    .item-cnt{width:100%;text-align:center;padding:6px 8px;}
   </style>
 </head>
 <body>
@@ -63,13 +67,29 @@
         <div class="row"><label>Seed</label><input id="cSeed" type="number" value="" placeholder="random" style="width:80px;"/></div>
       </div>
       <div class="row"><label>Ходов за раунд</label><input id="cActions" type="number" value="1" min="1" max="10" style="width:60px;"/></div>
-      <div class="subtitle" style="margin-top:8px;">Оружие на карте</div>
-      <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px;">
-        <label style="min-width:auto;display:flex;gap:4px;align-items:center;cursor:pointer;"><input type="checkbox" value="shotgun" class="weaponCheck" checked/> Дробовик</label>
-        <label style="min-width:auto;display:flex;gap:4px;align-items:center;cursor:pointer;"><input type="checkbox" value="rifle" class="weaponCheck" checked/> Ружьё</label>
-        <label style="min-width:auto;display:flex;gap:4px;align-items:center;cursor:pointer;"><input type="checkbox" value="flashlight" class="weaponCheck" checked/> Фонарь</label>
-        <label style="min-width:auto;display:flex;gap:4px;align-items:center;cursor:pointer;"><input type="checkbox" value="armor" class="weaponCheck" checked/> Броня</label>
+      <div class="divider"></div>
+      <div class="subtitle">Настройки игры</div>
+      <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:8px;">
+        <label style="min-width:auto;display:flex;gap:8px;align-items:center;cursor:pointer;">
+          <input type="checkbox" id="cEnforceTurns" checked/> Очередь ходов (иначе все ходят когда хотят)
+        </label>
+        <label style="min-width:auto;display:flex;gap:8px;align-items:center;cursor:pointer;">
+          <input type="checkbox" id="cBot"/> Бот в лабиринте
+        </label>
+        <div class="row" id="cBotRow" style="margin-bottom:0;opacity:.55;pointer-events:none;">
+          <label>Шагов бота за ход</label><input id="cBotSteps" type="number" value="1" min="1" max="5" style="width:60px;"/>
+        </div>
       </div>
+      <div class="subtitle" style="margin-top:8px;">Предметы на карте</div>
+      <div class="small" style="margin-bottom:8px;">Сколько экземпляров каждого типа случайно разложить по лабиринту (у игроков в начале всё равно есть свой нож; ножи ниже — дополнительный лут).</div>
+      <div class="item-grid">
+        <div class="item-row"><label>Дробовик</label><input type="number" id="cCntShotgun" min="0" max="20" value="1" class="item-cnt"/></div>
+        <div class="item-row"><label>Ружьё</label><input type="number" id="cCntRifle" min="0" max="20" value="1" class="item-cnt"/></div>
+        <div class="item-row"><label>Фонарь</label><input type="number" id="cCntFlashlight" min="0" max="20" value="1" class="item-cnt"/></div>
+        <div class="item-row"><label>Броня</label><input type="number" id="cCntArmor" min="0" max="20" value="1" class="item-cnt"/></div>
+        <div class="item-row"><label>Нож (лут)</label><input type="number" id="cCntKnife" min="0" max="20" value="0" class="item-cnt"/></div>
+      </div>
+      <div id="cItemTotal" class="small" style="margin-top:6px;color:#9aa4b2;">Всего предметов: 4</div>
       <button id="createBtn" class="primary">Создать</button>
       <div id="createStatus" class="status"></div>
     </div>
@@ -140,6 +160,38 @@
     window.location.href = '/game?' + new URLSearchParams({ room, name, password: password || '' }).toString();
   }
 
+  const cBot = $('cBot');
+  const cBotRow = $('cBotRow');
+  function syncBotRow() {
+    const on = cBot.checked;
+    cBotRow.style.opacity = on ? '1' : '.55';
+    cBotRow.style.pointerEvents = on ? 'auto' : 'none';
+  }
+  cBot.addEventListener('change', syncBotRow);
+  syncBotRow();
+
+  function readItemCounts() {
+    const clamp = n => Math.min(20, Math.max(0, Math.floor(Number(n) || 0)));
+    return {
+      shotgun: clamp($('cCntShotgun').value),
+      rifle: clamp($('cCntRifle').value),
+      flashlight: clamp($('cCntFlashlight').value),
+      armor: clamp($('cCntArmor').value),
+      knife: clamp($('cCntKnife').value),
+    };
+  }
+  function updateItemTotal() {
+    const c = readItemCounts();
+    const t = c.shotgun + c.rifle + c.flashlight + c.armor + c.knife;
+    const el = $('cItemTotal');
+    if (el) el.textContent = 'Всего предметов: ' + t + (t > 80 ? ' (макс. 80)' : '');
+  }
+  ['cCntShotgun', 'cCntRifle', 'cCntFlashlight', 'cCntArmor', 'cCntKnife'].forEach(id => {
+    const el = $(id);
+    if (el) el.addEventListener('input', updateItemTotal);
+  });
+  updateItemTotal();
+
   // ── Create Room ──
   $('createBtn').addEventListener('click', async () => {
     const room = $('cRoom').value.trim();
@@ -147,9 +199,11 @@
     const password = $('cPassword').value;
     if (!room) return ($('createStatus').textContent = 'Введите ID комнаты', $('createStatus').className = 'status error');
     if (!name) return ($('createStatus').textContent = 'Введите ваше имя', $('createStatus').className = 'status error');
+    const itemCounts = readItemCounts();
+    const icSum = Object.values(itemCounts).reduce((a, b) => a + b, 0);
+    if (icSum > 80) return ($('createStatus').textContent = 'Слишком много предметов (макс. 80)', $('createStatus').className = 'status error');
     $('createStatus').textContent = 'Создаю...';
     $('createStatus').className = 'status';
-    const weapons = [...document.querySelectorAll('.weaponCheck:checked')].map(c => c.value);
     const resp = await emit('createRoom', {
       room, password, name,
       width: Number($('cWidth').value) || 12,
@@ -157,7 +211,10 @@
       openness: Number($('cOpenness').value) || 0.5,
       seed: $('cSeed').value ? Number($('cSeed').value) : undefined,
       turnActions: Number($('cActions').value) || 1,
-      weapons,
+      itemCounts,
+      enforceTurns: $('cEnforceTurns').checked,
+      botEnabled: $('cBot').checked,
+      botSteps: Number($('cBotSteps').value) || 1,
     });
     if (resp?.ok) {
       createdRoom = room;
