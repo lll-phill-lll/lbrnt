@@ -204,24 +204,56 @@ io.on('connection', (socket) => {
       const openness = Math.min(Math.max(Number(payload?.openness) || 0.5, 0), 1);
       const seed = payload?.seed != null ? Number(payload.seed) : Math.floor(Math.random() * 100000);
       const turnActions = Math.min(Math.max(Number(payload?.turnActions) || 1, 1), 10);
-      const validWeapons = ['shotgun', 'rifle', 'flashlight', 'armor'];
-      const weapons = Array.isArray(payload?.weapons) ? payload.weapons.filter(w => validWeapons.includes(w)) : validWeapons;
+      const ITEM_IDS = ['shotgun', 'rifle', 'flashlight', 'armor', 'knife'];
+      const MAX_ITEM_PER_TYPE = 20;
+      const MAX_ITEMS_TOTAL = 80;
+      const itemCounts = { shotgun: 0, rifle: 0, flashlight: 0, armor: 0, knife: 0 };
+      if (payload?.itemCounts && typeof payload.itemCounts === 'object') {
+        for (const id of ITEM_IDS) {
+          const v = Number(payload.itemCounts[id]);
+          const n = Number.isFinite(v) ? Math.floor(v) : 0;
+          itemCounts[id] = Math.min(Math.max(n, 0), MAX_ITEM_PER_TYPE);
+        }
+      } else {
+        const validW = ['shotgun', 'rifle', 'flashlight', 'armor'];
+        if (Array.isArray(payload?.weapons)) {
+          for (const id of validW) itemCounts[id] = payload.weapons.includes(id) ? 1 : 0;
+        } else {
+          for (const id of validW) itemCounts[id] = 1;
+        }
+        if (payload?.lootKnifeOnMap) itemCounts.knife = Math.max(itemCounts.knife, 1);
+      }
+      const itemsSum = ITEM_IDS.reduce((s, id) => s + itemCounts[id], 0);
+      if (itemsSum > MAX_ITEMS_TOTAL) {
+        return cb?.({ ok: false, error: `Слишком много предметов (макс. ${MAX_ITEMS_TOTAL}, сейчас ${itemsSum})` });
+      }
+      const enforceTurns = payload?.enforceTurns !== false;
+      const botEnabled = !!payload?.botEnabled;
+      const botSteps = Math.min(Math.max(Number(payload?.botSteps) || 1, 1), 5);
       if (rooms.has(roomId) || fs.existsSync(stateFile(roomId))) return cb?.({ ok: false, error: 'Комната уже существует' });
 
       const creatorToken = crypto.randomBytes(24).toString('hex');
 
       await enqueue(roomId, async () => {
-        writeMeta(roomId, { password: pw, creator: creatorName, creatorToken, started: false, weapons });
-        const gen = await runLab([
+        writeMeta(roomId, {
+          password: pw, creator: creatorName, creatorToken, started: false, itemCounts,
+          enforceTurns, botEnabled, botSteps,
+        });
+        const genArgs = [
           'generate', '--width', String(width), '--height', String(height),
           '--out', stateFile(roomId), '--openness', String(openness),
           '--seed', String(seed), '--turn-actions', String(turnActions),
-        ]);
+          '--turns', enforceTurns ? '1' : '0',
+        ];
+        if (botEnabled) genArgs.push('--bot-steps', String(botSteps));
+        const gen = await runLab(genArgs);
         if (gen.code !== 0) throw new Error(gen.err || gen.out || 'generate failed');
-        // Place selected weapons on the map
-        for (const w of weapons) {
-          const res = await runLab(['add-item-random', '--state', stateFile(roomId), '--item', w]);
-          if (res.code !== 0) console.error(`Failed to place ${w}: ${res.err}`);
+        // Place items on the map (counts per type)
+        for (const id of ITEM_IDS) {
+          for (let i = 0; i < itemCounts[id]; i++) {
+            const res = await runLab(['add-item-random', '--state', stateFile(roomId), '--item', id]);
+            if (res.code !== 0) console.error(`Failed to place ${id}: ${res.err}`);
+          }
         }
       });
 
@@ -262,6 +294,7 @@ io.on('connection', (socket) => {
           started: meta?.started ?? false,
           waiting: [],
           creatorName: meta?.creator ?? null,
+          creatorToken: meta?.creatorToken ?? null,
         });
       }
       const r = rooms.get(roomId);
@@ -396,7 +429,7 @@ io.on('connection', (socket) => {
   }
 
   const VALID_DIRS = new Set(['up', 'down', 'left', 'right']);
-  const VALID_ITEMS = new Set(['knife', 'shotgun', 'rifle', 'flashlight']);
+  const VALID_ITEMS = new Set(['knife', 'shotgun', 'rifle', 'flashlight', 'armor']);
   const DIR_RU = { up: 'вверх', down: 'вниз', left: 'влево', right: 'вправо' };
   const ITEM_RU = { knife: 'нож', shotgun: 'дробовик', rifle: 'ружьё', flashlight: 'фонарь', armor: 'броня' };
 
