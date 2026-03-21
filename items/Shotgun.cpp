@@ -39,13 +39,19 @@ void Shotgun::apply(Game& game, LabyrinthMap& map, const std::string& playerName
 
 	bool any = false;
 	for (auto [tx, ty] : targets) {
+		bool cell_hit = false;
 		for (const auto& kv : game.players) {
 			if (kv.first == playerName) continue;
 			if (kv.second.first == tx && kv.second.second == ty) {
 				if (attempt_kill(game, map, kv.first, messages))
 					messages.push_back(std::string("Дробовик ") + dir_ru(dir) + ": игрок " + kv.first + " отправлен в больницу");
 				any = true;
+				cell_hit = true;
 			}
+		}
+		if (!cell_hit && hit_bot_at(game, map, tx, ty, messages)) {
+			messages.push_back(std::string("Дробовик ") + dir_ru(dir) + ": бот уничтожен");
+			any = true;
 		}
 	}
 	if (!any) messages.push_back(std::string("Дробовик ") + dir_ru(dir) + ": промах");

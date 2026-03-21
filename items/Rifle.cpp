@@ -20,13 +20,19 @@ void Rifle::apply(Game& game, LabyrinthMap& map, const std::string& playerName, 
 	bool any = false;
 	for (int i = 0; i < 3; ++i) {
 		if (!step_forward(map, cx, cy, dir)) break;
+		bool step_hit = false;
 		for (const auto& kv : game.players) {
 			if (kv.first == playerName) continue;
 			if (kv.second.first == cx && kv.second.second == cy) {
 				if (attempt_kill(game, map, kv.first, messages))
 					messages.push_back(std::string("Ружьё ") + dir_ru(dir) + ": игрок " + kv.first + " отправлен в больницу");
 				any = true;
+				step_hit = true;
 			}
+		}
+		if (!step_hit && hit_bot_at(game, map, cx, cy, messages)) {
+			messages.push_back(std::string("Ружьё ") + dir_ru(dir) + ": бот уничтожен");
+			any = true;
 		}
 	}
 	if (!any) messages.push_back(std::string("Ружьё ") + dir_ru(dir) + ": промах");

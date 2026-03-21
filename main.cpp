@@ -552,6 +552,8 @@ int main(int argc, char** argv) {
 		if (!AppState::load(st, state, err)) { std::cerr << err << "\n"; return 2; }
 		auto out = st.game.use_item(name, item, dir, st.map);
 		st.log.push_back(LogEntry{LogType::UseItem, name, dir, 0, 0, item});
+		if (out.bot_respawn_for_log)
+			st.log.push_back(LogEntry{LogType::BotMove, "", Direction::Up, out.bot_log_x, out.bot_log_y, {}});
 		if (!AppState::save(st, state, err)) { std::cerr << err << "\n"; return 2; }
 		{
 			std::ostringstream es;
@@ -627,6 +629,8 @@ int main(int argc, char** argv) {
 		if (!AppState::load(st, state, err)) { std::cerr << err << "\n"; return 2; }
 		auto out = st.game.attack(name, dir, st.map);
 		st.log.push_back(LogEntry{LogType::Attack, name, dir, 0, 0, {}});
+		if (out.bot_respawn_for_log)
+			st.log.push_back(LogEntry{LogType::BotMove, "", Direction::Up, out.bot_log_x, out.bot_log_y, {}});
 		if (!AppState::save(st, state, err)) { std::cerr << err << "\n"; return 2; }
 		// stderr detailed log
 		{

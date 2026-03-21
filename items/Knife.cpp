@@ -20,13 +20,23 @@ void Knife::apply(Game& game, LabyrinthMap& map, const std::string& playerName, 
 		if (kv.first == playerName) continue;
 		if (kv.second.first == tx && kv.second.second == ty) { victim = kv.first; break; }
 	}
-	if (victim.empty() || !can) {
+	if (!can) {
 		messages.push_back(std::string("Удар ножом ") + dir_ru(dir) + " — мимо");
 		messages.push_back("Нож потрачен");
 		return;
 	}
-	if (attempt_kill(game, map, victim, messages))
-		messages.push_back(std::string("Удар ножом ") + dir_ru(dir) + ": игрок " + victim + " отправлен в больницу");
+	if (!victim.empty()) {
+		if (attempt_kill(game, map, victim, messages))
+			messages.push_back(std::string("Удар ножом ") + dir_ru(dir) + ": игрок " + victim + " отправлен в больницу");
+		messages.push_back("Нож потрачен");
+		return;
+	}
+	if (hit_bot_at(game, map, tx, ty, messages)) {
+		messages.push_back(std::string("Удар ножом ") + dir_ru(dir) + ": бот уничтожен");
+		messages.push_back("Нож потрачен");
+		return;
+	}
+	messages.push_back(std::string("Удар ножом ") + dir_ru(dir) + " — мимо");
 	messages.push_back("Нож потрачен");
 }
 
