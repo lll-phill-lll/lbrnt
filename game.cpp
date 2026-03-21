@@ -27,6 +27,7 @@ static void ensure_turns_initialized(Game& g) {
 	std::mt19937 gen{rand_u32()};
 	std::shuffle(names.begin(), names.end(), gen);
 	g.turn_order = std::move(names);
+	// Бот только в конце очереди — при turn_index=0 первым всегда живой игрок, не бот.
 	if (g.bot_enabled) g.turn_order.push_back("bot");
 	g.turn_index = 0;
 	g.actions_left = std::max(1, g.actions_per_turn);
@@ -41,28 +42,8 @@ static void advance_turn(Game& g, LabyrinthMap& map) {
 	(void)map;
 	if (!g.enforce_turns) return;
 	if (g.turn_order.empty()) return;
-	const std::string& current = g.turn_order[g.turn_index];
-	std::string next_name;
-	if (!g.turn_order.empty()) {
-		for (size_t step = 1; step <= g.turn_order.size(); ++step) {
-			size_t j = (g.turn_index + step) % g.turn_order.size();
-			const std::string& cand = g.turn_order[j];
-			if (cand == "bot") {
-				// Бот — «следующий» только после хода живого игрока. Если только что ходил бот,
-				// не выбирать снова бота: иначе при устаревших имёнах в очереди (нет в players)
-				// цикл проходит круг, снова попадает на bot — десятки ходов подряд и «вечно ходит бот».
-				if (g.bot_enabled && current != "bot") {
-					next_name = cand;
-					break;
-				}
-				continue;
-			}
-			if (!g.players.count(cand)) continue;
-			// Не пропускать игроков на больнице: иначе после телепорта в больницу ход никогда
-			// не доходит до них (очередь зацикливается на боте — «всегда ходит бот»).
-			next_name = cand; break;
-		}
-	}
+	// Нормализованная очередь: только живые игроки (порядок как в turn_order) + бот всегда в конце.
+	// Так не остаётся «мёртвых» имён и не нужна отдельная логика «после бота не брать бота».
 	std::vector<std::string> filtered;
 	filtered.reserve(g.turn_order.size());
 	for (const auto& n : g.turn_order) {
@@ -71,6 +52,38 @@ static void advance_turn(Game& g, LabyrinthMap& map) {
 	}
 	if (g.bot_enabled) filtered.push_back("bot");
 	if (filtered.empty()) { g.turn_order.clear(); g.turn_index = 0; return; }
+
+	std::string cur_name;
+	if (g.turn_index < g.turn_order.size()) cur_name = g.turn_order[g.turn_index];
+	size_t cur_idx = 0;
+	{
+		bool found = false;
+		for (size_t i = 0; i < filtered.size(); ++i) {
+			if (filtered[i] == cur_name) {
+				cur_idx = i;
+				found = true;
+				break;
+			}
+		}
+		if (!found)
+			cur_idx = filtered.size() - 1; // «как после бота» → следующий шаг даст первого человека
+	}
+
+	std::string next_name;
+	for (size_t step = 1; step <= filtered.size(); ++step) {
+		size_t j = (cur_idx + step) % filtered.size();
+		const std::string& cand = filtered[j];
+		if (cand == "bot") {
+			if (g.bot_enabled) {
+				next_name = cand;
+				break;
+			}
+			continue;
+		}
+		next_name = cand;
+		break;
+	}
+
 	size_t next_idx = 0;
 	if (!next_name.empty()) {
 		auto it = std::find(filtered.begin(), filtered.end(), next_name);
