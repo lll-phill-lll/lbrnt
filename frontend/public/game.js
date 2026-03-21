@@ -35,6 +35,8 @@
   const itemsPanel   = $('itemsPanel');
   let currentItems = [];
   let selectedItemId = null;
+  /** чтобы не дублировать тост дыхания: из feedback и из playerStatus */
+  let lastBreathing = false;
   const drawColorEl  = $('drawColor');
   const WALL_THIN = 3, WALL_THICK = 6, TRAIL_WIDTH = 2, LINE_WIDTH = 2;
   const clearDrawEl  = $('clearDraw');
@@ -81,10 +83,19 @@
       feedListEl.scrollTop = feedListEl.scrollHeight;
     }
   }
+  const isBreathingLine = (l) => String(l).includes('чувствуете чьё-то дыхание');
   function toastFeedback(lines, who) {
     const arr = Array.isArray(lines) ? lines : [lines];
     const isBotLine = (l) => String(l).trim() === 'Бот походил';
-    const rest = arr.filter(l => !isBotLine(l));
+    let breathingKept = false;
+    const rest = arr.filter(l => {
+      if (isBotLine(l)) return false;
+      if (isBreathingLine(l)) {
+        if (breathingKept) return false;
+        breathingKept = true;
+      }
+      return true;
+    });
     const botCount = arr.filter(isBotLine).length;
     if (rest.length > 0) {
       const prefix = who ? `<span class="toast-who">${esc(who)}:</span> ` : '';
@@ -124,6 +135,7 @@
   socket.on('feedback', msg => {
     const lines = Array.isArray(msg?.lines) ? msg.lines : [String(msg?.lines ?? msg ?? '')];
     toastFeedback(lines, msg?.who || session.name);
+    if (lines.some(isBreathingLine)) lastBreathing = true;
     refreshStatus();
     refreshMapPopup();
   });
@@ -262,7 +274,6 @@
     }
   }
 
-  let lastBreathing = false;
   function handlePlayerStatus(data) {
     if (data?.items) renderItemsPanel(data.items);
     const br = !!data?.nearbyBreathing;
