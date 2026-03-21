@@ -237,7 +237,8 @@
       header.appendChild(charges);
       card.appendChild(header);
 
-      if (usable) {
+      const isArmor = item.id === 'armor';
+      if (usable && !isArmor) {
         const dirs = document.createElement('div');
         dirs.className = 'item-dirs';
         for (const [label, dir] of [['↑','up'],['←','left'],['↓','down'],['→','right']]) {
@@ -247,10 +248,18 @@
           dirs.appendChild(btn);
         }
         card.appendChild(dirs);
+      } else if (usable && isArmor) {
+        const hint = document.createElement('div');
+        hint.className = 'item-hint';
+        hint.textContent = 'Направление не выбирается — броня срабатывает автоматически при ударе. Описание — в подсказке (i).';
+        card.appendChild(hint);
       }
       itemsPanel.appendChild(card);
     }
-    if (currentItems.length > 0 && !selectedItemId) selectedItemId = currentItems[0].id;
+    if (currentItems.length > 0 && !selectedItemId) {
+      const firstDir = currentItems.find(it => it.id !== 'armor' && it.charges > 0 && !it.broken);
+      selectedItemId = firstDir ? firstDir.id : currentItems[0].id;
+    }
   }
 
   let lastBreathing = false;
