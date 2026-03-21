@@ -4,7 +4,7 @@
 #include <string>
 #include <vector>
 
-enum class LogType { Move, Attack, UseItem, AddPlayer, AddPlayerRandom };
+enum class LogType { Move, Attack, UseItem, AddPlayer, AddPlayerRandom, BotMove, BotKill };
 struct LogEntry {
 	LogType type{LogType::Move};
 	std::string name;

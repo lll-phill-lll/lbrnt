@@ -18,6 +18,8 @@
     input[type="number"]::-webkit-inner-spin-button,input[type="number"]::-webkit-outer-spin-button{-webkit-appearance:none;margin:0;}
     input[type="number"]{-moz-appearance:textfield;}
     input:focus{border-color:rgba(122,162,255,.6);}
+    /* Глобальный width:100% на input ломает чекбоксы (текст уезжает вправо) */
+    input[type="checkbox"],input[type="radio"]{width:auto;min-width:1rem;flex-shrink:0;padding:0;margin:0;accent-color:#6b9fff;}
     button{cursor:pointer;text-align:center;transition:border-color .15s;}
     button:hover{border-color:rgba(255,255,255,.3);}
     button.primary{background:rgba(122,162,255,.2);border-color:rgba(122,162,255,.5);}
@@ -38,6 +40,9 @@
     .item-row{display:grid;grid-template-columns:1fr 72px;gap:10px;align-items:center;}
     .item-row label{font-size:13px;color:#ced4da;}
     .item-cnt{width:100%;text-align:center;padding:6px 8px;}
+    .game-opts{display:flex;flex-direction:column;gap:10px;margin-bottom:8px;}
+    label.opt-line{display:flex;align-items:flex-start;gap:10px;cursor:pointer;min-width:0;color:#ced4da;font-size:13px;line-height:1.45;}
+    label.opt-line span{flex:1;min-width:0;}
   </style>
 </head>
 <body>
@@ -69,15 +74,17 @@
       <div class="row"><label>Ходов за раунд</label><input id="cActions" type="number" value="1" min="1" max="10" style="width:60px;"/></div>
       <div class="divider"></div>
       <div class="subtitle">Настройки игры</div>
-      <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:8px;">
-        <label style="min-width:auto;display:flex;gap:8px;align-items:center;cursor:pointer;">
-          <input type="checkbox" id="cEnforceTurns" checked/> Очередь ходов (иначе все ходят когда хотят)
+      <div class="game-opts">
+        <label class="opt-line" for="cEnforceTurns">
+          <input type="checkbox" id="cEnforceTurns" checked/>
+          <span>Очередь ходов (иначе все ходят когда хотят)</span>
         </label>
-        <label style="min-width:auto;display:flex;gap:8px;align-items:center;cursor:pointer;">
-          <input type="checkbox" id="cBot"/> Бот в лабиринте
+        <label class="opt-line" for="cBot">
+          <input type="checkbox" id="cBot"/>
+          <span>Бот в лабиринте</span>
         </label>
         <div class="row" id="cBotRow" style="margin-bottom:0;opacity:.55;pointer-events:none;">
-          <label>Шагов бота за ход</label><input id="cBotSteps" type="number" value="1" min="1" max="5" style="width:60px;"/>
+          <label>Шагов бота за ход</label><input id="cBotSteps" type="number" value="1" min="1" max="5" style="width:72px;flex:0 0 auto;"/>
         </div>
       </div>
       <div class="subtitle" style="margin-top:8px;">Предметы на карте</div>

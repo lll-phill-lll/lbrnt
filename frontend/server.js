@@ -156,6 +156,24 @@ function writeMeta(room, meta) {
   fs.writeFileSync(metaFile(room), JSON.stringify(meta, null, 2), 'utf8');
 }
 
+/** Пока в стейте очередь на «bot», выполняет ходы бота (веб не шлёт move за бота).
+ *  Возвращает строки stdout (сообщения для лога/тостов), как у move/attack. */
+async function resolveBotTurns(roomId) {
+  const sf = stateFile(roomId);
+  if (!fs.existsSync(sf)) return [];
+  let lines = [];
+  try {
+    await enqueue(roomId, async () => {
+      const res = await runLab(['resolve-bots', '--state', sf]);
+      if (res.code !== 0) console.error('resolve-bots failed:', res.err || res.out);
+      else lines = splitLines(res.out);
+    });
+  } catch (e) {
+    console.error('resolveBotTurns', e);
+  }
+  return lines;
+}
+
 function parseTurnInfo(room) {
   try {
     const txt = fs.readFileSync(stateFile(room), 'utf8');
@@ -171,7 +189,8 @@ function parseTurnInfo(room) {
       const line = arr[ti + 1 + i];
       if (line !== undefined) order.push(line.trim());
     }
-    return { enforce, order, index: idx < order.length ? idx : 0, current: order.length ? order[idx % order.length] : null };
+    const safeIdx = order.length ? (Number(parts[2]) || 0) % order.length : 0;
+    return { enforce, order, index: safeIdx, current: order.length ? order[safeIdx] : null };
   } catch { return { enforce: false, order: [], index: 0, current: null }; }
 }
 
@@ -411,9 +430,13 @@ io.on('connection', (socket) => {
       const isCreator = !!(storedToken && suppliedToken === storedToken);
       myIsCreator = isCreator;
 
+      const botLines = await resolveBotTurns(roomId);
       const turn = parseTurnInfo(roomId);
       const status = await fetchPlayerStatus(roomId, name);
       cb?.({ ok: true, turn, isCreator, playerStatus: status });
+      if (botLines.length) {
+        io.to('game:' + roomId).emit('feedback', { lines: botLines, who: 'bot' });
+      }
     } catch (e) {
       cb?.({ ok: false, error: e?.message || String(e) });
     }
@@ -443,6 +466,11 @@ io.on('connection', (socket) => {
           const res = await runLab(argsBuilder(payload));
           feedback = splitLines(res.out);
           if (res.code !== 0 && res.err) feedback.push(res.err);
+          if (res.code === 0) {
+            const r2 = await runLab(['resolve-bots', '--state', stateFile(myRoom)]);
+            if (r2.code !== 0) console.error('resolve-bots after action:', r2.err || r2.out);
+            else if (r2.out) feedback = feedback.concat(splitLines(r2.out));
+          }
         });
         socket.emit('feedback', { lines: feedback, who: myName });
         const turn = parseTurnInfo(myRoom);

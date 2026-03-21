@@ -1,18 +1,23 @@
 (() => {
   const $ = id => document.getElementById(id);
 
-  // ── Session from URL or sessionStorage ──
+  // ── Session from URL + sessionStorage (creatorToken не в URL — только в storage) ──
   const params = new URLSearchParams(window.location.search);
-  let session = { room: params.get('room'), name: params.get('name'), password: params.get('password') || '' };
-  if (!session.room || !session.name) {
-    try {
-      const stored = JSON.parse(sessionStorage.getItem('lab_session') || '{}');
-      session = { ...session, ...stored };
-    } catch {}
-  }
-  if (!session.room || !session.name) {
+  let stored = {};
+  try {
+    stored = JSON.parse(sessionStorage.getItem('lab_session') || '{}');
+  } catch {}
+  const room = params.get('room') || stored.room || null;
+  const name = params.get('name') || stored.name || null;
+  const pwdParam = params.get('password');
+  const password = pwdParam !== null ? String(pwdParam) : (stored.password || '');
+  if (!room || !name) {
     window.location.href = '/';
     return;
+  }
+  const session = { room, name, password };
+  if (stored.creatorToken && stored.room === room && stored.name === name) {
+    session.creatorToken = stored.creatorToken;
   }
   sessionStorage.setItem('lab_session', JSON.stringify(session));
   // Clean URL
@@ -70,14 +75,27 @@
   const feedListEl = document.getElementById('feedList');
   function addFeedEntry(html) {
     feedHistory.push(html);
-    if (feedHistory.length > 5) feedHistory.shift();
-    if (feedListEl) { feedListEl.innerHTML = feedHistory.map(h => `<div style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.08);border-radius:10px;padding:5px 10px;line-height:1.4;">${h}</div>`).join(''); feedListEl.scrollTop = feedListEl.scrollHeight; }
+    if (feedHistory.length > 12) feedHistory.shift();
+    if (feedListEl) {
+      feedListEl.innerHTML = feedHistory.map(h => `<div style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.08);border-radius:10px;padding:5px 10px;line-height:1.4;">${h}</div>`).join('');
+      feedListEl.scrollTop = feedListEl.scrollHeight;
+    }
   }
   function toastFeedback(lines, who) {
-    const prefix = who ? `<span class="toast-who">${esc(who)}:</span> ` : '';
-    const body = (Array.isArray(lines) ? lines : [lines]).map(l => esc(l)).join('<br>');
-    const isSelf = who === session.name;
-    showToast(prefix + body, isSelf ? 'self' : 'other', 5000);
+    const arr = Array.isArray(lines) ? lines : [lines];
+    const isBotLine = (l) => String(l).trim() === 'Бот походил';
+    const rest = arr.filter(l => !isBotLine(l));
+    const botCount = arr.filter(isBotLine).length;
+    if (rest.length > 0) {
+      const prefix = who ? `<span class="toast-who">${esc(who)}:</span> ` : '';
+      const body = rest.map(l => esc(l)).join('<br>');
+      const isSelf = who === session.name;
+      showToast(prefix + body, isSelf ? 'self' : 'other', 5000);
+    }
+    // Ход бота — только во всплывающих уведомлениях, не в ленте чата
+    for (let i = 0; i < botCount; i++) {
+      showToast(`<span class="toast-who">бот:</span> ${esc('Бот походил')}`, 'other', 5000);
+    }
   }
   function toastSystem(text) { showToast(esc(text), 'system', 5000); }
   function chatToFeed(text, who) {
@@ -219,7 +237,8 @@
       header.appendChild(charges);
       card.appendChild(header);
 
-      if (usable) {
+      const isArmor = item.id === 'armor';
+      if (usable && !isArmor) {
         const dirs = document.createElement('div');
         dirs.className = 'item-dirs';
         for (const [label, dir] of [['↑','up'],['←','left'],['↓','down'],['→','right']]) {
@@ -229,10 +248,18 @@
           dirs.appendChild(btn);
         }
         card.appendChild(dirs);
+      } else if (usable && isArmor) {
+        const hint = document.createElement('div');
+        hint.className = 'item-hint';
+        hint.textContent = 'Направление не выбирается — броня срабатывает автоматически при ударе. Описание — в подсказке (i).';
+        card.appendChild(hint);
       }
       itemsPanel.appendChild(card);
     }
-    if (currentItems.length > 0 && !selectedItemId) selectedItemId = currentItems[0].id;
+    if (currentItems.length > 0 && !selectedItemId) {
+      const firstDir = currentItems.find(it => it.id !== 'armor' && it.charges > 0 && !it.broken);
+      selectedItemId = firstDir ? firstDir.id : currentItems[0].id;
+    }
   }
 
   let lastBreathing = false;
