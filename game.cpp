@@ -481,7 +481,7 @@ void Game::run_bot_turn(LabyrinthMap& map, std::vector<std::string>& messages, s
 	}
 
 	if (!killed) {
-		// Есть ли игрок не в больнице — цель для BFS?
+		// Есть ли игрок не на клетке больницы — потенциальная видимая цель для BFS?
 		bool any_outside_hospital = false;
 		for (const auto& kv : players) {
 			if (!player_stands_on_hospital(*this, map, kv.first)) {
@@ -489,6 +489,7 @@ void Game::run_bot_turn(LabyrinthMap& map, std::vector<std::string>& messages, s
 				break;
 			}
 		}
+		bool did_bfs_move = false;
 		if (any_outside_hospital) {
 			std::vector<std::vector<bool>> vis(map.height, std::vector<bool>(map.width, false));
 			std::vector<std::vector<std::pair<int, int>>> prev(map.height, std::vector<std::pair<int, int>>(map.width, {-1, -1}));
@@ -549,6 +550,7 @@ void Game::run_bot_turn(LabyrinthMap& map, std::vector<std::string>& messages, s
 				path.erase(path.begin());
 				bot_x = nx;
 				bot_y = ny;
+				did_bfs_move = true;
 				if (replay_log) {
 					BotReplayStep s;
 					s.kind = BotReplayStep::Kind::Move;
@@ -558,7 +560,9 @@ void Game::run_bot_turn(LabyrinthMap& map, std::vector<std::string>& messages, s
 				}
 				steps++;
 			}
-		} else {
+		}
+		// Нет хода по BFS: все в больнице / цель не видна / цель недостижима — блуждание
+		if (!did_bfs_move) {
 			for (size_t s = 0; s < static_cast<size_t>(std::max(1, bot_steps_per_turn)); ++s) {
 				if (!try_random_bot_step(*this, map, replay_log)) break;
 			}
