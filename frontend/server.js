@@ -189,7 +189,8 @@ function parseTurnInfo(room) {
       const line = arr[ti + 1 + i];
       if (line !== undefined) order.push(line.trim());
     }
-    return { enforce, order, index: idx < order.length ? idx : 0, current: order.length ? order[idx % order.length] : null };
+    const safeIdx = order.length ? (Number(parts[2]) || 0) % order.length : 0;
+    return { enforce, order, index: safeIdx, current: order.length ? order[safeIdx] : null };
   } catch { return { enforce: false, order: [], index: 0, current: null }; }
 }
 

@@ -102,6 +102,34 @@ void Game::init_turns() {
 	ensure_turns_initialized(*this);
 }
 
+void Game::canonicalize_turn_order() {
+	if (!enforce_turns) return;
+	std::string current_name;
+	if (!turn_order.empty() && turn_index < turn_order.size())
+		current_name = turn_order[turn_index];
+	std::vector<std::string> filtered;
+	for (const auto& n : turn_order) {
+		if (n == "bot") continue;
+		if (players.count(n)) filtered.push_back(n);
+	}
+	if (bot_enabled) filtered.push_back("bot");
+	if (filtered.empty()) {
+		turn_order.clear();
+		turn_index = 0;
+		return;
+	}
+	turn_order = std::move(filtered);
+	turn_index = 0;
+	for (size_t i = 0; i < turn_order.size(); ++i) {
+		if (turn_order[i] == current_name) {
+			turn_index = i;
+			return;
+		}
+	}
+	// Устаревшее имя в очереди — с начала (первый живой игрок, если есть)
+	turn_index = 0;
+}
+
 bool Game::add_player(const std::string& name, std::pair<size_t,size_t> at, const LabyrinthMap& map, std::string& err) {
 	if (!map.in_bounds(static_cast<long>(at.first), static_cast<long>(at.second))) {
 		err = "Координаты вне карты";

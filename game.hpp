@@ -72,6 +72,8 @@ struct Game {
 
 	bool add_player(const std::string& name, std::pair<size_t,size_t> at, const LabyrinthMap& map, std::string& err);
 	void init_turns();
+	/** Привести turn_order к виду [живые игроки…, bot]; сохранить текущего актёра по имени. Вызывать после load. */
+	void canonicalize_turn_order();
 	MoveOutcome move_player(const std::string& name, Direction dir, LabyrinthMap& map);
 	AttackOutcome attack(const std::string& name, Direction dir, LabyrinthMap& map);
 	UseOutcome use_item(const std::string& name, const std::string& itemId, Direction dir, LabyrinthMap& map);

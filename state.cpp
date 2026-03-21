@@ -470,6 +470,8 @@ bool AppState::load(AppState& st, const std::string& path, std::string& err) {
 		st.base_map = st.map;
 		st.base_game = st.game;
 	}
+	// Очередь всегда [игроки…, bot]; иначе в файле могло остаться [bot, игрок] → в UI «всегда ходит бот»
+	st.game.canonicalize_turn_order();
 	return true;
 }
 
