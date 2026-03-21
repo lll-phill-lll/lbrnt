@@ -26,10 +26,15 @@ struct MoveOutcome {
 struct AttackOutcome {
 	bool attacked{false};
 	std::vector<std::string> messages;
+	/** Для записи в лог replay: бот перенесён после удара игрока */
+	bool bot_respawn_for_log{false};
+	size_t bot_log_x{0}, bot_log_y{0};
 };
 struct UseOutcome {
 	bool used{false};
 	std::vector<std::string> messages;
+	bool bot_respawn_for_log{false};
+	size_t bot_log_x{0}, bot_log_y{0};
 };
 
 /** Шаги бота для записи в replay-лог (история на карте). */
@@ -77,10 +82,17 @@ struct Game {
 	MoveOutcome move_player(const std::string& name, Direction dir, LabyrinthMap& map);
 	AttackOutcome attack(const std::string& name, Direction dir, LabyrinthMap& map);
 	UseOutcome use_item(const std::string& name, const std::string& itemId, Direction dir, LabyrinthMap& map);
+
+	/** Очистить перед use_item; выставляется при респавне бота после удара */
+	bool pending_bot_respawn_log{false};
+	size_t pending_bot_log_x{0}, pending_bot_log_y{0};
 };
 
 // Attempt to kill a victim (weapon attack). Returns true if hospitalized.
 // If victim has armor, the armor absorbs the hit and the player survives.
 bool attempt_kill(Game& game, LabyrinthMap& map, const std::string& victim, std::vector<std::string>& messages);
+
+/** Удар по клетке (tx,ty): если там бот — перенос на случайную пустую клетку. */
+bool hit_bot_at(Game& game, LabyrinthMap& map, size_t tx, size_t ty, std::vector<std::string>& messages);
 
 
