@@ -101,10 +101,13 @@ static void print_user_messages(const std::string& player, const std::vector<std
 
 // Run all consecutive bot turns (same loop as after move/attack/use-item).
 // Needed when the web server has no player action to trigger the CLI (e.g. state file already says "bot" turn).
+// Hard cap: if every human is in hospital, advance_turn can pick "bot" again forever — avoid hanging the process.
 static void run_pending_bot_turns(AppState& st) {
-	while (st.game.enforce_turns && st.game.bot_enabled && !st.game.turn_order.empty()
-	       && st.game.turn_index < st.game.turn_order.size()
-	       && st.game.turn_order[st.game.turn_index] == "bot") {
+	const int kMaxBotSteps = 512;
+	for (int step = 0; step < kMaxBotSteps; ++step) {
+		if (!st.game.enforce_turns || !st.game.bot_enabled || st.game.turn_order.empty()) break;
+		if (st.game.turn_index >= st.game.turn_order.size()) break;
+		if (st.game.turn_order[st.game.turn_index] != "bot") break;
 		std::vector<std::string> blog;
 		st.game.run_bot_turn(st.map, blog);
 		for (const auto& line : blog) {
@@ -118,6 +121,11 @@ static void run_pending_bot_turns(AppState& st) {
 				}
 			}
 		}
+	}
+	if (st.game.enforce_turns && st.game.bot_enabled && !st.game.turn_order.empty()
+	    && st.game.turn_index < st.game.turn_order.size()
+	    && st.game.turn_order[st.game.turn_index] == "bot") {
+		log_err("run_pending_bot_turns: iteration cap reached (stuck on bot turn; check hospital/turn logic)");
 	}
 }
 

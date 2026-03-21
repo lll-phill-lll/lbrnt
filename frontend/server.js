@@ -386,7 +386,6 @@ io.on('connection', (socket) => {
         await runLab(['init-turns', '--state', stateFile(myRoom)]);
         // Snapshot base state for replay (after weapons + players are placed)
         await runLab(['init-base', '--state', stateFile(myRoom)]);
-        await runLab(['resolve-bots', '--state', stateFile(myRoom)]);
       });
 
       r.started = true;
