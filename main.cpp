@@ -99,6 +99,28 @@ static void print_user_messages(const std::string& player, const std::vector<std
 	}
 }
 
+// Run all consecutive bot turns (same loop as after move/attack/use-item).
+// Needed when the web server has no player action to trigger the CLI (e.g. state file already says "bot" turn).
+static void run_pending_bot_turns(AppState& st) {
+	while (st.game.enforce_turns && st.game.bot_enabled && !st.game.turn_order.empty()
+	       && st.game.turn_index < st.game.turn_order.size()
+	       && st.game.turn_order[st.game.turn_index] == "bot") {
+		std::vector<std::string> blog;
+		st.game.run_bot_turn(st.map, blog);
+		for (const auto& line : blog) {
+			log_err(std::string("BOT: ") + line);
+			if (line.rfind("PLAYER:", 0) == 0) {
+				size_t p = line.find(':', 7);
+				if (p != std::string::npos) {
+					std::string pname = line.substr(7, p - 7);
+					std::string pmsg = line.substr(p + 1);
+					print_user_messages(pname, std::vector<std::string>{pmsg});
+				}
+			}
+		}
+	}
+}
+
 static void usage() {
 	std::cout <<
 R"(labyrinth_cpp commands:
@@ -129,6 +151,7 @@ R"(labyrinth_cpp commands:
   replay-svg --state state.txt --step N
   init-turns --state state.txt
   init-base --state state.txt
+  resolve-bots --state state.txt
   replay-export-one --state state.txt --out-dir frames --cell N --margin PX
 )";
 }
@@ -466,25 +489,7 @@ int main(int argc, char** argv) {
 		}
 		// stdout user messages
 		print_user_messages(name, out.messages);
-		// auto-run bot turns if it's bot's turn
-		while (st.game.enforce_turns && st.game.bot_enabled && !st.game.turn_order.empty()
-		       && st.game.turn_index < st.game.turn_order.size()
-		       && st.game.turn_order[st.game.turn_index] == "bot") {
-			std::vector<std::string> blog;
-			st.game.run_bot_turn(st.map, blog);
-			for (const auto& line : blog) {
-				log_err(std::string("BOT: ") + line);
-				// Parse per-player message: format PLAYER:<name>:<msg>
-				if (line.rfind("PLAYER:", 0) == 0) {
-					size_t p = line.find(':', 7);
-					if (p != std::string::npos) {
-						std::string pname = line.substr(7, p - 7);
-						std::string pmsg = line.substr(p + 1);
-						print_user_messages(pname, std::vector<std::string>{pmsg});
-					}
-				}
-			}
-		}
+		run_pending_bot_turns(st);
 		if (!AppState::save(st, state, err)) { std::cerr << err << "\n"; return 2; }
 		return 0;
 	}
@@ -513,24 +518,7 @@ int main(int argc, char** argv) {
 		}
 		// stdout user messages
 		print_user_messages(name, out.messages);
-		// auto-run bot
-		while (st.game.enforce_turns && st.game.bot_enabled && !st.game.turn_order.empty()
-		       && st.game.turn_index < st.game.turn_order.size()
-		       && st.game.turn_order[st.game.turn_index] == "bot") {
-			std::vector<std::string> blog;
-			st.game.run_bot_turn(st.map, blog);
-			for (const auto& line : blog) {
-				log_err(std::string("BOT: ") + line);
-				if (line.rfind("PLAYER:", 0) == 0) {
-					size_t p = line.find(':', 7);
-					if (p != std::string::npos) {
-						std::string pname = line.substr(7, p - 7);
-						std::string pmsg = line.substr(p + 1);
-						print_user_messages(pname, std::vector<std::string>{pmsg});
-					}
-				}
-			}
-		}
+		run_pending_bot_turns(st);
 		if (!AppState::save(st, state, err)) { std::cerr << err << "\n"; return 2; }
 		return 0;
 	}
@@ -606,24 +594,7 @@ int main(int argc, char** argv) {
 		}
 		// stdout user messages
 		print_user_messages(name, out.messages);
-		// auto-run bot
-		while (st.game.enforce_turns && st.game.bot_enabled && !st.game.turn_order.empty()
-		       && st.game.turn_index < st.game.turn_order.size()
-		       && st.game.turn_order[st.game.turn_index] == "bot") {
-			std::vector<std::string> blog;
-			st.game.run_bot_turn(st.map, blog);
-			for (const auto& line : blog) {
-				log_err(std::string("BOT: ") + line);
-				if (line.rfind("PLAYER:", 0) == 0) {
-					size_t p = line.find(':', 7);
-					if (p != std::string::npos) {
-						std::string pname = line.substr(7, p - 7);
-						std::string pmsg = line.substr(p + 1);
-						print_user_messages(pname, std::vector<std::string>{pmsg});
-					}
-				}
-			}
-		}
+		run_pending_bot_turns(st);
 		if (!AppState::save(st, state, err)) { std::cerr << err << "\n"; return 2; }
 		return 0;
 	}
@@ -799,6 +770,15 @@ int main(int argc, char** argv) {
 		st.set_base_from_current();
 		if (!AppState::save(st, state, err)) { std::cerr << err << "\n"; return 2; }
 		std::cout << "Базовое состояние сохранено в файл.\n";
+		return 0;
+	}
+	if (cmd == "resolve-bots") {
+		std::string state;
+		if (!get_arg(argc, argv, std::string("--state"), state)) { usage(); return 1; }
+		AppState st; std::string err;
+		if (!AppState::load(st, state, err)) { std::cerr << err << "\n"; return 2; }
+		run_pending_bot_turns(st);
+		if (!AppState::save(st, state, err)) { std::cerr << err << "\n"; return 2; }
 		return 0;
 	}
 	if (cmd == "replay-export-one") {

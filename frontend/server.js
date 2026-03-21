@@ -156,6 +156,20 @@ function writeMeta(room, meta) {
   fs.writeFileSync(metaFile(room), JSON.stringify(meta, null, 2), 'utf8');
 }
 
+/** Пока в стейте очередь на «bot», выполняет ходы бота (веб не шлёт move за бота). */
+async function resolveBotTurns(roomId) {
+  const sf = stateFile(roomId);
+  if (!fs.existsSync(sf)) return;
+  try {
+    await enqueue(roomId, async () => {
+      const res = await runLab(['resolve-bots', '--state', sf]);
+      if (res.code !== 0) console.error('resolve-bots failed:', res.err || res.out);
+    });
+  } catch (e) {
+    console.error('resolveBotTurns', e);
+  }
+}
+
 function parseTurnInfo(room) {
   try {
     const txt = fs.readFileSync(stateFile(room), 'utf8');
@@ -372,6 +386,7 @@ io.on('connection', (socket) => {
         await runLab(['init-turns', '--state', stateFile(myRoom)]);
         // Snapshot base state for replay (after weapons + players are placed)
         await runLab(['init-base', '--state', stateFile(myRoom)]);
+        await runLab(['resolve-bots', '--state', stateFile(myRoom)]);
       });
 
       r.started = true;
@@ -411,6 +426,7 @@ io.on('connection', (socket) => {
       const isCreator = !!(storedToken && suppliedToken === storedToken);
       myIsCreator = isCreator;
 
+      await resolveBotTurns(roomId);
       const turn = parseTurnInfo(roomId);
       const status = await fetchPlayerStatus(roomId, name);
       cb?.({ ok: true, turn, isCreator, playerStatus: status });
@@ -443,6 +459,10 @@ io.on('connection', (socket) => {
           const res = await runLab(argsBuilder(payload));
           feedback = splitLines(res.out);
           if (res.code !== 0 && res.err) feedback.push(res.err);
+          if (res.code === 0) {
+            const r2 = await runLab(['resolve-bots', '--state', stateFile(myRoom)]);
+            if (r2.code !== 0) console.error('resolve-bots after action:', r2.err || r2.out);
+          }
         });
         socket.emit('feedback', { lines: feedback, who: myName });
         const turn = parseTurnInfo(myRoom);
