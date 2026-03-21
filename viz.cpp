@@ -183,19 +183,21 @@ std::string render_svg(const AppState& st, float cell_px, float margin_px) {
 				bool hasF = itGI->second.count("flashlight") > 0;
 				bool hasR = itGI->second.count("rifle") > 0;
 				bool hasS = itGI->second.count("shotgun") > 0;
+				bool hasA = itGI->second.count("armor") > 0;
 				int cntK = hasK ? itGI->second.at("knife") : 0;
 				int cntF = hasF ? itGI->second.at("flashlight") : 0;
 				int cntR = hasR ? itGI->second.at("rifle") : 0;
 				int cntS = hasS ? itGI->second.at("shotgun") : 0;
-				int distinct = (hasK?1:0) + (hasF?1:0) + (hasR?1:0) + (hasS?1:0);
+				int cntA = hasA ? itGI->second.at("armor") : 0;
+				int distinct = (hasK?1:0) + (hasF?1:0) + (hasR?1:0) + (hasS?1:0) + (hasA?1:0);
 				std::string label;
 				if (hasK) label.push_back('K');
 				if (hasF) label.push_back('F');
 				if (hasR) label.push_back('R');
 				if (hasS) label.push_back('S');
-				// If only single item present and count > 1, append count to label
+				if (hasA) label.push_back('A');
 				if (distinct == 1) {
-					int c = hasK?cntK : hasF?cntF : hasR?cntR : cntS;
+					int c = hasK?cntK : hasF?cntF : hasR?cntR : hasS?cntS : cntA;
 					if (c > 1) label += std::to_string(c);
 				}
 				oss << "<text x=\"" << cx << "\" y=\"" << cy << "\" fill=\"#111\" font-size=\""
@@ -376,6 +378,9 @@ std::string render_svg(const AppState& st, float cell_px, float margin_px) {
 		bool hasRifle  = itInv != st.game.inventories.end() && itInv->second.item_charges.count("rifle");
 		bool hasShot   = itInv != st.game.inventories.end() && itInv->second.item_charges.count("shotgun");
 		bool hasKnife  = itInv != st.game.inventories.end() && itInv->second.item_charges.count("knife");
+		bool hasArmor  = itInv != st.game.inventories.end() && itInv->second.item_charges.count("armor");
+		float ax = panel_left + panel_w - cell_px * 4.6f;
+		draw_item(ax, "A", hasArmor, get_ch("armor") > 0, std::string("#1565c0"));
 		draw_item(fx, "F", hasFlash, get_ch("flashlight") > 0, icol);
 		draw_item(rx, "R", hasRifle,  get_ch("rifle") > 0,      icol);
 		draw_item(sx, "S", hasShot,   get_ch("shotgun") > 0,    icol);

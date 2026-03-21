@@ -1,12 +1,6 @@
 #include "../game.hpp"
 #include "../map.hpp"
 #include "Rifle.hpp"
-#include "../locations/Location.hpp"
-#include "../locations/Hospital.hpp"
-
-static long long key_xy_local_r(size_t x, size_t y) {
-	return (long long)y * 1000000LL + (long long)x;
-}
 
 static bool step_forward(const LabyrinthMap& map, size_t& x, size_t& y, Direction dir) {
 	switch (dir) {
@@ -18,36 +12,19 @@ static bool step_forward(const LabyrinthMap& map, size_t& x, size_t& y, Directio
 	return false;
 }
 
-static void hospitalize(Game& game, LabyrinthMap& map, const std::string& victim, Direction dir, std::vector<std::string>& messages) {
-	bool sent = false;
-	if (auto* loc = getLocationFor(CellContent::Hospital)) {
-		if (auto* hosp = dynamic_cast<HospitalLocation*>(loc)) {
-			sent = hosp->teleportToHospital(game, map, victim);
-		}
-	}
-	if (sent) messages.push_back(std::string("Ружьё ") + dir_ru(dir) + ": игрок " + victim + " отправлен в больницу");
-	else messages.push_back("Больница не найдена");
-}
-
 void Rifle::apply(Game& game, LabyrinthMap& map, const std::string& playerName, Direction dir, std::vector<std::string>& messages) {
 	auto ita = game.players.find(playerName);
 	if (ita == game.players.end()) { messages.push_back("Нет такого игрока"); return; }
 
 	size_t cx = ita->second.first, cy = ita->second.second;
 	bool any = false;
-	// Shoot straight up to 3 cells, blocked by walls between steps
 	for (int i = 0; i < 3; ++i) {
 		if (!step_forward(map, cx, cy, dir)) break;
-		// hit any players on this cell
 		for (const auto& kv : game.players) {
 			if (kv.first == playerName) continue;
 			if (kv.second.first == cx && kv.second.second == cy) {
-				// drop treasure
-				if (game.players_with_treasure.count(kv.first)) {
-					game.players_with_treasure.erase(kv.first);
-					game.loot_treasure[key_xy_local_r(cx, cy)] += 1;
-				}
-				hospitalize(game, map, kv.first, dir, messages);
+				if (attempt_kill(game, map, kv.first, messages))
+					messages.push_back(std::string("Ружьё ") + dir_ru(dir) + ": игрок " + kv.first + " отправлен в больницу");
 				any = true;
 			}
 		}

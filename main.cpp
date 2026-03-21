@@ -5,6 +5,7 @@
 #include "items/Shotgun.hpp"
 #include "items/Rifle.hpp"
 #include "items/Flashlight.hpp"
+#include "items/Armor.hpp"
 #include <iostream>
 #include <algorithm>
 #include <filesystem>
@@ -18,6 +19,7 @@ static std::unique_ptr<Item> makeItem(const std::string& id) {
 	if (id == "shotgun") return std::make_unique<Shotgun>();
 	if (id == "rifle") return std::make_unique<Rifle>();
 	if (id == "flashlight") return std::make_unique<Flashlight>();
+	if (id == "armor") return std::make_unique<Armor>();
 	return nullptr;
 }
 
@@ -117,8 +119,8 @@ R"(labyrinth_cpp commands:
   set-hwall --state state.txt --x X --y Y (--present=0|1)
   set-knife --state state.txt --name NAME (--broken=0|1)
   set-turns --state state.txt (0|1)
-  add-item --state state.txt --item (knife|shotgun|rifle|flashlight) --x X --y Y [--charges N]
-  add-item-random --state state.txt --item (knife|shotgun|rifle|flashlight) [--charges N]
+  add-item --state state.txt --item (knife|shotgun|rifle|flashlight|armor) --x X --y Y [--charges N]
+  add-item-random --state state.txt --item (knife|shotgun|rifle|flashlight|armor) [--charges N]
   save-as --state state.txt --out other.txt
   export-svg --state state.txt --out maze.svg [--cell N] [--margin PX]
   export-html --state state.txt --out maze.html [--cell N] [--margin PX]
@@ -266,7 +268,7 @@ int main(int argc, char** argv) {
 				lines.push_back("Inventory: (empty)");
 			} else {
 				// stable item order
-				static const char* order[] = {"knife","rifle","shotgun","flashlight"};
+				static const char* order[] = {"knife","rifle","shotgun","flashlight","armor"};
 				for (const char* iid : order) {
 					auto it = itInv->second.item_charges.find(iid);
 					if (it == itInv->second.item_charges.end()) continue;
@@ -277,7 +279,7 @@ int main(int argc, char** argv) {
 				}
 				// any extra items not in predefined order
 				for (const auto& kv : itInv->second.item_charges) {
-					if (kv.first=="knife" || kv.first=="rifle" || kv.first=="shotgun" || kv.first=="flashlight") continue;
+					if (kv.first=="knife" || kv.first=="rifle" || kv.first=="shotgun" || kv.first=="flashlight" || kv.first=="armor") continue;
 					lines.push_back(kv.first + ": " + std::to_string(kv.second));
 				}
 				if (lines.empty()) lines.push_back("Inventory: (empty)");
@@ -302,7 +304,7 @@ int main(int argc, char** argv) {
 		js << "\"hasTreasure\":" << (hasTreasure ? "true" : "false") << ",";
 		js << "\"items\":[";
 
-		static const char* itemOrder[] = {"knife","shotgun","rifle","flashlight"};
+		static const char* itemOrder[] = {"knife","shotgun","rifle","flashlight","armor"};
 		auto itInv = st.game.inventories.find(name);
 		bool first = true;
 		for (const char* iid : itemOrder) {
@@ -334,7 +336,7 @@ int main(int argc, char** argv) {
 		// extra items not in predefined order
 		if (itInv != st.game.inventories.end()) {
 			for (const auto& kv : itInv->second.item_charges) {
-				if (kv.first=="knife"||kv.first=="shotgun"||kv.first=="rifle"||kv.first=="flashlight") continue;
+				if (kv.first=="knife"||kv.first=="shotgun"||kv.first=="rifle"||kv.first=="flashlight"||kv.first=="armor") continue;
 				auto item = makeItem(kv.first);
 				if (!first) js << ",";
 				first = false;
@@ -540,7 +542,7 @@ int main(int argc, char** argv) {
 		    !get_arg(argc, argv, std::string("--y"), sy)) { usage(); return 1; }
 		int charges = 1;
 		if (get_arg(argc, argv, std::string("--charges"), sch)) charges = std::stoi(sch);
-		if (item!="knife" && item!="shotgun" && item!="rifle" && item!="flashlight") { usage(); return 1; }
+		if (item!="knife" && item!="shotgun" && item!="rifle" && item!="flashlight" && item!="armor") { usage(); return 1; }
 		AppState st; std::string err;
 		if (!AppState::load(st, state, err)) { std::cerr << err << "\n"; return 2; }
 		size_t x = static_cast<size_t>(std::stoul(sx));
@@ -558,7 +560,7 @@ int main(int argc, char** argv) {
 		    !get_arg(argc, argv, std::string("--item"), item)) { usage(); return 1; }
 		int charges = 1;
 		if (get_arg(argc, argv, std::string("--charges"), sch)) charges = std::stoi(sch);
-		if (item!="knife" && item!="shotgun" && item!="rifle" && item!="flashlight") { usage(); return 1; }
+		if (item!="knife" && item!="shotgun" && item!="rifle" && item!="flashlight" && item!="armor") { usage(); return 1; }
 		AppState st; std::string err;
 		if (!AppState::load(st, state, err)) { std::cerr << err << "\n"; return 2; }
 		// collect empty cells without existing ground items or special content

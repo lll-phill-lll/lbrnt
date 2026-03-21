@@ -4,3 +4,4 @@ rooms/
 *.log
 .labyrinth.pid
 *.svg
+.venv/
