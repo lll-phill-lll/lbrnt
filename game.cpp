@@ -38,6 +38,7 @@ static bool is_players_turn(Game& g, const std::string& name) {
 	return g.turn_order[g.turn_index] == name;
 }
 static void advance_turn(Game& g, LabyrinthMap& map) {
+	(void)map;
 	if (!g.enforce_turns) return;
 	if (g.turn_order.empty()) return;
 	std::string next_name;
@@ -50,8 +51,8 @@ static void advance_turn(Game& g, LabyrinthMap& map) {
 				continue;
 			}
 			if (!g.players.count(cand)) continue;
-			auto& pos = g.players[cand];
-			if (map.get_cell(pos.first, pos.second) == CellContent::Hospital) continue;
+			// Не пропускать игроков на больнице: иначе после телепорта в больницу ход никогда
+			// не доходит до них (очередь зацикливается на боте — «всегда ходит бот»).
 			next_name = cand; break;
 		}
 	}

@@ -453,6 +453,18 @@ int main(int argc, char** argv) {
 			}
 		}
 		if (spots.empty()) { std::cerr << "Нет свободных клеток для размещения\n"; return 3; }
+		// С ботом: не ставить игрока на соседнюю с ботом клетку (манхэттен ≤ 1), иначе при первом же
+		// resolve-bots / ходе бота он может убить сразу — кажется, что «всегда спавн в больнице».
+		if (st.game.bot_enabled) {
+			std::vector<std::pair<size_t,size_t>> far_from_bot;
+			far_from_bot.reserve(spots.size());
+			for (auto [x, y] : spots) {
+				size_t dx = (x > st.game.bot_x) ? (x - st.game.bot_x) : (st.game.bot_x - x);
+				size_t dy = (y > st.game.bot_y) ? (y - st.game.bot_y) : (st.game.bot_y - y);
+				if (dx + dy >= 2) far_from_bot.emplace_back(x, y);
+			}
+			if (!far_from_bot.empty()) spots = std::move(far_from_bot);
+		}
 		auto pos = spots[rng_pick(st, spots.size())];
 		std::string e;
 		if (!st.game.add_player(name, pos, st.map, e)) { std::cerr << e << "\n"; return 3; }
