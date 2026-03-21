@@ -110,6 +110,8 @@ static void run_pending_bot_turns(AppState& st) {
 		if (st.game.turn_order[st.game.turn_index] != "bot") break;
 		std::vector<std::string> blog;
 		st.game.run_bot_turn(st.map, blog);
+		std::vector<std::string> bot_lines_for_all;
+		bot_lines_for_all.reserve(blog.size());
 		for (const auto& line : blog) {
 			log_err(std::string("BOT: ") + line);
 			if (line.rfind("PLAYER:", 0) == 0) {
@@ -119,8 +121,13 @@ static void run_pending_bot_turns(AppState& st) {
 					std::string pmsg = line.substr(p + 1);
 					print_user_messages(pname, std::vector<std::string>{pmsg});
 				}
+			} else {
+				// Движение бота и т.д. — в stdout для веб-сервера (раньше только stderr → не попадало в лог)
+				bot_lines_for_all.push_back(line);
 			}
 		}
+		if (!bot_lines_for_all.empty())
+			print_user_messages("bot", bot_lines_for_all);
 	}
 	if (st.game.enforce_turns && st.game.bot_enabled && !st.game.turn_order.empty()
 	    && st.game.turn_index < st.game.turn_order.size()
