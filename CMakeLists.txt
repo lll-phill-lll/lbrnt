@@ -27,6 +27,8 @@ add_executable(labyrinth
 	items/Rifle.cpp
 	items/Flashlight.hpp
 	items/Flashlight.cpp
+	items/Armor.hpp
+	items/Armor.cpp
 	locations/LocationUtils.hpp
 	locations/LocationUtils.cpp
 	locations/Location.hpp

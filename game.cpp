@@ -242,6 +242,7 @@ MoveOutcome Game::move_player(const std::string& name, Direction dir, LabyrinthM
 			else if (itemId == "rifle") out.messages.push_back("Подобрано ружьё");
 			else if (itemId == "shotgun") out.messages.push_back("Подобран дробовик");
 			else if (itemId == "knife") out.messages.push_back("Подобран нож");
+			else if (itemId == "armor") out.messages.push_back("Подобрана броня");
 			else out.messages.push_back("Подобран предмет: " + itemId);
 		}
 		ground_items.erase(itItems);
@@ -425,4 +426,37 @@ void Game::run_bot_turn(LabyrinthMap& map, std::vector<std::string>& messages) {
 	advance_turn(*this, map);
 }
 
+bool attempt_kill(Game& game, LabyrinthMap& map, const std::string& victim, std::vector<std::string>& messages) {
+	auto itp = game.players.find(victim);
+	if (itp == game.players.end()) return false;
 
+	// Check armor
+	auto itInv = game.inventories.find(victim);
+	if (itInv != game.inventories.end()) {
+		int armor = itInv->second.getCharges("armor");
+		if (armor > 0) {
+			armor -= 1;
+			if (armor <= 0)
+				itInv->second.removeItem("armor");
+			else
+				itInv->second.setCharges("armor", armor);
+			messages.push_back("Игрок " + victim + " защищён бронёй! Броня уничтожена.");
+			return false;
+		}
+	}
+
+	auto pos = itp->second;
+	if (game.players_with_treasure.count(victim)) {
+		game.players_with_treasure.erase(victim);
+		game.loot_treasure[key_xy(pos.first, pos.second)] += 1;
+	}
+
+	bool sent = false;
+	if (auto* loc = getLocationFor(CellContent::Hospital)) {
+		if (auto* hosp = dynamic_cast<HospitalLocation*>(loc)) {
+			sent = hosp->teleportToHospital(game, map, victim);
+		}
+	}
+	if (!sent) messages.push_back("Больница не найдена");
+	return sent;
+}
