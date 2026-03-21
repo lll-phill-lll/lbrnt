@@ -1,18 +1,23 @@
 (() => {
   const $ = id => document.getElementById(id);
 
-  // ── Session from URL or sessionStorage ──
+  // ── Session from URL + sessionStorage (creatorToken не в URL — только в storage) ──
   const params = new URLSearchParams(window.location.search);
-  let session = { room: params.get('room'), name: params.get('name'), password: params.get('password') || '' };
-  if (!session.room || !session.name) {
-    try {
-      const stored = JSON.parse(sessionStorage.getItem('lab_session') || '{}');
-      session = { ...session, ...stored };
-    } catch {}
-  }
-  if (!session.room || !session.name) {
+  let stored = {};
+  try {
+    stored = JSON.parse(sessionStorage.getItem('lab_session') || '{}');
+  } catch {}
+  const room = params.get('room') || stored.room || null;
+  const name = params.get('name') || stored.name || null;
+  const pwdParam = params.get('password');
+  const password = pwdParam !== null ? String(pwdParam) : (stored.password || '');
+  if (!room || !name) {
     window.location.href = '/';
     return;
+  }
+  const session = { room, name, password };
+  if (stored.creatorToken && stored.room === room && stored.name === name) {
+    session.creatorToken = stored.creatorToken;
   }
   sessionStorage.setItem('lab_session', JSON.stringify(session));
   // Clean URL
