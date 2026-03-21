@@ -296,45 +296,32 @@ MoveOutcome Game::move_player(const std::string& name, Direction dir, LabyrinthM
 		}
 		ground_items.erase(itItems);
 	}
+	auto adjacentBreathingVisible = [&](size_t ox, size_t oy) -> bool {
+		if (ox + 1 == new_pos.first && oy == new_pos.second) return map.can_move_left(new_pos.first, new_pos.second);
+		if (ox == new_pos.first + 1 && oy == new_pos.second) return map.can_move_right(new_pos.first, new_pos.second);
+		if (oy + 1 == new_pos.second && ox == new_pos.first) return map.can_move_up(new_pos.first, new_pos.second);
+		if (oy == new_pos.second + 1 && ox == new_pos.first) return map.can_move_down(new_pos.first, new_pos.second);
+		return false;
+	};
+	bool feltBreathing = false;
 	for (const auto& kv : players) {
 		if (kv.first == name) continue;
 		auto other = kv.second;
 		size_t dx = (new_pos.first > other.first) ? (new_pos.first - other.first) : (other.first - new_pos.first);
 		size_t dy = (new_pos.second > other.second) ? (new_pos.second - other.second) : (other.second - new_pos.second);
 		if (dx + dy != 1) continue; // only adjacent, not same cell
-		bool visible = false;
-		if (other.first + 1 == new_pos.first && other.second == new_pos.second) {
-			// other is left of new_pos -> check can move left from new_pos
-			visible = map.can_move_left(new_pos.first, new_pos.second);
-		} else if (other.first == new_pos.first + 1 && other.second == new_pos.second) {
-			// other is right of new_pos
-			visible = map.can_move_right(new_pos.first, new_pos.second);
-		} else if (other.second + 1 == new_pos.second && other.first == new_pos.first) {
-			// other is above new_pos
-			visible = map.can_move_up(new_pos.first, new_pos.second);
-		} else if (other.second == new_pos.second + 1 && other.first == new_pos.first) {
-			// other is below new_pos
-			visible = map.can_move_down(new_pos.first, new_pos.second);
-		}
-		if (visible) {
-			out.messages.push_back("Вы чувствуете чьё-то дыхание поблизости.");
+		if (adjacentBreathingVisible(other.first, other.second)) {
+			feltBreathing = true;
 			break;
 		}
 	}
-	// Bot breathing
-	if (bot_enabled) {
+	if (!feltBreathing && bot_enabled) {
 		size_t bx = bot_x, by = bot_y;
 		size_t dx = (new_pos.first > bx) ? (new_pos.first - bx) : (bx - new_pos.first);
 		size_t dy = (new_pos.second > by) ? (new_pos.second - by) : (by - new_pos.second);
-		if (dx + dy == 1) {
-			bool visible = false;
-			if (bx + 1 == new_pos.first && by == new_pos.second) visible = map.can_move_left(new_pos.first, new_pos.second);
-			else if (bx == new_pos.first + 1 && by == new_pos.second) visible = map.can_move_right(new_pos.first, new_pos.second);
-			else if (by + 1 == new_pos.second && bx == new_pos.first) visible = map.can_move_up(new_pos.first, new_pos.second);
-			else if (by == new_pos.second + 1 && bx == new_pos.first) visible = map.can_move_down(new_pos.first, new_pos.second);
-			if (visible) out.messages.push_back("Вы чувствуете чьё-то дыхание поблизости.");
-		}
+		if (dx + dy == 1 && adjacentBreathingVisible(bx, by)) feltBreathing = true;
 	}
+	if (feltBreathing) out.messages.push_back("Вы чувствуете чьё-то дыхание поблизости.");
 	consume_action_or_advance(*this, map);
 	return out;
 }
