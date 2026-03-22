@@ -34,7 +34,7 @@
       "type": "move",
       "name": "Alice",
       "dir": "left",
-      "expect_stdout": "[Alice]:\n\tOUTER_WALL_CRASH:вверх\n[Alice]:\n\tOUTER_WALL_CRASH:влево"
+      "expect_stdout": "[Alice]:\n\tOUTER_WALL_CRASH:up\n[Alice]:\n\tOUTER_WALL_CRASH:left"
     }
   ]
 }

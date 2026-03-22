@@ -1,21 +1,20 @@
 #include "Item.hpp"
 #include "../game.hpp"
 #include "../map.hpp"
-#include "../message.hpp"
 
 // Centralized item use wrapper: checks/consumes charges and runs apply()
-bool item_use(Game& game, Item& item, LabyrinthMap& map, const std::string& playerName, Direction dir, std::vector<std::string>& messages) {
+bool item_use(Game& game, Item& item, LabyrinthMap& map, const std::string& playerName, Direction dir, Outcome& out) {
 	// ensure inventory exists
 	Inventory& inv = game.inventories[playerName];
 	int charges = inv.getCharges(item.id());
 	const int spend = item.chargesPerUse();
 	if (charges < spend) {
-		if (std::string(item.id()) == "knife") appendWire(messages, Message::ItemBroken);
-		else appendWire(messages, Message::ItemDepleted);
+		if (std::string(item.id()) == "knife") out.logMessage(Message::ItemBroken);
+		else out.logMessage(Message::ItemDepleted);
 		return false;
 	}
 	// run effect
-	item.apply(game, map, playerName, dir, messages);
+	item.apply(game, map, playerName, dir, out);
 	// consume
 	charges -= spend;
 	inv.setCharges(item.id(), charges);
@@ -26,7 +25,7 @@ bool item_use(Game& game, Item& item, LabyrinthMap& map, const std::string& play
 	}
 	// depletion behavior
 	if (charges <= 0 && !item.persistsWhenDepleted()) {
-		item.onDepleted(game, map, playerName, messages);
+		item.onDepleted(game, map, playerName, out);
 		inv.removeItem(item.id());
 	}
 	return true;

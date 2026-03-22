@@ -1,5 +1,10 @@
 
-// Синхронизировано с message.hpp (MESSAGE_CODE_LIST). Concise — канонический короткий текст; verbose — варианты для UI. Движок отдаёт только wire.
+// Синхронизировано с message.hpp (MESSAGE_CODE_LIST). Concise — канонический короткий текст; verbose — варианты для UI. Движок отдаёт только wire (аргументы — токены en: up/down, empty/…).
+
+const DIR_RU = { up: 'вверх', down: 'вниз', left: 'влево', right: 'вправо' };
+const CELL_RU = { empty: 'пусто', treasure: 'сокровище', hospital: 'больница', arsenal: 'арсенал', exit: 'выход' };
+function dirRu(d) { return (d && DIR_RU[d]) || d || ''; }
+function cellRu(c) { return (c && CELL_RU[c]) || c || ''; }
 
 const makeEnum = (...keys) => Object.fromEntries(keys.map(k => [k, k]));
 
@@ -140,15 +145,15 @@ const messageMap = {
         verbose: () => [],
     },
     [MESSAGE_CODES.MOVED]: {
-        concise: (direction) => (direction ? `Прошёл ${direction}` : 'Прошёл'),
+        concise: (direction) => (direction ? `Прошёл ${dirRu(direction)}` : 'Прошёл'),
         verbose: () => [],
     },
     [MESSAGE_CODES.INNER_WALL_CRASH]: {
-        concise: (direction) => (direction ? `Врезался в стену (${direction})` : 'Врезался в стену'),
+        concise: (direction) => (direction ? `Врезался в стену (${dirRu(direction)})` : 'Врезался в стену'),
         verbose: () => [],
     },
     [MESSAGE_CODES.OUTER_WALL_CRASH]: {
-        concise: (direction) => (direction ? `Врезался во внешнюю стену (${direction})` : 'Врезался во внешнюю стену'),
+        concise: (direction) => (direction ? `Врезался во внешнюю стену (${dirRu(direction)})` : 'Врезался во внешнюю стену'),
         verbose: () => [],
     },
     [MESSAGE_CODES.EXIT_FOUND_WITH_TREASURE]: {
@@ -228,12 +233,12 @@ const messageMap = {
         verbose: () => [],
     },
     [MESSAGE_CODES.FLASHLIGHT_BLOCKED]: {
-        concise: (dir) => (dir ? `Фонарь ${dir}: путь закрыт стеной` : 'Фонарь: путь закрыт стеной'),
+        concise: (dir) => (dir ? `Фонарь ${dirRu(dir)}: путь закрыт стеной` : 'Фонарь: путь закрыт стеной'),
         verbose: () => [],
     },
     [MESSAGE_CODES.FLASHLIGHT_BEAM]: {
         concise: (dir, step, cell, extra) => {
-            let s = `Фонарь ${dir} ${step}: ${cell}`;
+            let s = `Фонарь ${dirRu(dir)} ${step}: ${cellRu(cell)}`;
             if (extra === 'player') s += ' + игрок';
             return s;
         },
@@ -252,43 +257,43 @@ const messageMap = {
         verbose: () => [],
     },
     [MESSAGE_CODES.RIFLE_MISS]: {
-        concise: (dir) => (dir ? `Ружьё ${dir}: промах` : 'Ружьё: промах'),
+        concise: (dir) => (dir ? `Ружьё ${dirRu(dir)}: промах` : 'Ружьё: промах'),
         verbose: () => [],
     },
     [MESSAGE_CODES.RIFLE_HIT_PLAYER]: {
-        concise: (dir, pl) => (dir && pl ? `Ружьё ${dir}: игрок ${pl} отправлен в больницу` : 'Ружьё: игрок отправлен в больницу'),
+        concise: (dir, pl) => (dir && pl ? `Ружьё ${dirRu(dir)}: игрок ${pl} отправлен в больницу` : 'Ружьё: игрок отправлен в больницу'),
         verbose: () => [],
     },
     [MESSAGE_CODES.RIFLE_HIT_BOT]: {
-        concise: (dir) => (dir ? `Ружьё ${dir}: бот уничтожен` : 'Ружьё: бот уничтожен'),
+        concise: (dir) => (dir ? `Ружьё ${dirRu(dir)}: бот уничтожен` : 'Ружьё: бот уничтожен'),
         verbose: () => [],
     },
     [MESSAGE_CODES.SHOTGUN_WALL]: {
-        concise: (dir) => (dir ? `Дробовик ${dir}: стена перед вами` : 'Дробовик: стена перед вами'),
+        concise: (dir) => (dir ? `Дробовик ${dirRu(dir)}: стена перед вами` : 'Дробовик: стена перед вами'),
         verbose: () => [],
     },
     [MESSAGE_CODES.SHOTGUN_MISS]: {
-        concise: (dir) => (dir ? `Дробовик ${dir}: промах` : 'Дробовик: промах'),
+        concise: (dir) => (dir ? `Дробовик ${dirRu(dir)}: промах` : 'Дробовик: промах'),
         verbose: () => [],
     },
     [MESSAGE_CODES.SHOTGUN_HIT_PLAYER]: {
-        concise: (dir, pl) => (dir && pl ? `Дробовик ${dir}: игрок ${pl} отправлен в больницу` : 'Дробовик: игрок отправлен в больницу'),
+        concise: (dir, pl) => (dir && pl ? `Дробовик ${dirRu(dir)}: игрок ${pl} отправлен в больницу` : 'Дробовик: игрок отправлен в больницу'),
         verbose: () => [],
     },
     [MESSAGE_CODES.SHOTGUN_HIT_BOT]: {
-        concise: (dir) => (dir ? `Дробовик ${dir}: бот уничтожен` : 'Дробовик: бот уничтожен'),
+        concise: (dir) => (dir ? `Дробовик ${dirRu(dir)}: бот уничтожен` : 'Дробовик: бот уничтожен'),
         verbose: () => [],
     },
     [MESSAGE_CODES.KNIFE_MISS]: {
-        concise: (dir) => (dir ? `Удар ножом ${dir} — мимо` : 'Удар ножом — мимо'),
+        concise: (dir) => (dir ? `Удар ножом ${dirRu(dir)} — мимо` : 'Удар ножом — мимо'),
         verbose: () => [],
     },
     [MESSAGE_CODES.KNIFE_HIT_PLAYER]: {
-        concise: (dir, pl) => (dir && pl ? `Удар ножом ${dir}: игрок ${pl} отправлен в больницу` : 'Удар ножом: игрок отправлен в больницу'),
+        concise: (dir, pl) => (dir && pl ? `Удар ножом ${dirRu(dir)}: игрок ${pl} отправлен в больницу` : 'Удар ножом: игрок отправлен в больницу'),
         verbose: () => [],
     },
     [MESSAGE_CODES.KNIFE_HIT_BOT]: {
-        concise: (dir) => (dir ? `Удар ножом ${dir}: бот уничтожен` : 'Удар ножом: бот уничтожен'),
+        concise: (dir) => (dir ? `Удар ножом ${dirRu(dir)}: бот уничтожен` : 'Удар ножом: бот уничтожен'),
         verbose: () => [],
     },
     [MESSAGE_CODES.KNIFE_SPENT]: {

@@ -265,9 +265,9 @@ MoveOutcome Game::move_player(const std::string& name, Direction dir, LabyrinthM
 			case Direction::Down:  outer = (pos.second + 1 >= map.height); break;
 		}
         if (outer) {
-            out.logMessage(Message::OuterWallCrash, {dir_ru(dir)});
+            out.logMessage(Message::OuterWallCrash, {dir_wire(dir)});
         } else {
-            out.logMessage(Message::InnerWallCrash, {dir_ru(dir)});
+            out.logMessage(Message::InnerWallCrash, {dir_wire(dir)});
         }
 		if (enforce_turns) { actions_left = 0; advance_turn(*this, map); }
 		return out;
@@ -278,19 +278,19 @@ MoveOutcome Game::move_player(const std::string& name, Direction dir, LabyrinthM
 	players[name] = new_pos;
 	out.moved = true;
 	out.position = new_pos;
-    out.logMessage(Message::Moved, {dir_ru(dir)});
+    out.logMessage(Message::Moved, {dir_wire(dir)});
 
 	CellContent newCell = map.get_cell(new_pos.first, new_pos.second);
 	// If moved between different location types, call onExit for previous
 	if (prevCell != newCell) {
 		auto* locPrev = getLocationFor(prevCell);
-		locPrev->onExit(*this, map, name, pos.first, pos.second, out.messages);
+		locPrev->onExit(*this, map, name, pos.first, pos.second, out);
 	}
 
 	// Generic onEnter for any cell
 	{
 		auto* locNew = getLocationFor(newCell);
-		locNew->onEnter(*this, map, name, new_pos.first, new_pos.second, out.messages);
+		locNew->onEnter(*this, map, name, new_pos.first, new_pos.second, out);
 	}
 
 	switch (newCell) {
@@ -390,8 +390,7 @@ UseOutcome Game::use_item(const std::string& name, const std::string& itemId, Di
 	else if (itemId == "treasure") item = std::make_unique<LootTreasure>();
 	else { out.logMessage(Message::UnknownItem); return out; }
 	// Delegate charge logic to item
-	extern bool item_use(Game& game, Item& item, LabyrinthMap& map, const std::string& playerName, Direction dir, std::vector<std::string>& messages);
-	out.used = item_use(*this, *item, map, name, dir, out.messages);
+	out.used = item_use(*this, *item, map, name, dir, out);
 	if (pending_bot_respawn_log) {
 		out.bot_respawn_for_log = true;
 		out.bot_log_x = pending_bot_log_x;
@@ -622,7 +621,7 @@ void Game::run_bot_turn(LabyrinthMap& map, Outcome& outcome, std::vector<BotRepl
 	advance_turn(*this, map);
 }
 
-bool hit_bot_at(Game& game, LabyrinthMap& map, size_t tx, size_t ty, std::vector<std::string>& messages) {
+bool hit_bot_at(Game& game, LabyrinthMap& map, size_t tx, size_t ty, Outcome& out) {
 	if (!game.bot_enabled) return false;
 	if (tx != game.bot_x || ty != game.bot_y) return false;
 	std::vector<std::pair<size_t, size_t>> spots;
@@ -641,21 +640,21 @@ bool hit_bot_at(Game& game, LabyrinthMap& map, size_t tx, size_t ty, std::vector
 		}
 	}
 	if (spots.empty()) {
-		appendWire(messages, Message::BotStays);
+		out.logMessage(Message::BotStays);
 		game.pending_bot_respawn_log = false;
 		return true;
 	}
 	const size_t pick = static_cast<size_t>(rand_u32() % spots.size());
 	game.bot_x = spots[pick].first;
 	game.bot_y = spots[pick].second;
-	appendWire(messages, Message::BotDestroyedRelocated);
+	out.logMessage(Message::BotDestroyedRelocated);
 	game.pending_bot_respawn_log = true;
 	game.pending_bot_log_x = game.bot_x;
 	game.pending_bot_log_y = game.bot_y;
 	return true;
 }
 
-bool attempt_kill(Game& game, LabyrinthMap& map, const std::string& victim, std::vector<std::string>& messages) {
+bool attempt_kill(Game& game, LabyrinthMap& map, const std::string& victim, Outcome& out) {
 	auto itp = game.players.find(victim);
 	if (itp == game.players.end()) return false;
 
@@ -669,7 +668,7 @@ bool attempt_kill(Game& game, LabyrinthMap& map, const std::string& victim, std:
 				itInv->second.removeItem("armor");
 			else
 				itInv->second.setCharges("armor", armor);
-			appendWire(messages, Message::ArmorAbsorbedHit, {victim});
+			out.logMessage(Message::ArmorAbsorbedHit, {victim});
 			return false;
 		}
 	}
@@ -683,6 +682,6 @@ bool attempt_kill(Game& game, LabyrinthMap& map, const std::string& victim, std:
 			sent = hosp->teleportToHospital(game, map, victim);
 		}
 	}
-	if (!sent) appendWire(messages, Message::HospitalNotFound);
+	if (!sent) out.logMessage(Message::HospitalNotFound);
 	return sent;
 }

@@ -2,7 +2,6 @@
 
 #include <initializer_list>
 #include <string>
-#include <vector>
 
 #define MESSAGE_CODE_LIST(X) \
 	X(InvalidTargetPlayer, "INVALID_TARGET_PLAYER") \
@@ -65,29 +64,23 @@ enum class Message {
 #undef X
 };
 
-/** Строковый код для wire (совпадает с MESSAGE_CODES в messageParse.js). */
-inline const char* messageCodeString(Message m) {
+/** Wire: `CODE` или `CODE:arg1:arg2…` (аргументы — нейтральные токены, без локализации в C++). */
+inline std::string messageWire(Message m, std::initializer_list<std::string> args = {}) {
+	std::string s;
 	switch (m) {
 #define X(name, str) \
 	case Message::name: \
-		return str;
+		s = str; \
+		break;
 		MESSAGE_CODE_LIST(X)
 #undef X
+	default:
+		return "";
 	}
-	return "";
-}
-
-/** Сообщение в формате wire: `CODE` или `CODE:arg1:arg2…` — только движок; человекочитаемый текст в JS. */
-inline std::string messageWire(Message m, std::initializer_list<std::string> args = {}) {
-	std::string s = messageCodeString(m);
 	if (args.size() == 0) return s;
 	for (const auto& a : args) {
 		s += ':';
 		s += a;
 	}
 	return s;
-}
-
-inline void appendWire(std::vector<std::string>& messages, Message m, std::initializer_list<std::string> args = {}) {
-	messages.push_back(messageWire(m, args));
 }

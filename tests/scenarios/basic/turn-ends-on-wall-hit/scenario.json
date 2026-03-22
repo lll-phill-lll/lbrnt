@@ -50,7 +50,7 @@
       "type": "move",
       "name": "Bob",
       "dir": "down",
-      "expect_stdout": "[Bob]:\n\tMOVED:вправо\n[Bob]:\n\tINNER_WALL_CRASH:вниз\n[Bob]:\n\tNOT_YOUR_MOVE\n[Bob]:\n\tNOT_YOUR_MOVE"
+      "expect_stdout": "[Bob]:\n\tMOVED:right\n[Bob]:\n\tINNER_WALL_CRASH:down\n[Bob]:\n\tNOT_YOUR_MOVE\n[Bob]:\n\tNOT_YOUR_MOVE"
     }
   ]
 }

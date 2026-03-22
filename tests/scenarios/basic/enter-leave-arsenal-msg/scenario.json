@@ -34,7 +34,7 @@
       "type": "move",
       "name": "Alice",
       "dir": "right",
-      "expect_stdout": "[Alice]:\n\tMOVED:влево\n\tARSENAL_ENTER\n[Alice]:\n\tMOVED:вправо\n\tARSENAL_EXIT"
+      "expect_stdout": "[Alice]:\n\tMOVED:left\n\tARSENAL_ENTER\n[Alice]:\n\tMOVED:right\n\tARSENAL_EXIT"
     }
   ]
 }

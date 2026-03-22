@@ -27,7 +27,7 @@ cd frontend && npm install && npm run dev:scenario
 
 - **`init-turns`** всегда заново строит очередь из `random_seed` (как в `generate`) и текущего набора игроков, чтобы pytest и запись в dev давали **один и тот же** порядок ходов при одном `scenario.json`.
 - **`expect_stdout` в последнем шаге `script`** — это **склеенный stdout всех игровых шагов** (как накапливает dev при сохранении); pytest сравнивает с накопленным выводом, а не только с последним ходом.
-- Сообщения игроку в stdout — **wire-коды** (`MOVED:вниз`, `HOSPITAL_ENTER`, …), как в `message.hpp` / `frontend/lib/messageParse.js`. Русский текст для UI собирает только фронт по этим кодам.
+- Сообщения игроку в stdout — **wire-коды** (`MOVED:down`, `HOSPITAL_ENTER`, …), как в `message.hpp` / `frontend/lib/messageParse.js`. Человекочитаемый текст — только в JS.
 
 3. Проверка:
 

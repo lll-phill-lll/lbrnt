@@ -1,6 +1,5 @@
 #include "../game.hpp"
 #include "../map.hpp"
-#include "../message.hpp"
 #include "Rifle.hpp"
 
 static bool step_forward(const LabyrinthMap& map, size_t& x, size_t& y, Direction dir) {
@@ -13,9 +12,9 @@ static bool step_forward(const LabyrinthMap& map, size_t& x, size_t& y, Directio
 	return false;
 }
 
-void Rifle::apply(Game& game, LabyrinthMap& map, const std::string& playerName, Direction dir, std::vector<std::string>& messages) {
+void Rifle::apply(Game& game, LabyrinthMap& map, const std::string& playerName, Direction dir, Outcome& out) {
 	auto ita = game.players.find(playerName);
-	if (ita == game.players.end()) { appendWire(messages, Message::InvalidTargetPlayer); return; }
+	if (ita == game.players.end()) { out.logMessage(Message::InvalidTargetPlayer); return; }
 
 	size_t cx = ita->second.first, cy = ita->second.second;
 	bool any = false;
@@ -25,18 +24,17 @@ void Rifle::apply(Game& game, LabyrinthMap& map, const std::string& playerName, 
 		for (const auto& kv : game.players) {
 			if (kv.first == playerName) continue;
 			if (kv.second.first == cx && kv.second.second == cy) {
-				if (attempt_kill(game, map, kv.first, messages))
-					appendWire(messages, Message::RifleHitPlayer, {dir_ru(dir), kv.first});
+				if (attempt_kill(game, map, kv.first, out))
+					out.logMessage(Message::RifleHitPlayer, {dir_wire(dir), kv.first});
 				any = true;
 				step_hit = true;
 			}
 		}
-		if (!step_hit && hit_bot_at(game, map, cx, cy, messages)) {
-			appendWire(messages, Message::RifleHitBot, {dir_ru(dir)});
+		if (!step_hit && hit_bot_at(game, map, cx, cy, out)) {
+			out.logMessage(Message::RifleHitBot, {dir_wire(dir)});
 			any = true;
 		}
 	}
-	if (!any) appendWire(messages, Message::RifleMiss, {dir_ru(dir)});
+	if (!any) out.logMessage(Message::RifleMiss, {dir_wire(dir)});
 }
-
 

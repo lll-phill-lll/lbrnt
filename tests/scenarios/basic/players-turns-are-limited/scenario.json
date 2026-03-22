@@ -55,7 +55,7 @@
       "type": "move",
       "name": "Alice",
       "dir": "down",
-      "expect_stdout": "[Alice]:\n\tMOVED:вниз\n[Alice]:\n\tMOVED:вправо\n[Alice]:\n\tMOVED:вправо\n[Alice]:\n\tNOT_YOUR_MOVE\n[Alice]:\n\tNOT_YOUR_MOVE"
+      "expect_stdout": "[Alice]:\n\tMOVED:down\n[Alice]:\n\tMOVED:right\n[Alice]:\n\tMOVED:right\n[Alice]:\n\tNOT_YOUR_MOVE\n[Alice]:\n\tNOT_YOUR_MOVE"
     }
   ]
 }

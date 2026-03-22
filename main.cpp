@@ -114,8 +114,8 @@ static void applyLogEntry(const LogEntry& e, AppState& cur) {
 			else if (e.item == "rifle") itm = std::make_unique<Rifle>();
 			else if (e.item == "flashlight") itm = std::make_unique<Flashlight>();
 			if (itm) {
-				std::vector<std::string> msgs;
-				itm->apply(cur.game, cur.map, e.name, e.dir, msgs);
+				Outcome scratch;
+				itm->apply(cur.game, cur.map, e.name, e.dir, scratch);
 			}
 			break;
 		}
@@ -152,10 +152,10 @@ static std::string logEntryDescription(const LogEntry& e) {
 	return "";
 }
 
-// Вывод wire-кодов как есть; русский текст собирает фронт (messageParse.js) или тесты по коду.
-static void print_user_messages(const std::string& player, const std::vector<std::string>& messages) {
+// Вывод wire как есть (локализация только в messageParse.js).
+static void print_user_messages(const std::string& player, const Outcome& o) {
 	std::cout << "[" << player << "]:" << "\n";
-	for (const auto& m : messages) {
+	for (const auto& m : o.messages) {
 		std::cout << "\t" << m << "\n";
 	}
 }
@@ -184,7 +184,9 @@ static void run_pending_bot_turns(AppState& st) {
 				if (p != std::string::npos) {
 					std::string pname = line.substr(7, p - 7);
 					std::string pmsg = line.substr(p + 1);
-					print_user_messages(pname, std::vector<std::string>{pmsg});
+					Outcome victimOut;
+					victimOut.messages.push_back(pmsg);
+					print_user_messages(pname, victimOut);
 				}
 			}
 		}
@@ -354,7 +356,9 @@ int main(int argc, char** argv) {
 			}
 		}
 		// print global turn info
-		print_user_messages("TURN", std::vector<std::string>{std::string("Next: ") + nextActor});
+		Outcome turnOut;
+		turnOut.messages.push_back(std::string("Next: ") + nextActor);
+		print_user_messages("TURN", turnOut);
 		// build player listing order
 		std::vector<std::string> names;
 		if (st.game.enforce_turns && !st.game.turn_order.empty()) {
@@ -390,7 +394,9 @@ int main(int argc, char** argv) {
 				}
 				if (lines.empty()) lines.push_back("Inventory: (empty)");
 			}
-			print_user_messages(name, lines);
+			Outcome invOut;
+			invOut.messages = std::move(lines);
+			print_user_messages(name, invOut);
 		}
 		return 0;
 	}
@@ -587,7 +593,7 @@ int main(int argc, char** argv) {
 			log_err(std::string("MOVE ") + name + " (no previous position)");
 		}
 		// stdout user messages
-		print_user_messages(name, out.messages);
+		print_user_messages(name, out);
 		run_pending_bot_turns(st);
 		if (!AppState::save(st, state, err)) { std::cerr << err << "\n"; return 2; }
 		return 0;
@@ -618,7 +624,7 @@ int main(int argc, char** argv) {
 			log_err(es.str());
 		}
 		// stdout user messages
-		print_user_messages(name, out.messages);
+		print_user_messages(name, out);
 		run_pending_bot_turns(st);
 		if (!AppState::save(st, state, err)) { std::cerr << err << "\n"; return 2; }
 		return 0;
@@ -713,7 +719,7 @@ int main(int argc, char** argv) {
 			log_err(es.str());
 		}
 		// stdout user messages
-		print_user_messages(name, out.messages);
+		print_user_messages(name, out);
 		run_pending_bot_turns(st);
 		if (!AppState::save(st, state, err)) { std::cerr << err << "\n"; return 2; }
 		return 0;

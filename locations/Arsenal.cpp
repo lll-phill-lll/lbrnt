@@ -1,14 +1,12 @@
 #include "Arsenal.hpp"
 #include "../game.hpp"
 #include "../map.hpp"
-#include "../message.hpp"
 #include "../generator.hpp"
 #include "LocationUtils.hpp"
 #include <algorithm>
 
-void ArsenalLocation::onEnter(Game& game, LabyrinthMap& /*map*/, const std::string& playerName, size_t /*x*/, size_t /*y*/, std::vector<std::string>& messages) {
-	appendWire(messages, Message::ArsenalEnter);
-	// Repair all items present in inventory to at least 1 charge
+void ArsenalLocation::onEnter(Game& game, LabyrinthMap& /*map*/, const std::string& playerName, size_t /*x*/, size_t /*y*/, Outcome& out) {
+	out.logMessage(Message::ArsenalEnter);
 	auto it = game.inventories.find(playerName);
 	if (it == game.inventories.end()) return;
 	auto& inv = it->second;
@@ -19,23 +17,22 @@ void ArsenalLocation::onEnter(Game& game, LabyrinthMap& /*map*/, const std::stri
 			charges = 1;
 			if (itemId == "knife") {
 				game.broken_knife.erase(playerName);
-				messages.push_back("Ваш нож починен.");
+				out.logMessage(Message::KnifeFixed);
 			} else if (itemId == "rifle") {
-				messages.push_back("Ружьё перезаряжено.");
+				out.logMessage(Message::RifleFixed);
 			} else if (itemId == "shotgun") {
-				messages.push_back("Дробовик перезаряжен.");
+				out.logMessage(Message::ShotgunFixed);
 			} else if (itemId == "flashlight") {
-				messages.push_back("Фонарь заряжен.");
+				out.logMessage(Message::LanternFixed);
 			} else {
-				messages.push_back("Предмет перезаряжен: " + itemId);
+				out.logMessage(Message::ItemRecharged, {itemId});
 			}
 		}
 	}
 }
 
-// Log exit
-void ArsenalLocation::onExit(Game& /*game*/, LabyrinthMap& /*map*/, const std::string& /*playerName*/, size_t /*x*/, size_t /*y*/, std::vector<std::string>& messages) {
-	appendWire(messages, Message::ArsenalExit);
+void ArsenalLocation::onExit(Game& /*game*/, LabyrinthMap& /*map*/, const std::string& /*playerName*/, size_t /*x*/, size_t /*y*/, Outcome& out) {
+	out.logMessage(Message::ArsenalExit);
 }
 
 void ArsenalLocation::onPlaced(Game& /*game*/, LabyrinthMap& map) {
@@ -62,5 +59,3 @@ void ArsenalLocation::onPlaced(Game& /*game*/, LabyrinthMap& map) {
 	std::vector<std::pair<size_t,size_t>> dummy;
 	LocationUtils::pick_and_place_location_cluster(map, CellContent::Arsenal, patterns, gen, dummy);
 }
-
-

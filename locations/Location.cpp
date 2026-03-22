@@ -7,8 +7,8 @@
 
 struct NoOpLocation : public Location {
 	const char* id() const override { return "none"; }
-	void onEnter(Game&, LabyrinthMap&, const std::string&, size_t, size_t, std::vector<std::string>&) override {}
-	void onExit(Game&, LabyrinthMap&, const std::string&, size_t, size_t, std::vector<std::string>&) override {}
+	void onEnter(Game&, LabyrinthMap&, const std::string&, size_t, size_t, Outcome&) override {}
+	void onExit(Game&, LabyrinthMap&, const std::string&, size_t, size_t, Outcome&) override {}
 	void onPlaced(Game&, LabyrinthMap&) override {}
 };
 

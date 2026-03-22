@@ -11,12 +11,13 @@
 
 enum class Direction { Up, Down, Left, Right };
 
-inline const char* dir_ru(Direction d) {
-	switch(d) {
-		case Direction::Up:    return "вверх";
-		case Direction::Down:  return "вниз";
-		case Direction::Left:  return "влево";
-		case Direction::Right: return "вправо";
+/** Токен направления для wire (совпадает с ключами в messageParse.js). */
+inline const char* dir_wire(Direction d) {
+	switch (d) {
+		case Direction::Up:    return "up";
+		case Direction::Down:  return "down";
+		case Direction::Left:  return "left";
+		case Direction::Right: return "right";
 	}
 	return "";
 }
@@ -107,9 +108,9 @@ inline bool player_has_treasure(const Game& g, const std::string& name) {
 
 // Attempt to kill a victim (weapon attack). Returns true if hospitalized.
 // If victim has armor, the armor absorbs the hit and the player survives.
-bool attempt_kill(Game& game, LabyrinthMap& map, const std::string& victim, std::vector<std::string>& messages);
+bool attempt_kill(Game& game, LabyrinthMap& map, const std::string& victim, Outcome& out);
 
 /** Удар по клетке (tx,ty): если там бот — перенос на случайную пустую клетку. */
-bool hit_bot_at(Game& game, LabyrinthMap& map, size_t tx, size_t ty, std::vector<std::string>& messages);
+bool hit_bot_at(Game& game, LabyrinthMap& map, size_t tx, size_t ty, Outcome& out);
 
 

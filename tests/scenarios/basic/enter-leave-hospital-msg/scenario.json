@@ -34,7 +34,7 @@
       "type": "move",
       "name": "Alice",
       "dir": "up",
-      "expect_stdout": "[Alice]:\n\tMOVED:вниз\n\tHOSPITAL_ENTER\n[Alice]:\n\tMOVED:вверх\n\tHOSPITAL_EXIT"
+      "expect_stdout": "[Alice]:\n\tMOVED:down\n\tHOSPITAL_ENTER\n[Alice]:\n\tMOVED:up\n\tHOSPITAL_EXIT"
     }
   ]
 }

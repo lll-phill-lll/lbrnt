@@ -1,17 +1,16 @@
 #include "Hospital.hpp"
 #include "../game.hpp"
 #include "../map.hpp"
-#include "../message.hpp"
 #include "../generator.hpp"
 #include "LocationUtils.hpp"
 #include <algorithm>
 
-void HospitalLocation::onEnter(Game& game, LabyrinthMap& /*map*/, const std::string& /*playerName*/, size_t /*x*/, size_t /*y*/, std::vector<std::string>& messages) {
-	appendWire(messages, Message::HospitalEnter);
+void HospitalLocation::onEnter(Game& /*game*/, LabyrinthMap& /*map*/, const std::string& /*playerName*/, size_t /*x*/, size_t /*y*/, Outcome& out) {
+	out.logMessage(Message::HospitalEnter);
 }
 
-void HospitalLocation::onExit(Game& /*game*/, LabyrinthMap& /*map*/, const std::string& /*playerName*/, size_t /*x*/, size_t /*y*/, std::vector<std::string>& messages) {
-	appendWire(messages, Message::HospitalExit);
+void HospitalLocation::onExit(Game& /*game*/, LabyrinthMap& /*map*/, const std::string& /*playerName*/, size_t /*x*/, size_t /*y*/, Outcome& out) {
+	out.logMessage(Message::HospitalExit);
 }
 
 void HospitalLocation::onPlaced(Game& /*game*/, LabyrinthMap& map) {
@@ -50,4 +49,3 @@ bool HospitalLocation::teleportToHospital(Game& game, LabyrinthMap& map, const s
 	}
 	return false;
 }
-

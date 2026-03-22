@@ -1,11 +1,10 @@
 #include "../game.hpp"
 #include "../map.hpp"
-#include "../message.hpp"
 #include "Knife.hpp"
 
-void Knife::apply(Game& game, LabyrinthMap& map, const std::string& playerName, Direction dir, std::vector<std::string>& messages) {
+void Knife::apply(Game& game, LabyrinthMap& map, const std::string& playerName, Direction dir, Outcome& out) {
 	auto ita = game.players.find(playerName);
-	if (ita == game.players.end()) { appendWire(messages, Message::InvalidTargetPlayer); return; }
+	if (ita == game.players.end()) { out.logMessage(Message::InvalidTargetPlayer); return; }
 
 	auto pos = ita->second;
 	size_t tx = pos.first, ty = pos.second;
@@ -22,23 +21,22 @@ void Knife::apply(Game& game, LabyrinthMap& map, const std::string& playerName, 
 		if (kv.second.first == tx && kv.second.second == ty) { victim = kv.first; break; }
 	}
 	if (!can) {
-		appendWire(messages, Message::KnifeMiss, {dir_ru(dir)});
-		appendWire(messages, Message::KnifeSpent);
+		out.logMessage(Message::KnifeMiss, {dir_wire(dir)});
+		out.logMessage(Message::KnifeSpent);
 		return;
 	}
 	if (!victim.empty()) {
-		if (attempt_kill(game, map, victim, messages))
-			appendWire(messages, Message::KnifeHitPlayer, {dir_ru(dir), victim});
-		appendWire(messages, Message::KnifeSpent);
+		if (attempt_kill(game, map, victim, out))
+			out.logMessage(Message::KnifeHitPlayer, {dir_wire(dir), victim});
+		out.logMessage(Message::KnifeSpent);
 		return;
 	}
-	if (hit_bot_at(game, map, tx, ty, messages)) {
-		appendWire(messages, Message::KnifeHitBot, {dir_ru(dir)});
-		appendWire(messages, Message::KnifeSpent);
+	if (hit_bot_at(game, map, tx, ty, out)) {
+		out.logMessage(Message::KnifeHitBot, {dir_wire(dir)});
+		out.logMessage(Message::KnifeSpent);
 		return;
 	}
-	appendWire(messages, Message::KnifeMiss, {dir_ru(dir)});
-	appendWire(messages, Message::KnifeSpent);
+	out.logMessage(Message::KnifeMiss, {dir_wire(dir)});
+	out.logMessage(Message::KnifeSpent);
 }
-
 
