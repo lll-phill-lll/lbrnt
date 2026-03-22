@@ -7,6 +7,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 add_executable(labyrinth
 	main.cpp
+    message.hpp
 	rng.hpp
 	map.hpp
 	map.cpp

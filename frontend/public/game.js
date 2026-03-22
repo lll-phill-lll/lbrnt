@@ -1,3 +1,5 @@
+import { MESSAGE_CODES, parseMessage } from "../lib/messageParse.js";
+
 (() => {
   const $ = id => document.getElementById(id);
 
@@ -91,6 +93,12 @@
     return d.innerHTML;
   }
 
+  // --- TOAST VISUALIZATION LOGIC ---
+  function formatMessageEntry(entry, ignoreVerbose = false) {
+    const concise = esc(entry.concise);
+    const verbose = esc(entry.verbose || '');
+    return verbose && !ignoreVerbose ? `<span class="toast-verbose">${verbose}</span> <span clas="toast-concise">(${concise})</span` : concise;
+  }
   function showToast(text, cls, duration) {
     const el = document.createElement('div');
     el.className = 'toast ' + (cls || '');
@@ -110,14 +118,14 @@
       feedListEl.scrollTop = feedListEl.scrollHeight;
     }
   }
-  const isBreathingLine = (l) => String(l).includes('чувствуете чьё-то дыхание');
+  const isBreathingLine = (c) => String(c).includes(MESSAGE_CODES.BREATHE);
+  const isBotLine = (c) => String(c).trim() === MESSAGE_CODES.BOT_MOVED;
   function toastFeedback(lines, who) {
     const arr = Array.isArray(lines) ? lines : [lines];
-    const isBotLine = (l) => String(l).trim() === 'Бот походил';
     let breathingKept = false;
-    const rest = arr.filter(l => {
-      if (isBotLine(l)) return false;
-      if (isBreathingLine(l)) {
+    const rest = arr.filter(c => {
+      if (isBotLine(c)) return false;
+      if (isBreathingLine(c)) {
         if (breathingKept) return false;
         breathingKept = true;
       }
@@ -126,19 +134,19 @@
     const botCount = arr.filter(isBotLine).length;
     if (rest.length > 0) {
       const prefix = who ? `<span class="toast-who">${esc(who)}:</span> ` : '';
-      const body = rest.map(l => esc(l)).join('<br>');
+      const body = rest.map(formatMessageEntry).join('<br>');
       const isSelf = who === session.name;
       showToast(prefix + body, isSelf ? 'self' : 'other', 5000);
     }
     // Ход бота — только во всплывающих уведомлениях, не в ленте чата
     for (let i = 0; i < botCount; i++) {
-      showToast(`<span class="toast-who">бот:</span> ${esc('Бот походил')}`, 'other', 5000);
+      showToast(`<span class="toast-who">бот:</span> ${formatMessageEntry(MESSAGE_CODES.BOT_MOVED, true)}`, 'other', 5000);
     }
   }
-  function toastSystem(text) { showToast(esc(text), 'system', 5000); }
+  function toastSystem(text) { showToast(formatMessageEntry(text, true), 'system', 5000); }
   function chatToFeed(text, who) {
     const prefix = who ? `<span class="toast-who">${esc(who)}:</span> ` : '';
-    addFeedEntry(prefix + esc(text));
+    addFeedEntry(prefix + parseMessage(text).concise ));
   }
 
   // ── Socket ──

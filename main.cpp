@@ -168,7 +168,7 @@ static void run_pending_bot_turns(AppState& st) {
 		if (!st.game.enforce_turns || !st.game.bot_enabled || st.game.turn_order.empty()) break;
 		if (st.game.turn_index >= st.game.turn_order.size()) break;
 		if (st.game.turn_order[st.game.turn_index] != "bot") break;
-		std::vector<std::string> blog;
+        Outcome botBlog;
 		std::vector<BotReplayStep> bot_replay;
 		st.game.run_bot_turn(st.map, blog, &bot_replay);
 		for (const auto& s : bot_replay) {
@@ -177,13 +177,14 @@ static void run_pending_bot_turns(AppState& st) {
 			else
 				st.log.push_back(LogEntry{LogType::BotKill, s.victim, Direction::Up, 0, 0, {}});
 		}
-		for (const auto& line : blog) {
-			if (line.rfind("PLAYER:", 0) == 0) {
-				size_t p = line.find(':', 7);
+		for (const auto& line : botBlog.messages) {
+            auto killedByBotMessage = toString(Message::KilledByBot);
+            if (line.rfind(killedByBotMessage, 0) == 0) {
+                auto killedByBotMessagePrefix = killedByBotMessage.length() + 1;
+				size_t p = line.find(':', killedByBotMessagePrefix);
 				if (p != std::string::npos) {
-					std::string pname = line.substr(7, p - 7);
-					std::string pmsg = line.substr(p + 1);
-					print_user_messages(pname, std::vector<std::string>{pmsg});
+					std::string pname = line.substr(killedByBotMessagePrefix, p - killedByBotMessagePrefix);
+					print_user_messages(pname, std::vector<std::string>{killedByBotMessage});
 				}
 			}
 		}

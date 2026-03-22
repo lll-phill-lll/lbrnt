@@ -1,6 +1,8 @@
 #pragma once
 #include "map.hpp"
+#include "message.hpp"
 #include "items.hpp"
+
 #include <cstdint>
 #include <string>
 #include <unordered_map>
@@ -24,19 +26,32 @@ inline const char* dir_ru(Direction d) {
 	return "";
 }
 
-struct MoveOutcome {
+struct Outcome {
+    std::vector<std::string> messages;
+    void logMessage(Message message) {
+        messages.push_back(toString(message)); 
+    }
+
+    void logMessage(Message message, std::initializer_list<std::string> args) {
+        auto loggedMessage = toString(message);
+        for (auto& arg : args) {
+            loggedMessage += ArgsSeparator;
+            loggedMessage += arg;
+        }
+        messages.push_back(loggedMessage);
+    }
+};
+struct MoveOutcome : Outcome {
 	bool moved{false};
 	std::pair<size_t,size_t> position{0,0};
-	std::vector<std::string> messages;
 };
-struct AttackOutcome {
+struct AttackOutcome : Outcome {
 	bool attacked{false};
-	std::vector<std::string> messages;
 	/** Для записи в лог replay: бот перенесён после удара игрока */
 	bool bot_respawn_for_log{false};
 	size_t bot_log_x{0}, bot_log_y{0};
 };
-struct UseOutcome {
+struct UseOutcome : Outcome {
 	bool used{false};
 	std::vector<std::string> messages;
 	bool bot_respawn_for_log{false};
@@ -67,8 +82,7 @@ struct Game {
 	size_t bot_y{0};
 	int bot_steps_per_turn{1};
 
-	void run_bot_turn(LabyrinthMap& map, std::vector<std::string>& messages,
-		std::vector<BotReplayStep>* replay_log = nullptr);
+	void run_bot_turn(LabyrinthMap& map, Outcome& outcome, std::vector<BotReplayStep>* replay_log = nullptr);
 	/** Только для replay: убийство ботом (как в run_bot_turn, без проверки брони). */
 	void apply_replay_bot_kill(const std::string& victim, LabyrinthMap& map);
 	// inventory: broken knife set; if name is in set -> knife broken, else active
