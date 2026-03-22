@@ -1,6 +1,7 @@
 #pragma once
 #include "map.hpp"
 #include "items.hpp"
+#include <cstdint>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>

@@ -650,7 +650,6 @@ int main(int argc, char** argv) {
 		for (size_t y = 0; y < st.map.height; ++y) {
 			for (size_t x = 0; x < st.map.width; ++x) {
 				if (st.map.get_cell(x, y) != CellContent::Empty) continue;
-				long long key = (long long)y * 1000000LL + (long long)x;
 				// allow multiple items per cell; no filter
 				spots.emplace_back(x, y);
 			}
