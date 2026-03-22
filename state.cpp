@@ -304,6 +304,8 @@ bool AppState::load(AppState& st, const std::string& path, std::string& err) {
 		legacy_player_treasure[name] = (has_t != 0);
 		if (broken) st.game.broken_knife.insert(name);
 	}
+	// Очистить инвентари перед разбором optional-секций и миграцией legacy has_t.
+	st.game.inventories.clear();
 	// Optional turns/actions/items/colors sections
 	if (!(f >> token)) { err = "Ожидался FINISHED или PCOLORS/ITEMS"; return false; }
 	if (token == "TURNS") {

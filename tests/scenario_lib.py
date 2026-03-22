@@ -364,7 +364,7 @@ def run_scenario(lab: Path, scenario_dir: Path, *, canonize: bool = False) -> di
             stderr_script_acc = _append_step_output(stderr_script_acc, acc_err)
 
             check_out = stdout_script_acc if _step_has_stdout_expect(step) else acc_out
-            check_err = stderr_script_acc if _step_has_stdout_expect(step) else acc_err
+            check_err = acc_err
             ok, checks = _check_expect(check_out, check_err, step)
             script_results.append(
                 {

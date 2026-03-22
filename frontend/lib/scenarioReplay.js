@@ -325,7 +325,7 @@ export async function runScenario(scenarioDirPath) {
       scriptStdoutAcc = appendStepOut(scriptStdoutAcc, accOut);
       scriptStderrAcc = appendStepOut(scriptStderrAcc, accErr);
       const checkOut = stepHasStdoutExpect(step) ? scriptStdoutAcc : accOut;
-      const checkErr = stepHasStdoutExpect(step) ? scriptStderrAcc : accErr;
+      const checkErr = accErr;
       const { ok, checks } = checkExpect(checkOut, checkErr, step);
       appendCliLog(accOut, accErr);
       if (!ok) {

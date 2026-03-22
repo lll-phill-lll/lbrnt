@@ -222,8 +222,8 @@ R"(labyrinth_cpp commands:
   set-hwall --state state.txt --x X --y Y (--present=0|1)
   set-knife --state state.txt --name NAME (--broken=0|1)
   set-turns --state state.txt (0|1)
-  add-item --state state.txt --item (knife|shotgun|rifle|flashlight|armor) --x X --y Y [--charges N]
-  add-item-random --state state.txt --item (knife|shotgun|rifle|flashlight|armor) [--charges N]
+  add-item --state state.txt --item (knife|shotgun|rifle|flashlight|armor|treasure) --x X --y Y [--charges N]
+  add-item-random --state state.txt --item (knife|shotgun|rifle|flashlight|armor|treasure) [--charges N]
   give-item --state state.txt --name NAME --item (knife|shotgun|rifle|flashlight|armor|treasure) [--charges N]
   save-as --state state.txt --out other.txt
   export-svg --state state.txt --out maze.svg [--cell N] [--margin PX]
