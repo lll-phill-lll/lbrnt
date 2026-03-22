@@ -68,5 +68,8 @@ export function validateManifestAction(a) {
   if (t === 'use-item') {
     return VALID_DIRS.has(a.dir) && VALID_ITEMS.has(a.item);
   }
+  if (t === 'player-status') {
+    return validatePlayerName(name);
+  }
   return false;
 }

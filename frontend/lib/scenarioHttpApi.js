@@ -309,7 +309,8 @@ export function createScenarioApiRouter() {
       if (!validateManifestAction(a)) {
         return res.status(400).json({
           ok: false,
-          error: 'некорректное действие в actions (типы: move, attack, use-item + dir/item)',
+          error:
+            'некорректное действие в actions (типы: move, attack, use-item, player-status)',
         });
       }
     }

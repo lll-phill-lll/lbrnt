@@ -9,6 +9,11 @@
 
 enum class Direction { Up, Down, Left, Right };
 
+/** Текст о соседнем слышимом дыхании: один источник для move_player и CLI player-status. */
+inline const char* game_message_nearby_breathing() {
+	return "Вы чувствуете чьё-то дыхание поблизости.";
+}
+
 inline const char* dir_ru(Direction d) {
 	switch(d) {
 		case Direction::Up:    return "вверх";

@@ -481,8 +481,12 @@ int main(int argc, char** argv) {
 				else if (by == myPos.second + 1 && bx == myPos.first) breathing = st.map.can_move_down(myPos.first, myPos.second);
 			}
 		}
-		js << "\"nearbyBreathing\":" << (breathing ? "true" : "false");
-		js << "}";
+		js << "\"nearbyBreathing\":" << (breathing ? "true" : "false") << ",";
+		js << "\"messages\":[";
+		if (breathing) {
+			js << "\"" << jsonEscape(std::string(game_message_nearby_breathing())) << "\"";
+		}
+		js << "]}";
 		std::cout << js.str() << "\n";
 		return 0;
 	}

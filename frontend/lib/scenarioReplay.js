@@ -168,6 +168,9 @@ export function buildActionCmd(statePath, action) {
       action.dir,
     ];
   }
+  if (t === 'player-status') {
+    return ['player-status', '--state', statePath, '--name', String(action.name)];
+  }
   throw new Error(`unknown action type: ${t}`);
 }
 
@@ -266,23 +269,30 @@ export async function runScenario(scenarioDirPath) {
           scriptIndex: j,
         });
       }
-      const r2 = await runLab(['resolve-bots', '--state', tmp]);
-      if (r2.code !== 0) {
-        appendCliLog(r.out, r.err);
-        appendCliLog(r2.out, r2.err);
-        return fail({
-          ok: false,
-          error: `script[${j}] resolve-bots failed`,
-          exitCode: r2.code,
-          stdout: accumulatedStdout,
-          stderr: accumulatedStderr,
-          scriptIndex: j,
-        });
+      let accOut;
+      let accErr;
+      if (step.type === 'player-status') {
+        accOut = r.out || '';
+        accErr = r.err || '';
+      } else {
+        const r2 = await runLab(['resolve-bots', '--state', tmp]);
+        if (r2.code !== 0) {
+          appendCliLog(r.out, r.err);
+          appendCliLog(r2.out, r2.err);
+          return fail({
+            ok: false,
+            error: `script[${j}] resolve-bots failed`,
+            exitCode: r2.code,
+            stdout: accumulatedStdout,
+            stderr: accumulatedStderr,
+            scriptIndex: j,
+          });
+        }
+        accOut = r.out || '';
+        if (r2.out) accOut = accOut + (accOut ? '\n' : '') + r2.out;
+        accErr = r.err || '';
+        if (r2.err) accErr = accErr + (accErr ? '\n' : '') + r2.err;
       }
-      let accOut = r.out || '';
-      if (r2.out) accOut = accOut + (accOut ? '\n' : '') + r2.out;
-      let accErr = r.err || '';
-      if (r2.err) accErr = accErr + (accErr ? '\n' : '') + r2.err;
 
       const { ok, checks } = checkExpect(accOut, accErr, step);
       appendCliLog(accOut, accErr);
