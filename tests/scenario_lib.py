@@ -185,6 +185,8 @@ def build_game_argv(state_path: str, action: dict[str, Any]) -> list[str]:
             action["item"],
             action["dir"],
         ]
+    if t == "player-status":
+        return ["player-status", "--state", state_path, "--name", str(action["name"])]
     raise ValueError(f"unknown game action type: {t}")
 
 
@@ -305,24 +307,28 @@ def run_scenario(lab: Path, scenario_dir: Path, *, canonize: bool = False) -> di
                     "id": sid,
                     "description": desc,
                 }
-            c2, o2, e2 = run_lab(lab, ["resolve-bots", "--state", tmp])
-            if c2 != 0:
-                return {
-                    "ok": False,
-                    "error": _format_cli_failure(f"resolve-bots после script[{j}]", c2, o2, e2),
-                    "exit_code": c2,
-                    "stdout": o2,
-                    "stderr": e2,
-                    "script_index": j,
-                    "id": sid,
-                    "description": desc,
-                }
-            acc_out = seg_out
-            if o2:
-                acc_out = acc_out + ("\n" if acc_out else "") + o2
-            acc_err = seg_err
-            if e2:
-                acc_err = acc_err + ("\n" if acc_err else "") + e2
+            if step.get("type") == "player-status":
+                acc_out = seg_out
+                acc_err = seg_err
+            else:
+                c2, o2, e2 = run_lab(lab, ["resolve-bots", "--state", tmp])
+                if c2 != 0:
+                    return {
+                        "ok": False,
+                        "error": _format_cli_failure(f"resolve-bots после script[{j}]", c2, o2, e2),
+                        "exit_code": c2,
+                        "stdout": o2,
+                        "stderr": e2,
+                        "script_index": j,
+                        "id": sid,
+                        "description": desc,
+                    }
+                acc_out = seg_out
+                if o2:
+                    acc_out = acc_out + ("\n" if acc_out else "") + o2
+                acc_err = seg_err
+                if e2:
+                    acc_err = acc_err + ("\n" if acc_err else "") + e2
 
             ok, checks = _check_expect(acc_out, acc_err, step)
             script_results.append(

@@ -329,7 +329,7 @@ MoveOutcome Game::move_player(const std::string& name, Direction dir, LabyrinthM
 		size_t dy = (new_pos.second > by) ? (new_pos.second - by) : (by - new_pos.second);
 		if (dx + dy == 1 && adjacentBreathingVisible(bx, by)) feltBreathing = true;
 	}
-	if (feltBreathing) out.messages.push_back("Вы чувствуете чьё-то дыхание поблизости.");
+	if (feltBreathing) out.messages.push_back(game_message_nearby_breathing());
 	consume_action_or_advance(*this, map);
 	return out;
 }

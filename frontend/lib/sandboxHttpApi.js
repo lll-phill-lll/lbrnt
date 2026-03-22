@@ -355,5 +355,39 @@ export function createSandboxApiRouter() {
   router.post('/attack', (req, res) => handleMoveAttackUse(req, res, 'attack'));
   router.post('/use', (req, res) => handleMoveAttackUse(req, res, 'use'));
 
+  /** Только stdout JSON `player-status` (без resolve-bots) — для записи в сценарий. */
+  router.post('/dump-status', async (req, res) => {
+    try {
+      const name = String(req.body?.name || '').trim();
+      if (!validatePlayerName(name)) {
+        return res.status(400).json({ ok: false, error: 'bad name' });
+      }
+      const sf = stateFile(SANDBOX_ROOM_ID);
+      let out = '';
+      let err = '';
+      /** enqueueSandbox глотает reject колбэка — проверяем код выхода сами. */
+      let cliFail = null;
+      await enqueueSandbox(async () => {
+        await ensureSandbox();
+        const r = await runLab(['player-status', '--state', sf, '--name', name]);
+        out = r.out || '';
+        err = r.err || '';
+        if (r.code !== 0) {
+          cliFail = new Error(r.err || r.out || 'player-status failed');
+        }
+      });
+      if (cliFail) throw cliFail;
+      const raw = String(out).trim();
+      return res.json({
+        ok: true,
+        stdout: out,
+        stderr: err,
+        scenarioTrace: { rawStdout: raw },
+      });
+    } catch (e) {
+      return res.status(400).json({ ok: false, error: e?.message || String(e) });
+    }
+  });
+
   return router;
 }

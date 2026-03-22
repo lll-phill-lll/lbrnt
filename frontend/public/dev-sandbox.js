@@ -118,10 +118,21 @@
       panel.className = 'player-panel';
       panel.dataset.player = name;
 
+      const titleRow = document.createElement('div');
+      titleRow.className = 'player-panel-title-row';
       const title = document.createElement('div');
       title.className = 'player-panel-name';
+      title.style.marginBottom = '0';
       title.textContent = name;
-      panel.appendChild(title);
+      const dumpBtn = document.createElement('button');
+      dumpBtn.type = 'button';
+      dumpBtn.textContent = 'dump-status';
+      dumpBtn.dataset.dumpStatus = '1';
+      dumpBtn.dataset.player = name;
+      dumpBtn.title = 'player-status в stdout и в сценарий при записи';
+      titleRow.appendChild(title);
+      titleRow.appendChild(dumpBtn);
+      panel.appendChild(titleRow);
 
       const lblMove = document.createElement('div');
       lblMove.className = 'section-label';
@@ -217,6 +228,17 @@
   }
 
   playerPanels.addEventListener('click', async (e) => {
+    const dumpEl = e.target.closest('button[data-dump-status]');
+    if (dumpEl) {
+      const name = dumpEl.dataset.player;
+      if (!name) return;
+      try {
+        await postDumpStatus(name);
+      } catch (err) {
+        logStderr(`[err] ${err.message}`);
+      }
+      return;
+    }
     const useBtn = e.target.closest('button[data-item-use]');
     if (useBtn) {
       const name = useBtn.dataset.player;
@@ -366,6 +388,21 @@
     appendCli(data);
     if (!r.ok || !data.ok) throw new Error(data.error || r.statusText);
     recordScenario(data, manifestAction);
+    await refreshSnapshot();
+    await refreshSvg();
+    return data;
+  }
+
+  async function postDumpStatus(playerName) {
+    const r = await fetch(API + '/sandbox/dump-status', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: playerName }),
+    });
+    const data = await r.json().catch(() => ({}));
+    appendCli(data);
+    if (!r.ok || !data.ok) throw new Error(data.error || r.statusText);
+    recordScenario(data, { type: 'player-status', name: playerName });
     await refreshSnapshot();
     await refreshSvg();
     return data;

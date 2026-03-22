@@ -312,8 +312,14 @@
 
   function handlePlayerStatus(data) {
     if (data?.items) renderItemsPanel(data.items);
+    const msgs = Array.isArray(data?.messages) ? data.messages : [];
     const br = !!data?.nearbyBreathing;
-    if (br && !lastBreathing) toastSystem('Вы чувствуете чьё-то дыхание поблизости...');
+    for (const line of msgs) {
+      const t = String(line || '').trim();
+      if (!t) continue;
+      if (isBreathingLine(t) && lastBreathing) continue;
+      toastSystem(t);
+    }
     lastBreathing = br;
   }
 

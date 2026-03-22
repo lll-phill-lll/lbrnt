@@ -7,7 +7,8 @@
   "scripts": {
     "start": "node server.js",
     "dev": "NODE_ENV=development node server.js",
-    "dev:scenario": "NODE_ENV=development node scenario-dev-server.js"
+    "dev:scenario": "NODE_ENV=development node scenario-dev-server.js",
+    "dev:scenario:5175": "PORT=5175 NODE_ENV=development node scenario-dev-server.js"
   },
   "dependencies": {
     "express": "^4.19.2",
