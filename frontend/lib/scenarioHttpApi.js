@@ -26,6 +26,7 @@ const SETUP_STEP_TYPES = new Set([
   'init-turns',
   'init-base',
   'give-item',
+  'give-treasure',
   'add-item',
   'add-item-random',
   'set-cell',

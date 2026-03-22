@@ -30,6 +30,8 @@ add_executable(labyrinth
 	items/Flashlight.cpp
 	items/Armor.hpp
 	items/Armor.cpp
+	items/LootTreasure.hpp
+	items/LootTreasure.cpp
 	locations/LocationUtils.hpp
 	locations/LocationUtils.cpp
 	locations/Location.hpp

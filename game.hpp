@@ -52,7 +52,6 @@ struct BotReplayStep {
 
 struct Game {
 	std::unordered_map<std::string, std::pair<size_t,size_t>> players;
-	std::unordered_set<std::string> players_with_treasure;
 	bool finished{false};
 
 	bool enforce_turns{false};
@@ -95,6 +94,12 @@ struct Game {
 	bool pending_bot_respawn_log{false};
 	size_t pending_bot_log_x{0}, pending_bot_log_y{0};
 };
+
+/** Игрок несёт сокровище (charges предмета `treasure` > 0). */
+inline bool player_has_treasure(const Game& g, const std::string& name) {
+	auto it = g.inventories.find(name);
+	return it != g.inventories.end() && it->second.getCharges("treasure") > 0;
+}
 
 // Attempt to kill a victim (weapon attack). Returns true if hospitalized.
 // If victim has armor, the armor absorbs the hit and the player survives.

@@ -149,6 +149,19 @@ def build_setup_argv(state_path: str, action: dict[str, Any]) -> list[str]:
         if action.get("charges") is not None:
             args += ["--charges", str(int(action["charges"]))]
         return args
+    if t == "give-treasure":
+        # то же, что give-item с treasure (совместимость со старыми scenario.json)
+        return [
+            "give-item",
+            "--state",
+            state_path,
+            "--name",
+            str(action["name"]),
+            "--item",
+            "treasure",
+            "--charges",
+            "1",
+        ]
     if t == "add-item":
         args = [
             "add-item",

@@ -192,8 +192,8 @@
           header.appendChild(charges);
           card.appendChild(header);
 
-          const isArmor = item.id === 'armor';
-          if (usable && !isArmor) {
+          const noDirectionUse = item.id === 'armor' || item.id === 'treasure';
+          if (usable && !noDirectionUse) {
             const itemDirs = document.createElement('div');
             itemDirs.className = 'item-dirs';
             for (const [label, dir] of [
@@ -212,11 +212,17 @@
               itemDirs.appendChild(btn);
             }
             card.appendChild(itemDirs);
-          } else if (usable && isArmor) {
+          } else if (usable && item.id === 'armor') {
             const hint = document.createElement('div');
             hint.className = 'item-hint';
             hint.textContent =
               'Направление не выбирается — броня срабатывает автоматически при ударе. Описание — в подсказке (i).';
+            card.appendChild(hint);
+          } else if (usable && item.id === 'treasure') {
+            const hint = document.createElement('div');
+            hint.className = 'item-hint';
+            hint.textContent =
+              'Сокровище несите до выхода; направление для «использования» не выбирается. См. подсказку (i).';
             card.appendChild(hint);
           }
           panel.appendChild(card);

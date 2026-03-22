@@ -1,0 +1,40 @@
+{
+  "description": "При входе/выходе из арсенала должно быть соответствующее сообщение",
+  "setup": [
+    {
+      "type": "generate",
+      "width": 8,
+      "height": 8,
+      "seed": 42,
+      "openness": 0.5,
+      "turns": false,
+      "turn_actions": 1
+    },
+    {
+      "type": "add-player",
+      "name": "alice",
+      "x": 5,
+      "y": 4
+    },
+    {
+      "type": "set-turns",
+      "on": true
+    },
+    {
+      "type": "init-turns"
+    }
+  ],
+  "script": [
+    {
+      "type": "move",
+      "name": "alice",
+      "dir": "up"
+    },
+    {
+      "type": "move",
+      "name": "alice",
+      "dir": "down",
+      "expect_stdout": "[alice]:\n\tПрошёл вверх\n\tВы нашли арсенал.\n[alice]:\n\tПрошёл вниз\n\tВы покинули арсенал."
+    }
+  ]
+}

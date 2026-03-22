@@ -5,7 +5,7 @@
 void TreasureLocation::onEnter(Game& game, LabyrinthMap& map, const std::string& playerName, size_t x, size_t y, std::vector<std::string>& messages) {
 	if (map.get_cell(x, y) == CellContent::Treasure) {
 		messages.push_back("Нашёл сокровище!");
-		game.players_with_treasure.insert(playerName);
+		game.inventories[playerName].setCharges("treasure", 1);
 		map.set_cell(x, y, CellContent::Empty);
 	}
 }

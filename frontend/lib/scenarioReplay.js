@@ -113,6 +113,19 @@ export function buildSetupCmd(statePath, action) {
     if (action.charges != null) args.push('--charges', String(Number(action.charges)));
     return args;
   }
+  if (t === 'give-treasure') {
+    return [
+      'give-item',
+      '--state',
+      statePath,
+      '--name',
+      String(action.name),
+      '--item',
+      'treasure',
+      '--charges',
+      '1',
+    ];
+  }
   if (t === 'add-item') {
     const args = [
       'add-item',
