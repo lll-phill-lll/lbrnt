@@ -1,7 +1,7 @@
 #include "../game.hpp"
 #include "../map.hpp"
+#include "../message.hpp"
 #include "Flashlight.hpp"
-#include <sstream>
 #include "../generator.hpp"
 #include "../rng.hpp"
 #include <random>
@@ -29,21 +29,24 @@ static const char* cell_name(CellContent c) {
 
 void Flashlight::apply(Game& game, LabyrinthMap& map, const std::string& playerName, Direction dir, std::vector<std::string>& messages) {
 	auto ita = game.players.find(playerName);
-	if (ita == game.players.end()) { messages.push_back("Нет такого игрока"); return; }
+	if (ita == game.players.end()) { appendWire(messages, Message::InvalidTargetPlayer); return; }
 
 	size_t cx = ita->second.first, cy = ita->second.second;
 	for (int i = 1; i <= 3; ++i) {
-		if (!step_forward_fl(map, cx, cy, dir)) { messages.push_back(std::string("Фонарь ") + dir_ru(dir) + ": путь закрыт стеной"); break; }
-		std::ostringstream os;
-		os << "Фонарь " << dir_ru(dir) << " " << i << ": " << cell_name(map.get_cell(cx, cy));
-		// check players
+		if (!step_forward_fl(map, cx, cy, dir)) {
+			appendWire(messages, Message::FlashlightBlocked, {dir_ru(dir)});
+			break;
+		}
 		bool found_player = false;
 		for (const auto& kv : game.players) {
 			if (kv.first == playerName) continue;
 			if (kv.second.first == cx && kv.second.second == cy) { found_player = true; break; }
 		}
-		if (found_player) os << " + игрок";
-		messages.push_back(os.str());
+		const std::string cellTok = cell_name(map.get_cell(cx, cy));
+		if (found_player)
+			appendWire(messages, Message::FlashlightBeam, {dir_ru(dir), std::to_string(i), cellTok, "player"});
+		else
+			appendWire(messages, Message::FlashlightBeam, {dir_ru(dir), std::to_string(i), cellTok});
 	}
 }
 
@@ -59,7 +62,7 @@ void Flashlight::onDepleted(Game& game, LabyrinthMap& map, const std::string& /*
 	const auto pos = empties[game_rng::uniform_u32_below(gen, static_cast<uint32_t>(empties.size()))];
 	long long key = (long long)pos.second * 1000000LL + (long long)pos.first;
 	game.ground_items[key]["flashlight"] += 1;
-	messages.push_back("Фонарь выпал где-то неподалёку.");
+	appendWire(messages, Message::FlashlightDropped);
 }
 
 

@@ -23,9 +23,13 @@ inline const char* dir_ru(Direction d) {
 
 struct Outcome {
 	std::vector<std::string> messages;
-	void logMessage(Message message) { messages.push_back(formatMessage(message)); }
+	void logMessage(Message message) { messages.push_back(messageWire(message)); }
 	void logMessage(Message message, std::initializer_list<std::string> args) {
-		messages.push_back(formatMessage(message, args));
+		messages.push_back(messageWire(message, args));
+	}
+	/** Сообщение конкретному игроку (жертве бота): `PLAYER:имя:WIRE…` */
+	void logPlayerMessage(const std::string& victim, Message message, std::initializer_list<std::string> args = {}) {
+		messages.push_back(std::string("PLAYER:") + victim + ":" + messageWire(message, args));
 	}
 };
 struct MoveOutcome : Outcome {

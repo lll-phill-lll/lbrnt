@@ -1,14 +1,15 @@
 #include "Exit.hpp"
 #include "../game.hpp"
 #include "../map.hpp"
+#include "../message.hpp"
 
 void ExitLocation::onEnter(Game& game, LabyrinthMap& map, const std::string& playerName, size_t x, size_t y, std::vector<std::string>& messages) {
 	(void)map; (void)x; (void)y;
 	if (player_has_treasure(game, playerName)) {
-		messages.push_back("Выход найден! Игрок вынес сокровище!");
+		appendWire(messages, Message::ExitLocationWithTreasure);
 		game.finished = true;
 	} else {
-		messages.push_back("Выход найден, но без сокровища.");
+		appendWire(messages, Message::ExitLocationWithoutTreasure);
 	}
 }
 

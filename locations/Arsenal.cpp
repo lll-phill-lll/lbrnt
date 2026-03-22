@@ -1,12 +1,13 @@
 #include "Arsenal.hpp"
 #include "../game.hpp"
 #include "../map.hpp"
+#include "../message.hpp"
 #include "../generator.hpp"
 #include "LocationUtils.hpp"
 #include <algorithm>
 
 void ArsenalLocation::onEnter(Game& game, LabyrinthMap& /*map*/, const std::string& playerName, size_t /*x*/, size_t /*y*/, std::vector<std::string>& messages) {
-	messages.push_back("Вы нашли арсенал.");
+	appendWire(messages, Message::ArsenalEnter);
 	// Repair all items present in inventory to at least 1 charge
 	auto it = game.inventories.find(playerName);
 	if (it == game.inventories.end()) return;
@@ -34,7 +35,7 @@ void ArsenalLocation::onEnter(Game& game, LabyrinthMap& /*map*/, const std::stri
 
 // Log exit
 void ArsenalLocation::onExit(Game& /*game*/, LabyrinthMap& /*map*/, const std::string& /*playerName*/, size_t /*x*/, size_t /*y*/, std::vector<std::string>& messages) {
-	messages.push_back("Вы покинули арсенал.");
+	appendWire(messages, Message::ArsenalExit);
 }
 
 void ArsenalLocation::onPlaced(Game& /*game*/, LabyrinthMap& map) {

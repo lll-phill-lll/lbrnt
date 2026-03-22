@@ -1,6 +1,7 @@
 #include "Item.hpp"
 #include "../game.hpp"
 #include "../map.hpp"
+#include "../message.hpp"
 
 // Centralized item use wrapper: checks/consumes charges and runs apply()
 bool item_use(Game& game, Item& item, LabyrinthMap& map, const std::string& playerName, Direction dir, std::vector<std::string>& messages) {
@@ -9,8 +10,8 @@ bool item_use(Game& game, Item& item, LabyrinthMap& map, const std::string& play
 	int charges = inv.getCharges(item.id());
 	const int spend = item.chargesPerUse();
 	if (charges < spend) {
-		if (std::string(item.id()) == "knife") messages.push_back("Нож сломан");
-		else messages.push_back("Предмет исчерпан");
+		if (std::string(item.id()) == "knife") appendWire(messages, Message::ItemBroken);
+		else appendWire(messages, Message::ItemDepleted);
 		return false;
 	}
 	// run effect

@@ -476,7 +476,7 @@ void Game::run_bot_turn(LabyrinthMap& map, Outcome& outcome, std::vector<BotRepl
 		if (auto* loc = getLocationFor(CellContent::Hospital)) {
 			if (auto* hosp = dynamic_cast<HospitalLocation*>(loc)) {
 				if (hosp->teleportToHospital(*this, map, victim)) {
-                    outcome.logMessage(Message::KilledByBot, {victim});
+					outcome.logPlayerMessage(victim, Message::KilledByBot, {victim});
 					if (replay_log) {
 						BotReplayStep ks;
 						ks.kind = BotReplayStep::Kind::Kill;
@@ -641,14 +641,14 @@ bool hit_bot_at(Game& game, LabyrinthMap& map, size_t tx, size_t ty, std::vector
 		}
 	}
 	if (spots.empty()) {
-		messages.push_back(formatMessage(Message::BotStays));
+		appendWire(messages, Message::BotStays);
 		game.pending_bot_respawn_log = false;
 		return true;
 	}
 	const size_t pick = static_cast<size_t>(rand_u32() % spots.size());
 	game.bot_x = spots[pick].first;
 	game.bot_y = spots[pick].second;
-	messages.push_back("Бот уничтожен и появляется в другом месте.");
+	appendWire(messages, Message::BotDestroyedRelocated);
 	game.pending_bot_respawn_log = true;
 	game.pending_bot_log_x = game.bot_x;
 	game.pending_bot_log_y = game.bot_y;
@@ -669,7 +669,7 @@ bool attempt_kill(Game& game, LabyrinthMap& map, const std::string& victim, std:
 				itInv->second.removeItem("armor");
 			else
 				itInv->second.setCharges("armor", armor);
-			messages.push_back("Игрок " + victim + " защищён бронёй! Броня уничтожена.");
+			appendWire(messages, Message::ArmorAbsorbedHit, {victim});
 			return false;
 		}
 	}
@@ -683,6 +683,6 @@ bool attempt_kill(Game& game, LabyrinthMap& map, const std::string& victim, std:
 			sent = hosp->teleportToHospital(game, map, victim);
 		}
 	}
-	if (!sent) messages.push_back("Больница не найдена");
+	if (!sent) appendWire(messages, Message::HospitalNotFound);
 	return sent;
 }

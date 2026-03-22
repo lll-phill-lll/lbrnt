@@ -1,16 +1,17 @@
 #include "Hospital.hpp"
 #include "../game.hpp"
 #include "../map.hpp"
+#include "../message.hpp"
 #include "../generator.hpp"
 #include "LocationUtils.hpp"
 #include <algorithm>
 
 void HospitalLocation::onEnter(Game& game, LabyrinthMap& /*map*/, const std::string& /*playerName*/, size_t /*x*/, size_t /*y*/, std::vector<std::string>& messages) {
-	messages.push_back("Вы нашли больницу.");
+	appendWire(messages, Message::HospitalEnter);
 }
 
 void HospitalLocation::onExit(Game& /*game*/, LabyrinthMap& /*map*/, const std::string& /*playerName*/, size_t /*x*/, size_t /*y*/, std::vector<std::string>& messages) {
-	messages.push_back("Вы покинули больницу.");
+	appendWire(messages, Message::HospitalExit);
 }
 
 void HospitalLocation::onPlaced(Game& /*game*/, LabyrinthMap& map) {

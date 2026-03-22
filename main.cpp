@@ -1,4 +1,5 @@
 #include "generator.hpp"
+#include "message.hpp"
 #include "rng.hpp"
 #include "state.hpp"
 #include "viz.hpp"
@@ -151,11 +152,11 @@ static std::string logEntryDescription(const LogEntry& e) {
 	return "";
 }
 
-// User-facing formatted output: [Player]: then tab-indented messages
+// User-facing formatted output: [Player]: then tab-indented messages (wire → русский)
 static void print_user_messages(const std::string& player, const std::vector<std::string>& messages) {
 	std::cout << "[" << player << "]:" << "\n";
 	for (const auto& m : messages) {
-		std::cout << "\t" << m << "\n";
+		std::cout << "\t" << wireToDisplayRu(m) << "\n";
 	}
 }
 
@@ -189,8 +190,8 @@ static void run_pending_bot_turns(AppState& st) {
 		}
 		// В фиде одна строка на ход бота (без пошаговых координат)
 		for (const auto& line : botBlog.messages) {
-			if (line == "Бот походил") {
-				std::cout << "Бот походил\n";
+			if (line == messageWire(Message::BotMoved)) {
+				std::cout << wireToDisplayRu(line) << "\n";
 				break;
 			}
 		}
@@ -486,7 +487,7 @@ int main(int argc, char** argv) {
 		js << "\"nearbyBreathing\":" << (breathing ? "true" : "false") << ",";
 		js << "\"messages\":[";
 		if (breathing) {
-			js << "\"" << jsonEscape(formatMessage(Message::Breathe)) << "\"";
+			js << "\"" << jsonEscape(messageWire(Message::Breathe)) << "\"";
 		}
 		js << "]}";
 		std::cout << js.str() << "\n";

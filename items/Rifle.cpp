@@ -1,5 +1,6 @@
 #include "../game.hpp"
 #include "../map.hpp"
+#include "../message.hpp"
 #include "Rifle.hpp"
 
 static bool step_forward(const LabyrinthMap& map, size_t& x, size_t& y, Direction dir) {
@@ -14,7 +15,7 @@ static bool step_forward(const LabyrinthMap& map, size_t& x, size_t& y, Directio
 
 void Rifle::apply(Game& game, LabyrinthMap& map, const std::string& playerName, Direction dir, std::vector<std::string>& messages) {
 	auto ita = game.players.find(playerName);
-	if (ita == game.players.end()) { messages.push_back("Нет такого игрока"); return; }
+	if (ita == game.players.end()) { appendWire(messages, Message::InvalidTargetPlayer); return; }
 
 	size_t cx = ita->second.first, cy = ita->second.second;
 	bool any = false;
@@ -25,17 +26,17 @@ void Rifle::apply(Game& game, LabyrinthMap& map, const std::string& playerName, 
 			if (kv.first == playerName) continue;
 			if (kv.second.first == cx && kv.second.second == cy) {
 				if (attempt_kill(game, map, kv.first, messages))
-					messages.push_back(std::string("Ружьё ") + dir_ru(dir) + ": игрок " + kv.first + " отправлен в больницу");
+					appendWire(messages, Message::RifleHitPlayer, {dir_ru(dir), kv.first});
 				any = true;
 				step_hit = true;
 			}
 		}
 		if (!step_hit && hit_bot_at(game, map, cx, cy, messages)) {
-			messages.push_back(std::string("Ружьё ") + dir_ru(dir) + ": бот уничтожен");
+			appendWire(messages, Message::RifleHitBot, {dir_ru(dir)});
 			any = true;
 		}
 	}
-	if (!any) messages.push_back(std::string("Ружьё ") + dir_ru(dir) + ": промах");
+	if (!any) appendWire(messages, Message::RifleMiss, {dir_ru(dir)});
 }
 
 

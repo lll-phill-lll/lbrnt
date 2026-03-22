@@ -1,10 +1,11 @@
 #include "Treasure.hpp"
 #include "../game.hpp"
 #include "../map.hpp"
+#include "../message.hpp"
 
 void TreasureLocation::onEnter(Game& game, LabyrinthMap& map, const std::string& playerName, size_t x, size_t y, std::vector<std::string>& messages) {
 	if (map.get_cell(x, y) == CellContent::Treasure) {
-		messages.push_back("Нашёл сокровище!");
+		appendWire(messages, Message::TreasureSpotFound);
 		auto& inventory = game.inventories[playerName];
 		int currentCharges = inventory.getCharges("treasure");
 		if (currentCharges <= 0) {

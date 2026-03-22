@@ -1,10 +1,11 @@
 #include "../game.hpp"
 #include "../map.hpp"
+#include "../message.hpp"
 #include "Knife.hpp"
 
 void Knife::apply(Game& game, LabyrinthMap& map, const std::string& playerName, Direction dir, std::vector<std::string>& messages) {
 	auto ita = game.players.find(playerName);
-	if (ita == game.players.end()) { messages.push_back("Нет такого игрока"); return; }
+	if (ita == game.players.end()) { appendWire(messages, Message::InvalidTargetPlayer); return; }
 
 	auto pos = ita->second;
 	size_t tx = pos.first, ty = pos.second;
@@ -21,23 +22,23 @@ void Knife::apply(Game& game, LabyrinthMap& map, const std::string& playerName, 
 		if (kv.second.first == tx && kv.second.second == ty) { victim = kv.first; break; }
 	}
 	if (!can) {
-		messages.push_back(std::string("Удар ножом ") + dir_ru(dir) + " — мимо");
-		messages.push_back("Нож потрачен");
+		appendWire(messages, Message::KnifeMiss, {dir_ru(dir)});
+		appendWire(messages, Message::KnifeSpent);
 		return;
 	}
 	if (!victim.empty()) {
 		if (attempt_kill(game, map, victim, messages))
-			messages.push_back(std::string("Удар ножом ") + dir_ru(dir) + ": игрок " + victim + " отправлен в больницу");
-		messages.push_back("Нож потрачен");
+			appendWire(messages, Message::KnifeHitPlayer, {dir_ru(dir), victim});
+		appendWire(messages, Message::KnifeSpent);
 		return;
 	}
 	if (hit_bot_at(game, map, tx, ty, messages)) {
-		messages.push_back(std::string("Удар ножом ") + dir_ru(dir) + ": бот уничтожен");
-		messages.push_back("Нож потрачен");
+		appendWire(messages, Message::KnifeHitBot, {dir_ru(dir)});
+		appendWire(messages, Message::KnifeSpent);
 		return;
 	}
-	messages.push_back(std::string("Удар ножом ") + dir_ru(dir) + " — мимо");
-	messages.push_back("Нож потрачен");
+	appendWire(messages, Message::KnifeMiss, {dir_ru(dir)});
+	appendWire(messages, Message::KnifeSpent);
 }
 
 
