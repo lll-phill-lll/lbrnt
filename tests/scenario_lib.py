@@ -68,7 +68,7 @@ def _short_text(s: str, limit: int = 2000) -> str:
 
 
 def _append_step_output(accum: str, piece: str) -> str:
-    """Склеить вывод шагов сценария (как при записи expect_stdout в capture-final)."""
+    """Склеить вывод шагов сценария (как при записи expect_stdout в save-scenario)."""
     p = (piece or "").strip()
     if not p:
         return accum
