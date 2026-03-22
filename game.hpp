@@ -9,7 +9,7 @@
 
 enum class Direction { Up, Down, Left, Right };
 
-/** Текст о соседнем слышимом дыхании: один источник для move_player и CLI player-status. */
+/** Сообщение о соседнем дыхании: `Game::move_player`, CLI `player-status` (JSON `messages` / `player_status`). */
 inline const char* game_message_nearby_breathing() {
 	return "Вы чувствуете чьё-то дыхание поблизости.";
 }

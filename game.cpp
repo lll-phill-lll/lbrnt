@@ -106,6 +106,11 @@ static void consume_action_or_advance(Game& g, LabyrinthMap& map) {
 	if (g.actions_left <= 0) advance_turn(g, map);
 }
 void Game::init_turns() {
+	if (!enforce_turns) return;
+	// Всегда пересобираем очередь (иначе повторный init-turns — no-op при непустом turn_order,
+	// и сценарий из «Зафиксировать начало» расходится с pytest по тому же scenario.json).
+	turn_order.clear();
+	turn_index = 0;
 	ensure_turns_initialized(*this);
 }
 

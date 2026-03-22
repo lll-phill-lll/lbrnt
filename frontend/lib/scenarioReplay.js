@@ -174,6 +174,18 @@ export function buildActionCmd(statePath, action) {
   throw new Error(`unknown action type: ${t}`);
 }
 
+function appendStepOut(accum, piece) {
+  const p = String(piece || '').trim();
+  if (!p) return accum;
+  return accum ? `${accum}\n${p}` : p;
+}
+
+function stepHasStdoutExpect(step) {
+  if (step.expect_stdout != null) return true;
+  const subs = step.expect_stdout_contains;
+  return Array.isArray(subs) && subs.length > 0;
+}
+
 function checkExpect(stdoutAcc, stderrAcc, step) {
   const checks = [];
   let ok = true;
@@ -229,6 +241,9 @@ export async function runScenario(scenarioDirPath) {
   }
   let accumulatedStdout = '';
   let accumulatedStderr = '';
+  /** Накопленный вывод script[] — как expect_stdout при «Зафиксировать конец». */
+  let scriptStdoutAcc = '';
+  let scriptStderrAcc = '';
   function appendCliLog(out, err) {
     if (out) accumulatedStdout = accumulatedStdout ? `${accumulatedStdout}\n${out}` : out;
     if (err) accumulatedStderr = accumulatedStderr ? `${accumulatedStderr}\n${err}` : err;
@@ -294,7 +309,11 @@ export async function runScenario(scenarioDirPath) {
         if (r2.err) accErr = accErr + (accErr ? '\n' : '') + r2.err;
       }
 
-      const { ok, checks } = checkExpect(accOut, accErr, step);
+      scriptStdoutAcc = appendStepOut(scriptStdoutAcc, accOut);
+      scriptStderrAcc = appendStepOut(scriptStderrAcc, accErr);
+      const checkOut = stepHasStdoutExpect(step) ? scriptStdoutAcc : accOut;
+      const checkErr = stepHasStdoutExpect(step) ? scriptStderrAcc : accErr;
+      const { ok, checks } = checkExpect(checkOut, checkErr, step);
       appendCliLog(accOut, accErr);
       if (!ok) {
         return fail({

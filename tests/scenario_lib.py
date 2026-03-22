@@ -67,6 +67,21 @@ def _short_text(s: str, limit: int = 2000) -> str:
     return t[:limit] + f"\n… (обрезано, всего {len(t)} символов)"
 
 
+def _append_step_output(accum: str, piece: str) -> str:
+    """Склеить вывод шагов сценария (как при записи expect_stdout в capture-final)."""
+    p = (piece or "").strip()
+    if not p:
+        return accum
+    return accum + ("\n" if accum else "") + p
+
+
+def _step_has_stdout_expect(step: dict[str, Any]) -> bool:
+    if step.get("expect_stdout") is not None:
+        return True
+    subs = step.get("expect_stdout_contains")
+    return isinstance(subs, list) and len(subs) > 0
+
+
 def _format_cli_failure(title: str, code: int, stdout: str, stderr: str) -> str:
     """Человекочитаемое сообщение при ненулевом коде выхода CLI."""
     parts = [f"{title}: процесс завершился с кодом {code}."]
@@ -286,6 +301,8 @@ def run_scenario(lab: Path, scenario_dir: Path, *, canonize: bool = False) -> di
                 }
 
         script_results: list[dict[str, Any]] = []
+        stdout_script_acc = ""
+        stderr_script_acc = ""
         for j, step in enumerate(script):
             if not isinstance(step, dict):
                 return {"ok": False, "error": f"script[{j}] is not an object", "id": sid, "description": desc}
@@ -330,7 +347,12 @@ def run_scenario(lab: Path, scenario_dir: Path, *, canonize: bool = False) -> di
                 if e2:
                     acc_err = acc_err + ("\n" if acc_err else "") + e2
 
-            ok, checks = _check_expect(acc_out, acc_err, step)
+            stdout_script_acc = _append_step_output(stdout_script_acc, acc_out)
+            stderr_script_acc = _append_step_output(stderr_script_acc, acc_err)
+
+            check_out = stdout_script_acc if _step_has_stdout_expect(step) else acc_out
+            check_err = stderr_script_acc if _step_has_stdout_expect(step) else acc_err
+            ok, checks = _check_expect(check_out, check_err, step)
             script_results.append(
                 {
                     "script_index": j,
@@ -347,7 +369,7 @@ def run_scenario(lab: Path, scenario_dir: Path, *, canonize: bool = False) -> di
                     and isinstance(data.get("script"), list)
                     and j < len(data["script"])
                 ):
-                    _apply_canonical_stdout_to_step(data["script"][j], acc_out)
+                    _apply_canonical_stdout_to_step(data["script"][j], check_out)
                     save_scenario(scenario_dir, data)
                     return {
                         "ok": True,

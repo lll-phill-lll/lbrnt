@@ -838,6 +838,9 @@ int main(int argc, char** argv) {
 		if (!get_arg(argc, argv, std::string("--state"), state)) { usage(); return 1; }
 		AppState st; std::string err;
 		if (!AppState::load(st, state, err)) { std::cerr << err << "\n"; return 2; }
+		// Один и тот же порядок при generate + init-turns из scenario.json и при записи в dev:
+		// перетасовка только от random_seed (RNG файла после сессии не используем).
+		st.game.turn_rng_state = game_rng::initial_turn_rng_state(st.random_seed);
 		st.game.init_turns();
 		if (!AppState::save(st, state, err)) { std::cerr << err << "\n"; return 2; }
 		// Output turn info so callers can read it
