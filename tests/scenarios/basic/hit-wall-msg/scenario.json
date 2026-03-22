@@ -12,9 +12,9 @@
     },
     {
       "type": "add-player",
-      "name": "alice",
-      "x": 2,
-      "y": 1
+      "name": "Alice",
+      "x": 1,
+      "y": 6
     },
     {
       "type": "set-turns",
@@ -27,9 +27,19 @@
   "script": [
     {
       "type": "move",
-      "name": "alice",
-      "dir": "right",
-      "expect_stdout": "[alice]:\n\tВрезался в стену (вправо)"
+      "name": "Alice",
+      "dir": "left"
+    },
+    {
+      "type": "move",
+      "name": "Alice",
+      "dir": "up"
+    },
+    {
+      "type": "move",
+      "name": "Alice",
+      "dir": "down",
+      "expect_stdout": "[Alice]:\n\tВрезался в стену (влево)\n[Alice]:\n\tВрезался в стену (вверх)\n[Alice]:\n\tВрезался в стену (вниз)"
     }
   ]
 }

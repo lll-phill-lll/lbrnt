@@ -12,9 +12,9 @@
     },
     {
       "type": "add-player",
-      "name": "alice",
-      "x": 4,
-      "y": 5
+      "name": "Alice",
+      "x": 1,
+      "y": 1
     },
     {
       "type": "set-turns",
@@ -27,14 +27,14 @@
   "script": [
     {
       "type": "move",
-      "name": "alice",
-      "dir": "down"
+      "name": "Alice",
+      "dir": "left"
     },
     {
       "type": "move",
-      "name": "alice",
-      "dir": "up",
-      "expect_stdout": "[alice]:\n\tПрошёл вниз\n\tВы нашли больницу.\n[alice]:\n\tПрошёл вверх\n\tВы покинули больницу."
+      "name": "Alice",
+      "dir": "right",
+      "expect_stdout": "[Alice]:\n\tПрошёл влево\n\tВы нашли больницу.\n[Alice]:\n\tПрошёл вправо\n\tВы покинули больницу."
     }
   ]
 }

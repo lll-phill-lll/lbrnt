@@ -7,16 +7,20 @@
       "height": 8,
       "seed": 42,
       "openness": 0.5,
-      "turns": false,
+      "turns": true,
       "turn_actions": 3
     },
     {
-      "type": "add-player-random",
-      "name": "Alice"
+      "type": "add-player",
+      "name": "Bob",
+      "x": 3,
+      "y": 6
     },
     {
-      "type": "add-player-random",
-      "name": "Bob"
+      "type": "add-player",
+      "name": "Alice",
+      "x": 3,
+      "y": 3
     },
     {
       "type": "set-turns",
@@ -30,7 +34,7 @@
     {
       "type": "move",
       "name": "Alice",
-      "dir": "right"
+      "dir": "down"
     },
     {
       "type": "move",
@@ -40,13 +44,18 @@
     {
       "type": "move",
       "name": "Alice",
-      "dir": "up"
+      "dir": "right"
     },
     {
       "type": "move",
       "name": "Alice",
-      "dir": "up",
-      "expect_stdout": "[Alice]:\n\tПрошёл вправо\n[Alice]:\n\tПрошёл вправо\n[Alice]:\n\tПрошёл вверх\n[Alice]:\n\tСейчас не ваш ход"
+      "dir": "down"
+    },
+    {
+      "type": "move",
+      "name": "Alice",
+      "dir": "down",
+      "expect_stdout": "[Alice]:\n\tПрошёл вниз\n[Alice]:\n\tПрошёл вправо\n[Alice]:\n\tПрошёл вправо\n[Alice]:\n\tСейчас не ваш ход\n[Alice]:\n\tСейчас не ваш ход"
     }
   ]
 }

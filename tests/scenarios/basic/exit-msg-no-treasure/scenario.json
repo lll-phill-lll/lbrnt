@@ -13,7 +13,7 @@
     {
       "type": "add-player",
       "name": "Alice",
-      "x": 3,
+      "x": 7,
       "y": 7
     },
     {
@@ -28,7 +28,7 @@
     {
       "type": "move",
       "name": "Alice",
-      "dir": "down",
+      "dir": "right",
       "expect_stdout": "[Alice]:\n\tВыход найден на внешней стене, но без сокровища."
     }
   ]
