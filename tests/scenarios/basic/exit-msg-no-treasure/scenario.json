@@ -1,0 +1,35 @@
+{
+  "description": "При выходе из лабиринта без сокровища должно показываться сообщение, что выход найден",
+  "setup": [
+    {
+      "type": "generate",
+      "width": 8,
+      "height": 8,
+      "seed": 42,
+      "openness": 0.5,
+      "turns": false,
+      "turn_actions": 1
+    },
+    {
+      "type": "add-player",
+      "name": "Alice",
+      "x": 3,
+      "y": 7
+    },
+    {
+      "type": "set-turns",
+      "on": true
+    },
+    {
+      "type": "init-turns"
+    }
+  ],
+  "script": [
+    {
+      "type": "move",
+      "name": "Alice",
+      "dir": "down",
+      "expect_stdout": "[Alice]:\n\tВыход найден на внешней стене, но без сокровища."
+    }
+  ]
+}

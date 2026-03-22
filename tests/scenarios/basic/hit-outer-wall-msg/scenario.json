@@ -1,0 +1,35 @@
+{
+  "description": "Когда врезаешься во внешнюю стену, должно быть сообщение",
+  "setup": [
+    {
+      "type": "generate",
+      "width": 8,
+      "height": 8,
+      "seed": 42,
+      "openness": 0.5,
+      "turns": false,
+      "turn_actions": 1
+    },
+    {
+      "type": "add-player",
+      "name": "alice",
+      "x": 0,
+      "y": 0
+    },
+    {
+      "type": "set-turns",
+      "on": true
+    },
+    {
+      "type": "init-turns"
+    }
+  ],
+  "script": [
+    {
+      "type": "move",
+      "name": "alice",
+      "dir": "up",
+      "expect_stdout": "[alice]:\n\tВрезался во внешнюю стену (вверх)"
+    }
+  ]
+}

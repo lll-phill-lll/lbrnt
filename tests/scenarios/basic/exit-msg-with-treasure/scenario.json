@@ -1,0 +1,41 @@
+{
+  "description": "При выходе из лабиринта с сокровищем должно показываться сообщение о победе",
+  "setup": [
+    {
+      "type": "generate",
+      "width": 8,
+      "height": 8,
+      "seed": 42,
+      "openness": 0.5,
+      "turns": false,
+      "turn_actions": 1
+    },
+    {
+      "type": "add-player",
+      "name": "Alice",
+      "x": 3,
+      "y": 7
+    },
+    {
+      "type": "give-item",
+      "name": "Alice",
+      "item": "treasure",
+      "charges": 1
+    },
+    {
+      "type": "set-turns",
+      "on": true
+    },
+    {
+      "type": "init-turns"
+    }
+  ],
+  "script": [
+    {
+      "type": "move",
+      "name": "Alice",
+      "dir": "down",
+      "expect_stdout": "[Alice]:\n\tВыход найден на внешней стене! Игрок вынес сокровище!"
+    }
+  ]
+}
