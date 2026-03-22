@@ -36,3 +36,5 @@ pytest tests/test_scenarios.py -v -k '<id>'
 ```bash
 pytest tests/test_scenarios.py -v --canonize
 ```
+
+В репозитории: при открытии PR те же тесты гоняются в **GitHub Actions** (`.github/workflows/ci.yml`).
