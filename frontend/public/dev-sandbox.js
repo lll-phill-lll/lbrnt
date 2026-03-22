@@ -518,12 +518,13 @@
       const seed = Number(document.getElementById('gS').value);
       const botSteps = Number(document.getElementById('gBotSteps').value);
       const turnActions = Number(document.getElementById('gTurnActions').value);
+      const enforceTurns = document.getElementById('gEnforceTurns')?.checked !== false;
       const genBody = {
         width,
         height,
         openness,
         seed,
-        enforce_turns: false,
+        enforce_turns: enforceTurns,
         turn_actions: Number.isFinite(turnActions) ? turnActions : 1,
       };
       if (Number.isFinite(botSteps) && botSteps > 0) genBody.bot_steps = botSteps;
@@ -538,7 +539,7 @@
         height,
         seed,
         openness,
-        turns: false,
+        turns: enforceTurns,
         turn_actions: Number.isFinite(turnActions) ? Math.min(Math.max(Math.floor(turnActions), 1), 10) : 1,
       };
       if (Number.isFinite(botSteps) && botSteps > 0) {

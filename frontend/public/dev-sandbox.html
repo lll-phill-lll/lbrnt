@@ -145,6 +145,10 @@
           <span class="inline-field" title="seed"><label for="gS">S</label><input class="inp-num" type="number" id="gS" value="42" style="width:52px"/></span>
         </div>
         <div class="row map-settings" title="параметры хода: бот и очередь">
+          <label class="opt-line" for="gEnforceTurns" style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px;color:#ced4da;width:100%;">
+            <input type="checkbox" id="gEnforceTurns" checked style="width:auto;"/>
+            <span>Очередь ходов и лимит действий</span>
+          </label>
           <span class="inline-field" title="сколько клеток бот проходит за свой ход; 0 — без бота">
             <label for="gBotSteps">бот</label>
             <input class="inp-num" type="number" id="gBotSteps" value="0" min="0" max="5" style="width:40px"/>

@@ -43,7 +43,8 @@ async function ensureSandbox() {
       '--openness', '0.5',
       '--seed', '42',
       '--turn-actions', '1',
-      '--turns', '0',
+      /* как в лобби по умолчанию — очередь и лимит действий за ход */
+      '--turns', '1',
     ]);
     if (res.code !== 0) throw new Error(res.err || res.out || 'generate failed');
   }
@@ -157,6 +158,8 @@ export function createSandboxApiRouter() {
         const seed = req.body?.seed != null ? Number(req.body.seed) : 42;
         const turnActions = Math.min(Math.max(Number(req.body?.turn_actions) || 1, 1), 10);
         const botSteps = Number(req.body?.bot_steps);
+        /** По умолчанию как в лобби; false — свободный режим (все ходят когда хотят). */
+        const enforceTurns = req.body?.enforce_turns !== false;
         const sf = stateFile(SANDBOX_ROOM_ID);
         const args = [
           'generate',
@@ -166,9 +169,8 @@ export function createSandboxApiRouter() {
           '--openness', String(openness),
           '--seed', String(seed),
           '--turn-actions', String(turnActions),
-          /* очерёдность ходов включается при сохранении сценария (set-turns в setup) */
           '--turns',
-          '0',
+          enforceTurns ? '1' : '0',
         ];
         if (Number.isFinite(botSteps) && botSteps > 0) {
           args.push('--bot-steps', String(Math.min(Math.max(Math.floor(botSteps), 1), 5)));
@@ -210,6 +212,11 @@ export function createSandboxApiRouter() {
         }
         lastCli = { stdout: r.out || '', stderr: r.err || '' };
         if (r.code !== 0) throw new Error(r.err || r.out || 'add-player failed');
+        const snap0 = readStateSnapshot(sf);
+        if (snap0.turn?.enforce && snap0.players.length > 0) {
+          const r2 = await runLab(['init-turns', '--state', sf]);
+          if (r2.code !== 0) throw new Error(r2.err || r2.out || 'init-turns failed');
+        }
       });
       const sf = stateFile(SANDBOX_ROOM_ID);
       const snap = readStateSnapshot(sf);
