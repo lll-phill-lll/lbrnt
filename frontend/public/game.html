@@ -157,8 +157,11 @@
       <p class="muted" style="font-size:11px;line-height:1.4;margin:0 0 8px;">
         В другом терминале: <code style="font-size:10px;">cd frontend &amp;&amp; npm run dev:scenario</code>
       </p>
-      <div class="row" style="margin-bottom:6px;">
+      <div class="row" style="margin-bottom:6px;gap:6px;flex-wrap:wrap;">
         <input id="scenarioIdInput" placeholder="id: категория/имя (например weapons/my_case)" style="flex:1;min-width:0;"/>
+        <button type="button" id="scenarioLoadFileBtn" style="flex-shrink:0;font-size:11px;" title="Подтянуть description и setup из tests/scenarios/…/scenario.json">
+          Загрузить
+        </button>
       </div>
       <div class="row" style="margin-bottom:6px;flex-direction:column;align-items:stretch;">
         <textarea id="scenarioDescInput" placeholder="описание сценария" rows="2" style="width:100%;resize:vertical;min-height:40px;"></textarea>
@@ -170,11 +173,10 @@
         <textarea id="scenarioSetupJson" placeholder='[]' rows="4" style="width:100%;resize:vertical;min-height:56px;font-family:ui-monospace,monospace;font-size:11px;"></textarea>
       </div>
       <p class="muted" style="font-size:10px;line-height:1.35;margin:0 0 6px;">
-        Папка и scenario.json создаются при «Зафиксировать начало» (если ещё нет).
+        Ходы записываются автоматически. «Сохранить сценарий» создаёт или перезаписывает <code>scenario.json</code>.
       </p>
       <div class="row" style="gap:6px;flex-wrap:wrap;">
-        <button type="button" id="scenarioFixBeforeBtn" style="font-size:12px;">Зафиксировать начало</button>
-        <button type="button" id="scenarioFixAfterBtn" style="font-size:12px;">Зафиксировать конец</button>
+        <button type="button" id="scenarioSaveBtn" style="font-size:12px;">Сохранить сценарий</button>
       </div>
       <div id="scenarioDevStatus" class="muted" style="font-size:11px;margin-top:8px;line-height:1.35;"></div>
     </div>

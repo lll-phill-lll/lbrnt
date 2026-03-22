@@ -26,7 +26,6 @@
   let isCreator = false;
 
   const scenarioApiBase = (document.querySelector('meta[name="scenario-api-base"]')?.content || 'http://127.0.0.1:5174').replace(/\/$/, '');
-  let scenarioRecording = false;
   let scenarioActions = [];
   let scenarioExpectStdout = '';
 
@@ -36,7 +35,7 @@
     return accum ? accum + '\n' + p : p;
   }
   function recordScenarioFromEmit(resp, payload, kind) {
-    if (!scenarioRecording || !resp?.ok) return;
+    if (!resp?.ok) return;
     const raw = resp.scenarioTrace?.rawStdout ?? '';
     scenarioExpectStdout = appendScenarioPiece(scenarioExpectStdout, raw);
     if (kind === 'move') scenarioActions.push({ type: 'move', name: session.name, dir: payload.dir });
@@ -911,24 +910,79 @@
   zoomLabelEl.textContent=zoom.toFixed(2)+'x';
   render();
 
+  function stripAutoTurnsFromSetup(setup) {
+    const s = Array.isArray(setup) ? [...setup] : [];
+    while (s.length && s[s.length - 1]?.type === 'init-turns') s.pop();
+    while (s.length && s[s.length - 1]?.type === 'set-turns') s.pop();
+    return s;
+  }
+
+  function scriptRowsToManifestActions(script) {
+    return (script || []).map((row) => {
+      const c = { ...row };
+      delete c.expect_stdout;
+      delete c.expect_stdout_contains;
+      return c;
+    });
+  }
+
+  function lastExpectFromScript(script) {
+    const s = script || [];
+    if (!s.length) return '';
+    const last = s[s.length - 1];
+    return typeof last.expect_stdout === 'string' ? last.expect_stdout : '';
+  }
+
   function bindScenarioDev() {
-    $('scenarioFixBeforeBtn')?.addEventListener('click', async () => {
+    $('scenarioLoadFileBtn')?.addEventListener('click', async () => {
       const id = ($('scenarioIdInput')?.value || '').trim();
-      const description = ($('scenarioDescInput')?.value || '').trim();
-      if (!id) { toastSystem('Укажите id сценария'); return; }
-      if (!session.creatorToken) { toastSystem('Нужен токен создателя — зайдите как создатель комнаты'); return; }
+      if (!id) {
+        toastSystem('Укажите id сценария');
+        return;
+      }
       try {
-        const rawSetup = ($('scenarioSetupJson')?.value || '').trim();
-        let setup = [];
-        if (rawSetup) {
-          try {
-            setup = JSON.parse(rawSetup);
-          } catch {
-            toastSystem('Невалидный JSON в поле «Шаги setup»');
-            return;
-          }
+        const r = await fetch(
+          scenarioApiBase + '/api/scenarios/' + encodeURIComponent(id) + '/scenario-file',
+        );
+        const data = await r.json().catch(() => ({}));
+        if (!r.ok || !data.ok) throw new Error(data.error || r.statusText);
+        const sc = data.scenario;
+        const desc = sc.description != null ? String(sc.description) : sc.title != null ? String(sc.title) : '';
+        if ($('scenarioDescInput')) $('scenarioDescInput').value = desc;
+        const setup = stripAutoTurnsFromSetup(sc.setup);
+        if ($('scenarioSetupJson')) $('scenarioSetupJson').value = JSON.stringify(setup, null, 2);
+        scenarioActions = scriptRowsToManifestActions(sc.script);
+        scenarioExpectStdout = lastExpectFromScript(sc.script);
+        setScenarioStatus('Загружено из tests/scenarios/' + id + '/scenario.json');
+        toastSystem('Сценарий загружен в форму');
+      } catch (e) {
+        toastSystem('Загрузка: ' + (e.message || e));
+      }
+    });
+
+    $('scenarioSaveBtn')?.addEventListener('click', async () => {
+      const id = ($('scenarioIdInput')?.value || '').trim();
+      if (!id) {
+        toastSystem('Укажите id сценария');
+        return;
+      }
+      if (!session.creatorToken) {
+        toastSystem('Нужен токен создателя');
+        return;
+      }
+      const rawSetup = ($('scenarioSetupJson')?.value || '').trim();
+      let setup = [];
+      if (rawSetup) {
+        try {
+          setup = JSON.parse(rawSetup);
+        } catch {
+          toastSystem('Невалидный JSON в поле «Шаги setup»');
+          return;
         }
-        const r = await fetch(scenarioApiBase + '/api/scenarios/' + encodeURIComponent(id) + '/capture-initial', {
+      }
+      try {
+        const description = ($('scenarioDescInput')?.value || '').trim();
+        const r = await fetch(scenarioApiBase + '/api/scenarios/' + encodeURIComponent(id) + '/save-scenario', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -936,48 +990,18 @@
             creatorToken: session.creatorToken,
             description,
             setup,
-          }),
-        });
-        const data = await r.json();
-        if (!data.ok) throw new Error(data.error || r.statusText);
-        scenarioRecording = true;
-        scenarioActions = [];
-        scenarioExpectStdout = '';
-        setScenarioStatus(
-          'Очерёдность ходов включена. Запись ходов — затем «Зафиксировать конец» (scenario.json).',
-        );
-        toastSystem('Начало записи сценария');
-        refreshStatus();
-      } catch (e) {
-        toastSystem('Сценарий API: ' + (e.message || e));
-      }
-    });
-    $('scenarioFixAfterBtn')?.addEventListener('click', async () => {
-      const id = ($('scenarioIdInput')?.value || '').trim();
-      if (!id) { toastSystem('Укажите id сценария'); return; }
-      if (!scenarioActions.length) { toastSystem('Нет действий — сделайте хотя бы один ход'); return; }
-      if (!session.creatorToken) { toastSystem('Нужен токен создателя'); return; }
-      try {
-        const description = ($('scenarioDescInput')?.value || '').trim();
-        const r = await fetch(scenarioApiBase + '/api/scenarios/' + encodeURIComponent(id) + '/capture-final', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            room: session.room,
-            creatorToken: session.creatorToken,
-            description,
             actions: scenarioActions,
             expect_stdout: scenarioExpectStdout,
             expect_stdout_contains: [],
+            enableTurnsInSetup: true,
           }),
         });
         const data = await r.json();
         if (!data.ok) throw new Error(data.error || r.statusText);
-        scenarioRecording = false;
         scenarioActions = [];
         scenarioExpectStdout = '';
-        setScenarioStatus('Готово. Проверка: python3 -m pytest tests/test_scenarios.py (scenario.json)');
-        toastSystem('Сценарий сохранён в tests/scenarios/' + id + '/scenario.json');
+        setScenarioStatus('Сохранено: tests/scenarios/' + id + '/scenario.json — pytest tests/test_scenarios.py');
+        toastSystem('Сценарий сохранён');
       } catch (e) {
         toastSystem('Сценарий API: ' + (e.message || e));
       }

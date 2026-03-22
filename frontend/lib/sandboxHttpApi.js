@@ -166,7 +166,7 @@ export function createSandboxApiRouter() {
           '--openness', String(openness),
           '--seed', String(seed),
           '--turn-actions', String(turnActions),
-          /* до «Зафиксировать начало» очерёдность не нужна — включается в capture-initial */
+          /* очерёдность ходов включается при сохранении сценария (set-turns в setup) */
           '--turns',
           '0',
         ];
@@ -355,7 +355,7 @@ export function createSandboxApiRouter() {
   router.post('/attack', (req, res) => handleMoveAttackUse(req, res, 'attack'));
   router.post('/use', (req, res) => handleMoveAttackUse(req, res, 'use'));
 
-  /** Только stdout JSON `player-status` (без resolve-bots) — для записи в сценарий. */
+  /** Только stdout JSON `player-status` (без resolve-bots) + scenarioTrace — для записи в сценарий. */
   router.post('/dump-status', async (req, res) => {
     try {
       const name = String(req.body?.name || '').trim();
@@ -383,6 +383,35 @@ export function createSandboxApiRouter() {
         stdout: out,
         stderr: err,
         scenarioTrace: { rawStdout: raw },
+      });
+    } catch (e) {
+      return res.status(400).json({ ok: false, error: e?.message || String(e) });
+    }
+  });
+
+  /** Один вызов CLI player-status (для пошагового play сценария). */
+  router.post('/player-status', async (req, res) => {
+    try {
+      const name = String(req.body?.name || '').trim();
+      if (!validatePlayerName(name)) {
+        return res.status(400).json({ ok: false, error: 'bad name' });
+      }
+      let cli;
+      await enqueueSandbox(async () => {
+        await ensureSandbox();
+        const sf = stateFile(SANDBOX_ROOM_ID);
+        cli = await runLab(['player-status', '--state', sf, '--name', name]);
+      });
+      if (!cli || cli.code !== 0) {
+        return res.status(400).json({
+          ok: false,
+          error: (cli && (cli.err || cli.out)) || 'player-status failed',
+        });
+      }
+      return res.json({
+        ok: true,
+        stdout: cli.out || '',
+        stderr: cli.err || '',
       });
     } catch (e) {
       return res.status(400).json({ ok: false, error: e?.message || String(e) });

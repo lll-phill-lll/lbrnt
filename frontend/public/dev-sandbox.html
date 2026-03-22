@@ -215,7 +215,8 @@
       <div class="card">
         <div class="title">Сценарий (tests/scenarios/…)</div>
         <p class="muted" style="font-size:11px;line-height:1.35;margin:0 0 8px;">
-          Шаги <code>setup</code> (generate, игроки, предметы) накапливаются здесь при действиях слева; «Зафиксировать начало» записывает их в <code>scenario.json</code> (+ очередь ходов).
+          При открытии сценария подставляются id и описание. Ходы и setup (генерация, игроки, предметы) пишутся в буфер
+          сценария автоматически. «Сохранить сценарий» перезаписывает <code>tests/scenarios/…/scenario.json</code>.
         </p>
         <div class="row" style="flex-direction:column;align-items:stretch;">
           <label>id (категория/имя папки)</label>
@@ -226,8 +227,7 @@
           <textarea id="scDesc" placeholder="Что проверяет сценарий"></textarea>
         </div>
         <div class="row">
-          <button type="button" id="scBefore">Зафиксировать начало</button>
-          <button type="button" id="scAfter">Зафиксировать конец</button>
+          <button type="button" id="scSave">Сохранить сценарий</button>
         </div>
         <p class="muted" id="scStatus" style="margin:8px 0 0;"></p>
       </div>

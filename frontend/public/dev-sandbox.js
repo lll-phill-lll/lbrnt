@@ -4,7 +4,6 @@
   let session = { room: 'sandbox', creatorToken: '' };
   /** Шаги setup для scenario.json — накапливаются при generate / add-player / предметах (не из движка). */
   let scenarioSetupSteps = [];
-  let scenarioRecording = false;
   let scenarioActions = [];
   let scenarioExpectStdout = '';
 
@@ -49,7 +48,7 @@
   }
 
   function recordScenario(resp, action) {
-    if (!scenarioRecording || !resp?.ok) return;
+    if (!resp?.ok) return;
     const raw = resp.scenarioTrace?.rawStdout ?? '';
     scenarioExpectStdout = appendScenarioPiece(scenarioExpectStdout, raw);
     scenarioActions.push(action);
@@ -61,6 +60,54 @@
     appendCli(data);
     if (!r.ok || !data.ok) throw new Error(data.error || r.statusText);
     return data;
+  }
+
+  /** Убрать хвост set-turns / init-turns — их добавляет сервер при «Зафиксировать начало». */
+  function stripAutoTurnsFromSetup(setup) {
+    const s = Array.isArray(setup) ? [...setup] : [];
+    while (s.length && s[s.length - 1]?.type === 'init-turns') s.pop();
+    while (s.length && s[s.length - 1]?.type === 'set-turns') s.pop();
+    return s;
+  }
+
+  function scriptRowsToManifestActions(script) {
+    return (script || []).map((row) => {
+      const c = { ...row };
+      delete c.expect_stdout;
+      delete c.expect_stdout_contains;
+      return c;
+    });
+  }
+
+  function lastExpectFromScript(script) {
+    const s = script || [];
+    if (!s.length) return '';
+    const last = s[s.length - 1];
+    return typeof last.expect_stdout === 'string' ? last.expect_stdout : '';
+  }
+
+  /** Заполнить поля формы из GET /scenarios/:id/scenario-file. Возвращает объект сценария. */
+  async function loadScenarioIntoEditor(id) {
+    if (!id) return null;
+    const data = await jfetch(API + '/scenarios/' + encodeURIComponent(id) + '/scenario-file');
+    const sc = data.scenario;
+    if (!sc || typeof sc !== 'object') throw new Error('пустой scenario');
+    const scIdEl = document.getElementById('scId');
+    const scDescEl = document.getElementById('scDesc');
+    if (scIdEl) scIdEl.value = id;
+    const desc = sc.description != null ? String(sc.description) : sc.title != null ? String(sc.title) : '';
+    if (scDescEl) scDescEl.value = desc;
+    scenarioSetupSteps = stripAutoTurnsFromSetup(sc.setup);
+    scenarioActions = scriptRowsToManifestActions(sc.script);
+    scenarioExpectStdout = lastExpectFromScript(sc.script);
+    scStatus.textContent = 'Загружен tests/scenarios/' + id + '/scenario.json';
+    return sc;
+  }
+
+  const SCRIPT_REPLAY_DELAY_MS = 500;
+
+  function sleep(ms) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
   async function loadSession() {
@@ -359,22 +406,71 @@
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ room: session.room, creatorToken: session.creatorToken }),
     });
-    scenarioSetupSteps = [];
     await refreshSnapshot();
     await refreshSvg();
   }
 
+  /** Проигрывание script по одному шагу с паузой — карта и панели обновляются между ходами. */
   async function replayScenarioToSandbox(id) {
     if (!id) return;
+    let sc = null;
+    try {
+      sc = await loadScenarioIntoEditor(id);
+    } catch (e) {
+      logStderr('scenario.json: ' + String(e.message || e) + '\n');
+      return;
+    }
+    if (!sc) return;
     await loadSession();
-    await jfetch(API + '/scenarios/' + encodeURIComponent(id) + '/replay-to-sandbox', {
+    await jfetch(API + '/scenarios/' + encodeURIComponent(id) + '/sandbox-load-initial', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ room: session.room, creatorToken: session.creatorToken }),
     });
-    scenarioSetupSteps = [];
     await refreshSnapshot();
     await refreshSvg();
+
+    const script = Array.isArray(sc?.script) ? sc.script : [];
+    for (let i = 0; i < script.length; i++) {
+      if (i > 0) await sleep(SCRIPT_REPLAY_DELAY_MS);
+      const step = script[i];
+      const t = step.type;
+      try {
+        if (t === 'move') {
+          await jfetch(API + '/sandbox/move', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name: step.name, dir: step.dir }),
+          });
+        } else if (t === 'attack') {
+          await jfetch(API + '/sandbox/attack', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name: step.name, dir: step.dir }),
+          });
+        } else if (t === 'use-item') {
+          await jfetch(API + '/sandbox/use', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name: step.name, dir: step.dir, item: step.item }),
+          });
+        } else if (t === 'player-status') {
+          await jfetch(API + '/sandbox/player-status', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name: step.name }),
+          });
+        } else {
+          logStderr('play: неизвестный тип шага: ' + String(t) + '\n');
+          continue;
+        }
+      } catch (e) {
+        logStderr('play script[' + i + ']: ' + String(e.message || e) + '\n');
+        break;
+      }
+      await refreshSnapshot();
+      await refreshSvg();
+    }
   }
 
   async function refreshSnapshot() {
@@ -449,7 +545,6 @@
         setupGen.bot_steps = Math.min(Math.max(Math.floor(botSteps), 1), 5);
       }
       scenarioSetupSteps = [setupGen];
-      scenarioRecording = false;
       scenarioActions = [];
       scenarioExpectStdout = '';
       await refreshSnapshot();
@@ -535,6 +630,11 @@
     collapseScenarioSelectOptions(openScIdEl);
     if (!id) return;
     try {
+      await loadScenarioIntoEditor(id);
+    } catch (e) {
+      logStderr('scenario.json: ' + String(e.message || e) + '\n');
+    }
+    try {
       await loadScenarioSandboxInitial(id);
     } catch (e) {
       logStderr(String(e.message || e));
@@ -554,21 +654,21 @@
     }
   };
 
-  document.getElementById('scBefore').onclick = async () => {
+  document.getElementById('scSave').onclick = async () => {
     const id = document.getElementById('scId').value.trim();
     if (!id) {
       scStatus.textContent = 'Укажите id';
       return;
     }
+    if (!scenarioSetupSteps.length) {
+      scStatus.textContent =
+        'Нет шагов setup: сначала «Сгенерировать» и при необходимости игроков/предметы.';
+      return;
+    }
     try {
       await loadSession();
       const description = document.getElementById('scDesc').value.trim();
-      if (!scenarioSetupSteps.length) {
-        scStatus.textContent =
-          'Нет шагов setup: сначала «Сгенерировать» и при необходимости игроков/предметы (шаги пишутся в сценарий).';
-        return;
-      }
-      await jfetch(API + '/scenarios/' + encodeURIComponent(id) + '/capture-initial', {
+      await jfetch(API + '/scenarios/' + encodeURIComponent(id) + '/save-scenario', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -576,53 +676,16 @@
           creatorToken: session.creatorToken,
           description,
           setup: scenarioSetupSteps,
-        }),
-      });
-      scenarioRecording = true;
-      scenarioActions = [];
-      scenarioExpectStdout = '';
-      scStatus.textContent =
-        'Очерёдность ходов включена, запись ходов включена. Дальше — «Зафиксировать конец» (сохранит в scenario.json).';
-      await refreshSnapshot();
-      await refreshSvg();
-    } catch (e) {
-      scStatus.textContent = String(e.message);
-    }
-  };
-
-  document.getElementById('scAfter').onclick = async () => {
-    const id = document.getElementById('scId').value.trim();
-    if (!id) {
-      scStatus.textContent = 'Укажите id';
-      return;
-    }
-    if (!scenarioRecording && !scenarioActions.length) {
-      scStatus.textContent = 'Сначала «Зафиксировать начало».';
-      return;
-    }
-    if (!scenarioActions.length) {
-      scStatus.textContent = 'Нет записанных ходов после начала';
-      return;
-    }
-    try {
-      await loadSession();
-      const description = document.getElementById('scDesc').value.trim();
-      await jfetch(API + '/scenarios/' + encodeURIComponent(id) + '/capture-final', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          room: session.room,
-          creatorToken: session.creatorToken,
-          description,
           actions: scenarioActions,
           expect_stdout: scenarioExpectStdout,
           expect_stdout_contains: [],
+          enableTurnsInSetup: true,
         }),
       });
-      scenarioRecording = false;
       scenarioActions = [];
       scenarioExpectStdout = '';
-      scStatus.textContent = 'Сохранено в tests/scenarios/' + id + '/scenario.json. pytest tests/test_scenarios.py';
+      scStatus.textContent = 'Сохранено: tests/scenarios/' + id + '/scenario.json';
+      await refreshScenarioList();
     } catch (e) {
       scStatus.textContent = String(e.message);
     }
