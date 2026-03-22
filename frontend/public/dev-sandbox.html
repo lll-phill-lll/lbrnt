@@ -1,0 +1,241 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Labyrinth — sandbox</title>
+  <style>
+    :root {
+      font-family: system-ui, sans-serif;
+      background: #0b0d12;
+      color: #e9edf7;
+      --logs-height: 140px;
+    }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; margin: 0; }
+    body { display: flex; flex-direction: column; min-height: 100vh; }
+    .main-area { flex: 1; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
+    .muted { color: #9aa4b2; font-size: 12px; line-height: 1.4; }
+    .layout {
+      flex: 1;
+      display: grid;
+      grid-template-columns: minmax(280px, 340px) minmax(0, 1fr) minmax(200px, 280px);
+      gap: 8px;
+      padding: 8px 10px;
+      min-height: 0;
+    }
+    .col { min-height: 0; overflow-y: auto; }
+    .layout > .col-center { overflow: hidden; }
+    .col-left .card { margin-bottom: 10px; }
+    .col-center {
+      display: flex;
+      flex-direction: column;
+      align-items: stretch;
+      justify-content: center;
+      /* не от края до края — иначе при масштабе страницы SVG с width:100%+max-height:vh ведёт себя «наоборот» */
+      padding: 6px clamp(12px, 2vw, 28px);
+      min-height: 0;
+      min-width: 0;
+      flex: 1;
+    }
+    .map-toolbar { flex-shrink: 0; margin-bottom: 6px; width: 100%; }
+    #mapHolder {
+      flex: 1 1 0;
+      width: 100%;
+      max-width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: min(72vh, calc(100vh - var(--logs-height) - 28px));
+      min-width: 0;
+    }
+    /* Ширина на всю колонку + ограничение по высоте области — карта крупная и читаемая */
+    #mapHolder svg {
+      display: block;
+      width: 100%;
+      max-width: 100%;
+      height: auto;
+      max-height: 100%;
+      object-fit: contain;
+      background: #111;
+      border-radius: 10px;
+    }
+    .card { border: 1px solid rgba(255,255,255,.12); border-radius: 10px; padding: 10px; background: rgba(0,0,0,.2); }
+    .row { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin-bottom: 6px; }
+    label { font-size: 12px; color: #9aa4b2; }
+    input, select, button, textarea { font: inherit; padding: 6px 8px; border-radius: 8px; border: 1px solid rgba(255,255,255,.2); background: rgba(255,255,255,.07); color: #e9edf7; }
+    input[type="number"]::-webkit-outer-spin-button,
+    input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+    input[type="number"] { -moz-appearance: textfield; appearance: textfield; }
+    textarea { width: 100%; min-height: 56px; resize: vertical; }
+    button { cursor: pointer; }
+    button:hover { border-color: rgba(122,162,255,.6); }
+    .title { font-weight: 600; margin-bottom: 8px; color: #7aa2ff; font-size: 13px; }
+    .log { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11px; white-space: pre-wrap; word-break: break-word; color: #eee; overflow: auto; }
+    .logsbar {
+      flex-shrink: 0;
+      height: var(--logs-height);
+      border-top: 1px solid rgba(255,255,255,.12);
+      display: flex;
+      gap: 8px;
+      padding: 8px 12px;
+      box-sizing: border-box;
+      background: rgba(8,10,14,.95);
+    }
+    .logsbar-col { flex: 1; display: flex; flex-direction: column; gap: 4px; min-width: 0; min-height: 0; }
+    .logsbar-col .muted { font-size: 11px; }
+    .logsbar .log {
+      flex: 1;
+      min-height: 0;
+      background: #111;
+      padding: 8px;
+      border-radius: 6px;
+      border: 1px solid rgba(255,255,255,.08);
+    }
+    .player-panel {
+      border: 1px solid rgba(122,162,255,.25);
+      border-radius: 10px;
+      padding: 10px;
+      margin-bottom: 10px;
+      background: rgba(20,28,45,.5);
+    }
+    .player-panel-name { font-weight: 700; color: #7aa2ff; margin-bottom: 8px; font-size: 14px; }
+    .player-panel .lbl { font-size: 11px; color: #868e96; min-width: 36px; }
+    .player-panel .row { margin-bottom: 4px; }
+    .player-panel .section-label { font-size: 11px; color: #868e96; margin: 6px 0 4px; }
+    .player-panel .section-label:first-of-type { margin-top: 0; }
+    .item-card { border: 1px solid rgba(255,255,255,.1); border-radius: 8px; padding: 8px; background: rgba(255,255,255,.03); margin-bottom: 6px; }
+    .item-card.disabled { opacity: .4; }
+    .item-card.disabled .item-dirs { pointer-events: none; }
+    .item-header { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
+    .item-header .item-name { font-weight: 600; font-size: 13px; }
+    .item-header .item-charges { font-size: 11px; color: #868e96; margin-left: auto; }
+    .info-icon { width: 16px; height: 16px; border-radius: 50%; border: 1px solid rgba(255,255,255,.2); display: inline-flex; align-items: center; justify-content: center; font-size: 10px; color: #9aa4b2; cursor: help; position: relative; flex-shrink: 0; }
+    .info-icon .tooltip { display: none; position: fixed; background: #1a1d26; border: 1px solid rgba(255,255,255,.2); border-radius: 8px; padding: 8px 10px; font-size: 11px; line-height: 1.4; color: #ced4da; white-space: normal; width: 220px; max-width: 90vw; z-index: 200; pointer-events: none; box-shadow: 0 4px 12px rgba(0,0,0,.5); }
+    .item-dirs { display: flex; gap: 4px; flex-wrap: wrap; }
+    .item-dirs button { font-size: 12px; padding: 3px 8px; }
+    .item-hint { font-size: 11px; color: #868e96; line-height: 1.35; margin-top: 4px; }
+    .col-left .inline-field { display: inline-flex; align-items: center; gap: 4px; flex-shrink: 0; }
+    .col-left .inline-field label { font-size: 11px; color: #9aa4b2; white-space: nowrap; }
+    .col-left .inp-num { width: 46px; padding: 5px 6px; }
+    .col-left .row.map-settings { flex-wrap: wrap; gap: 6px 8px; margin-bottom: 8px; }
+    .col-left .row.player-row { flex-wrap: wrap; gap: 6px; }
+    .col-left .row.item-row { flex-wrap: wrap; gap: 6px; align-items: center; }
+  </style>
+</head>
+<body>
+  <div class="main-area">
+  <div class="layout">
+    <aside class="col col-left">
+      <div class="card">
+        <div class="title">Карта</div>
+        <div class="row map-settings">
+          <span class="inline-field" title="ширина"><label for="gW">W</label><input class="inp-num" type="number" id="gW" value="8" min="4" max="50"/></span>
+          <span class="inline-field" title="высота"><label for="gH">H</label><input class="inp-num" type="number" id="gH" value="8" min="4" max="50"/></span>
+          <span class="inline-field" title="открытость 0…1"><label for="gO">O</label><input class="inp-num" type="number" id="gO" value="0.5" step="0.1" min="0" max="1"/></span>
+          <span class="inline-field" title="seed"><label for="gS">S</label><input class="inp-num" type="number" id="gS" value="42" style="width:52px"/></span>
+        </div>
+        <div class="row" style="margin-bottom:0;">
+          <button type="button" id="btnGen">Сгенерировать</button>
+          <button type="button" id="btnRefreshSvg">Обновить карту</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="title">Игрок</div>
+        <div class="row player-row">
+          <input id="plName" placeholder="имя" style="min-width:72px;flex:1;max-width:140px"/>
+          <span class="inline-field"><label for="plX">x</label><input class="inp-num" id="plX" type="number"/></span>
+          <span class="inline-field"><label for="plY">y</label><input class="inp-num" id="plY" type="number"/></span>
+          <button type="button" id="btnAddPl">Добавить</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="title">Предмет на клетку</div>
+        <div class="row item-row">
+          <select id="selItem" style="min-width:0;flex:1;max-width:120px">
+            <option value="knife">knife</option>
+            <option value="shotgun">shotgun</option>
+            <option value="rifle">rifle</option>
+            <option value="flashlight">flashlight</option>
+            <option value="armor">armor</option>
+          </select>
+          <span class="inline-field"><label for="itX">x</label><input class="inp-num" id="itX" type="number"/></span>
+          <span class="inline-field"><label for="itY">y</label><input class="inp-num" id="itY" type="number"/></span>
+          <button type="button" id="btnAddItem">Поставить</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="title">Выдать игроку</div>
+        <div class="row item-row">
+          <select id="givePl" style="min-width:0;flex:1;max-width:120px">
+            <option value="">— игрок —</option>
+          </select>
+          <select id="giveItem" style="min-width:0;flex:1;max-width:110px">
+            <option value="knife">knife</option>
+            <option value="shotgun">shotgun</option>
+            <option value="rifle">rifle</option>
+            <option value="flashlight">flashlight</option>
+            <option value="armor">armor</option>
+          </select>
+          <button type="button" id="btnGiveItem">Выдать</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="title">Открыть сценарий</div>
+        <div class="row item-row">
+          <select id="openScId" style="min-width:0;flex:1;"></select>
+          <button type="button" id="btnScReplay">play</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="title">Сценарий (tests/scenarios/…)</div>
+        <p class="muted" style="font-size:11px;line-height:1.35;margin:0 0 8px;">
+          Шаги <code>setup</code> (generate, игроки, предметы) накапливаются здесь при действиях слева; «Зафиксировать начало» записывает их в <code>scenario.json</code> (+ очередь ходов).
+        </p>
+        <div class="row" style="flex-direction:column;align-items:stretch;">
+          <label>id (категория/имя папки)</label>
+          <input id="scId" placeholder="weapons/my_case" autocomplete="off"/>
+        </div>
+        <div class="row" style="flex-direction:column;align-items:stretch;">
+          <label>описание</label>
+          <textarea id="scDesc" placeholder="Что проверяет сценарий"></textarea>
+        </div>
+        <div class="row">
+          <button type="button" id="scBefore">Зафиксировать начало</button>
+          <button type="button" id="scAfter">Зафиксировать конец</button>
+        </div>
+        <p class="muted" id="scStatus" style="margin:8px 0 0;"></p>
+      </div>
+    </aside>
+
+    <main class="col col-center">
+      <div class="map-toolbar"></div>
+      <div id="mapHolder"></div>
+    </main>
+
+    <aside class="col col-right">
+      <div class="title" style="margin-top:0;">Игроки — действия</div>
+      <div id="playerPanels"></div>
+    </aside>
+  </div>
+  </div>
+
+  <div class="logsbar">
+    <div class="logsbar-col">
+      <div class="muted">stdout</div>
+      <div id="logOut" class="log"></div>
+    </div>
+    <div class="logsbar-col">
+      <div class="muted">stderr</div>
+      <div id="logErr" class="log"></div>
+    </div>
+  </div>
+
+  <script src="./dev-sandbox.js"></script>
+</body>
+</html>

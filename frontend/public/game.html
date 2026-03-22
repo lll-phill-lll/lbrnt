@@ -3,6 +3,7 @@
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="scenario-api-base" content="http://127.0.0.1:5174"/>
   <title>Labyrinth — Игра</title>
   <style>
     :root{--sidebar:300px;}
@@ -148,6 +149,34 @@
           Очерёдность ходов
         </label>
       </div>
+    </div>
+
+    <!-- Сценарии tests/scenarios/ (отдельный dev-сервер: npm run dev:scenario) -->
+    <div class="card hidden" id="scenarioDevCard" style="border-color:rgba(122,162,255,.35);background:rgba(30,40,60,.35);">
+      <div class="title" style="color:#7aa2ff;">Сценарий (dev)</div>
+      <p class="muted" style="font-size:11px;line-height:1.4;margin:0 0 8px;">
+        В другом терминале: <code style="font-size:10px;">cd frontend &amp;&amp; npm run dev:scenario</code>
+      </p>
+      <div class="row" style="margin-bottom:6px;">
+        <input id="scenarioIdInput" placeholder="id: категория/имя (например weapons/my_case)" style="flex:1;min-width:0;"/>
+      </div>
+      <div class="row" style="margin-bottom:6px;flex-direction:column;align-items:stretch;">
+        <textarea id="scenarioDescInput" placeholder="описание сценария" rows="2" style="width:100%;resize:vertical;min-height:40px;"></textarea>
+      </div>
+      <div class="row" style="margin-bottom:6px;flex-direction:column;align-items:stretch;">
+        <label for="scenarioSetupJson" class="muted" style="font-size:10px;display:block;margin-bottom:4px;">
+          Шаги setup (JSON-массив команд движка: generate, add-player, …). В песочнице накапливаются сами; из игры — вставьте вручную.
+        </label>
+        <textarea id="scenarioSetupJson" placeholder='[]' rows="4" style="width:100%;resize:vertical;min-height:56px;font-family:ui-monospace,monospace;font-size:11px;"></textarea>
+      </div>
+      <p class="muted" style="font-size:10px;line-height:1.35;margin:0 0 6px;">
+        Папка и scenario.json создаются при «Зафиксировать начало» (если ещё нет).
+      </p>
+      <div class="row" style="gap:6px;flex-wrap:wrap;">
+        <button type="button" id="scenarioFixBeforeBtn" style="font-size:12px;">Зафиксировать начало</button>
+        <button type="button" id="scenarioFixAfterBtn" style="font-size:12px;">Зафиксировать конец</button>
+      </div>
+      <div id="scenarioDevStatus" class="muted" style="font-size:11px;margin-top:8px;line-height:1.35;"></div>
     </div>
 
   </div>

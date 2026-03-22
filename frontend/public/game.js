@@ -25,6 +25,29 @@
 
   let isCreator = false;
 
+  const scenarioApiBase = (document.querySelector('meta[name="scenario-api-base"]')?.content || 'http://127.0.0.1:5174').replace(/\/$/, '');
+  let scenarioRecording = false;
+  let scenarioActions = [];
+  let scenarioExpectStdout = '';
+
+  function appendScenarioPiece(accum, piece) {
+    const p = String(piece || '').trim();
+    if (!p) return accum;
+    return accum ? accum + '\n' + p : p;
+  }
+  function recordScenarioFromEmit(resp, payload, kind) {
+    if (!scenarioRecording || !resp?.ok) return;
+    const raw = resp.scenarioTrace?.rawStdout ?? '';
+    scenarioExpectStdout = appendScenarioPiece(scenarioExpectStdout, raw);
+    if (kind === 'move') scenarioActions.push({ type: 'move', name: session.name, dir: payload.dir });
+    else if (kind === 'attack') scenarioActions.push({ type: 'attack', name: session.name, dir: payload.dir });
+    else if (kind === 'use') scenarioActions.push({ type: 'use-item', name: session.name, item: payload.item, dir: payload.dir });
+  }
+  function setScenarioStatus(t) {
+    const el = $('scenarioDevStatus');
+    if (el) el.textContent = t || '';
+  }
+
   // ── DOM ──
   const canvas       = $('drawCanvas');
   const ctx          = canvas.getContext('2d', { alpha: false });
@@ -122,7 +145,10 @@
     socket.emit('enterGame', { room: session.room, name: session.name, password: session.password, creatorToken: session.creatorToken || '' }, resp => {
       if (resp?.ok) {
         isCreator = !!resp.isCreator;
-        if (isCreator) creatorCard.classList.remove('hidden');
+        if (isCreator) {
+          creatorCard.classList.remove('hidden');
+          $('scenarioDevCard')?.classList.remove('hidden');
+        }
         if (resp.turn) updateTurn(resp.turn);
         if (resp.playerStatus) handlePlayerStatus(resp.playerStatus);
         else refreshStatus();
@@ -196,9 +222,19 @@
   function emit(ev, payload) { return new Promise(resolve => socket.emit(ev, payload, resp => resolve(resp))); }
 
   // ── Game actions ──
-  async function doMove(dir)   { await emit('move', { dir }); }
-  async function doAttack(dir) { await emit('attack', { dir }); }
-  async function doUse(dir, itemId) { await emit('use', { dir, item: itemId || selectedItemId }); }
+  async function doMove(dir) {
+    const resp = await emit('move', { dir });
+    recordScenarioFromEmit(resp, { dir }, 'move');
+  }
+  async function doAttack(dir) {
+    const resp = await emit('attack', { dir });
+    recordScenarioFromEmit(resp, { dir }, 'attack');
+  }
+  async function doUse(dir, itemId) {
+    const item = itemId || selectedItemId;
+    const resp = await emit('use', { dir, item });
+    recordScenarioFromEmit(resp, { dir, item }, 'use');
+  }
 
   document.querySelectorAll('[data-move]').forEach(b => b.addEventListener('click', () => doMove(b.dataset.move)));
   document.querySelectorAll('[data-attack]').forEach(b => b.addEventListener('click', () => doAttack(b.dataset.attack)));
@@ -861,4 +897,78 @@
   if(!localStorage.getItem(STORAGE_KEY)){const rect=canvas.getBoundingClientRect();panX=rect.width/2;panY=rect.height/2;}
   zoomLabelEl.textContent=zoom.toFixed(2)+'x';
   render();
+
+  function bindScenarioDev() {
+    $('scenarioFixBeforeBtn')?.addEventListener('click', async () => {
+      const id = ($('scenarioIdInput')?.value || '').trim();
+      const description = ($('scenarioDescInput')?.value || '').trim();
+      if (!id) { toastSystem('Укажите id сценария'); return; }
+      if (!session.creatorToken) { toastSystem('Нужен токен создателя — зайдите как создатель комнаты'); return; }
+      try {
+        const rawSetup = ($('scenarioSetupJson')?.value || '').trim();
+        let setup = [];
+        if (rawSetup) {
+          try {
+            setup = JSON.parse(rawSetup);
+          } catch {
+            toastSystem('Невалидный JSON в поле «Шаги setup»');
+            return;
+          }
+        }
+        const r = await fetch(scenarioApiBase + '/api/scenarios/' + encodeURIComponent(id) + '/capture-initial', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            room: session.room,
+            creatorToken: session.creatorToken,
+            description,
+            setup,
+          }),
+        });
+        const data = await r.json();
+        if (!data.ok) throw new Error(data.error || r.statusText);
+        scenarioRecording = true;
+        scenarioActions = [];
+        scenarioExpectStdout = '';
+        setScenarioStatus(
+          'Очерёдность ходов включена. Запись ходов — затем «Зафиксировать конец» (scenario.json).',
+        );
+        toastSystem('Начало записи сценария');
+        refreshStatus();
+      } catch (e) {
+        toastSystem('Сценарий API: ' + (e.message || e));
+      }
+    });
+    $('scenarioFixAfterBtn')?.addEventListener('click', async () => {
+      const id = ($('scenarioIdInput')?.value || '').trim();
+      if (!id) { toastSystem('Укажите id сценария'); return; }
+      if (!scenarioActions.length) { toastSystem('Нет действий — сделайте хотя бы один ход'); return; }
+      if (!session.creatorToken) { toastSystem('Нужен токен создателя'); return; }
+      try {
+        const description = ($('scenarioDescInput')?.value || '').trim();
+        const r = await fetch(scenarioApiBase + '/api/scenarios/' + encodeURIComponent(id) + '/capture-final', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            room: session.room,
+            creatorToken: session.creatorToken,
+            description,
+            actions: scenarioActions,
+            expect_stdout: scenarioExpectStdout,
+            expect_stdout_contains: [],
+          }),
+        });
+        const data = await r.json();
+        if (!data.ok) throw new Error(data.error || r.statusText);
+        scenarioRecording = false;
+        scenarioActions = [];
+        scenarioExpectStdout = '';
+        setScenarioStatus('Готово. Проверка: python3 -m pytest tests/test_scenarios.py (scenario.json)');
+        toastSystem('Сценарий сохранён в tests/scenarios/' + id + '/scenario.json');
+      } catch (e) {
+        toastSystem('Сценарий API: ' + (e.message || e));
+      }
+    });
+  }
+  bindScenarioDev();
 })();

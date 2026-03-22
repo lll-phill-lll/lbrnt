@@ -3,34 +3,38 @@ import http from 'http';
 import { Server as SocketIOServer } from 'socket.io';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { spawn } from 'child_process';
 import fs from 'fs';
 import crypto from 'crypto';
 import sharp from 'sharp';
 import GIFEncoder from 'gif-encoder-2';
+import { runLab } from './lib/runLab.js';
+import { ROOMS_DIR } from './lib/repoPaths.js';
+import {
+  validateRoomId,
+  validatePlayerName,
+  DEFAULT_MAP_WIDTH,
+  DEFAULT_MAP_HEIGHT,
+  VALID_DIRS,
+  VALID_ITEMS,
+  DIR_RU,
+  ITEM_RU,
+  ITEM_IDS,
+  MAX_ITEM_PER_TYPE,
+  MAX_ITEMS_TOTAL,
+  WEAPON_IDS_FOR_LOBBY,
+} from './lib/gameConstants.js';
+import { stateFile, svgFile, readMeta, writeMeta } from './lib/roomFiles.js';
+import { createScenarioApiRouter, scenarioCorsMiddleware } from './lib/scenarioHttpApi.js';
+import { createSandboxApiRouter } from './lib/sandboxHttpApi.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const ROOT = path.resolve(__dirname, '..');
-const LAB_BIN = path.join(ROOT, 'build', 'labyrinth');
-const ROOMS_DIR = path.join(ROOT, 'rooms');
 
 fs.mkdirSync(ROOMS_DIR, { recursive: true });
 
 // ── Input validation helpers ──
-const SAFE_ID_RE = /^[a-zA-Z0-9_-]{1,40}$/;
-const SAFE_NAME_RE = /^[^\s<>&"']{1,30}$/;
 const MAX_PASSWORD_LEN = 64;
 const MAX_CHAT_LEN = 300;
-
-function validateRoomId(id) {
-  if (typeof id !== 'string') return false;
-  return SAFE_ID_RE.test(id);
-}
-function validateName(name) {
-  if (typeof name !== 'string') return false;
-  return SAFE_NAME_RE.test(name);
-}
 function sanitizeStr(s, maxLen) {
   return String(s || '').slice(0, maxLen);
 }
@@ -119,21 +123,22 @@ app.get('/api/replay-gif', async (req, res) => {
   }
 });
 
+// Те же маршруты, что у scenario-dev-server.js: песочница и запись сценариев.
+// Всегда включаем (не только NODE_ENV=development), иначе при npm start список сценариев пустой (GET /api/scenarios → 404).
+if (process.env.DISABLE_SCENARIO_API !== '1') {
+  app.use(scenarioCorsMiddleware);
+  app.use('/api', createScenarioApiRouter());
+  app.use('/api/sandbox', createSandboxApiRouter());
+  app.get('/dev-sandbox', (_req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'dev-sandbox.html'));
+  });
+}
+
 function splitLines(s) {
   if (!s) return [];
   let t = String(s).replace(/\r\n/g, '\n').replace(/\r/g, '\n');
   while (t.includes('\\n')) t = t.replace(/\\n/g, '\n');
   return t.split('\n').filter(l => l.length > 0);
-}
-
-function runLab(args) {
-  return new Promise((resolve) => {
-    const p = spawn(LAB_BIN, args, { stdio: ['ignore', 'pipe', 'pipe'] });
-    let out = '', err = '';
-    p.stdout.on('data', d => { out += d.toString(); });
-    p.stderr.on('data', d => { err += d.toString(); });
-    p.on('close', (code) => resolve({ code, out: out.trim(), err: err.trim() }));
-  });
 }
 
 const roomQueues = new Map();
@@ -142,18 +147,6 @@ function enqueue(room, task) {
   const next = prev.catch(() => {}).then(task);
   roomQueues.set(room, next.catch(() => {}));
   return next;
-}
-
-function stateFile(room) { return path.join(ROOMS_DIR, `${room}.txt`); }
-function svgFile(room) { return path.join(ROOMS_DIR, `${room}.svg`); }
-function metaFile(room) { return path.join(ROOMS_DIR, `${room}.json`); }
-
-function readMeta(room) {
-  try { return JSON.parse(fs.readFileSync(metaFile(room), 'utf8')); }
-  catch { return null; }
-}
-function writeMeta(room, meta) {
-  fs.writeFileSync(metaFile(room), JSON.stringify(meta, null, 2), 'utf8');
 }
 
 /** Пока в стейте очередь на «bot», выполняет ходы бота (веб не шлёт move за бота).
@@ -217,15 +210,12 @@ io.on('connection', (socket) => {
       const pw = sanitizeStr(payload?.password, MAX_PASSWORD_LEN);
       const creatorName = String(payload?.name || '').trim();
       if (!roomId || !validateRoomId(roomId)) return cb?.({ ok: false, error: 'ID комнаты: только a-z, 0-9, _, - (до 40 символов)' });
-      if (!creatorName || !validateName(creatorName)) return cb?.({ ok: false, error: 'Имя: 1-30 символов, без пробелов и <>&"\'' });
-      const width = Math.min(Math.max(Number(payload?.width) || 12, 4), 50);
-      const height = Math.min(Math.max(Number(payload?.height) || 12, 4), 50);
+      if (!creatorName || !validatePlayerName(creatorName)) return cb?.({ ok: false, error: 'Имя: 1-30 символов, без пробелов и <>&"\'' });
+      const width = Math.min(Math.max(Number(payload?.width) || DEFAULT_MAP_WIDTH, 4), 50);
+      const height = Math.min(Math.max(Number(payload?.height) || DEFAULT_MAP_HEIGHT, 4), 50);
       const openness = Math.min(Math.max(Number(payload?.openness) || 0.5, 0), 1);
       const seed = payload?.seed != null ? Number(payload.seed) : Math.floor(Math.random() * 100000);
       const turnActions = Math.min(Math.max(Number(payload?.turnActions) || 1, 1), 10);
-      const ITEM_IDS = ['shotgun', 'rifle', 'flashlight', 'armor', 'knife'];
-      const MAX_ITEM_PER_TYPE = 20;
-      const MAX_ITEMS_TOTAL = 80;
       const itemCounts = { shotgun: 0, rifle: 0, flashlight: 0, armor: 0, knife: 0 };
       if (payload?.itemCounts && typeof payload.itemCounts === 'object') {
         for (const id of ITEM_IDS) {
@@ -234,11 +224,10 @@ io.on('connection', (socket) => {
           itemCounts[id] = Math.min(Math.max(n, 0), MAX_ITEM_PER_TYPE);
         }
       } else {
-        const validW = ['shotgun', 'rifle', 'flashlight', 'armor'];
         if (Array.isArray(payload?.weapons)) {
-          for (const id of validW) itemCounts[id] = payload.weapons.includes(id) ? 1 : 0;
+          for (const id of WEAPON_IDS_FOR_LOBBY) itemCounts[id] = payload.weapons.includes(id) ? 1 : 0;
         } else {
-          for (const id of validW) itemCounts[id] = 1;
+          for (const id of WEAPON_IDS_FOR_LOBBY) itemCounts[id] = 1;
         }
         if (payload?.lootKnifeOnMap) itemCounts.knife = Math.max(itemCounts.knife, 1);
       }
@@ -299,7 +288,7 @@ io.on('connection', (socket) => {
       const pw = sanitizeStr(payload?.password, MAX_PASSWORD_LEN);
       const name = String(payload?.name || '').trim();
       if (!roomId || !validateRoomId(roomId)) return cb?.({ ok: false, error: 'ID комнаты: только a-z, 0-9, _, - (до 40 символов)' });
-      if (!name || !validateName(name)) return cb?.({ ok: false, error: 'Имя: 1-30 символов, без пробелов и <>&"\'' });
+      if (!name || !validatePlayerName(name)) return cb?.({ ok: false, error: 'Имя: 1-30 символов, без пробелов и <>&"\'' });
 
       const meta = readMeta(roomId);
       if (!meta && !rooms.has(roomId)) return cb?.({ ok: false, error: 'Комната не найдена' });
@@ -413,7 +402,7 @@ io.on('connection', (socket) => {
       const name = String(payload?.name || '').trim();
       const pw = sanitizeStr(payload?.password, MAX_PASSWORD_LEN);
       if (!roomId || !validateRoomId(roomId)) return cb?.({ ok: false, error: 'Invalid room id' });
-      if (!name || !validateName(name)) return cb?.({ ok: false, error: 'Invalid name' });
+      if (!name || !validatePlayerName(name)) return cb?.({ ok: false, error: 'Invalid name' });
       if (!fs.existsSync(stateFile(roomId))) return cb?.({ ok: false, error: 'Комната не найдена' });
 
       const meta = readMeta(roomId);
@@ -451,25 +440,29 @@ io.on('connection', (socket) => {
     return null;
   }
 
-  const VALID_DIRS = new Set(['up', 'down', 'left', 'right']);
-  const VALID_ITEMS = new Set(['knife', 'shotgun', 'rifle', 'flashlight', 'armor']);
-  const DIR_RU = { up: 'вверх', down: 'вниз', left: 'влево', right: 'вправо' };
-  const ITEM_RU = { knife: 'нож', shotgun: 'дробовик', rifle: 'ружьё', flashlight: 'фонарь', armor: 'броня' };
-
   function gameAction(argsBuilder, actionDesc, validator) {
     return async (payload, cb) => {
       if (!myRoom || !myName) return cb?.({ ok: false, error: 'Не в игре' });
       if (validator && !validator(payload)) return cb?.({ ok: false, error: 'Недопустимые параметры' });
       try {
         let feedback;
+        /** Сырой stdout за цикл (ход + resolve-bots), для записи сценария в dev */
+        let scenarioTrace = '';
         await enqueue(myRoom, async () => {
           const res = await runLab(argsBuilder(payload));
+          scenarioTrace = (res.out || '').trim();
           feedback = splitLines(res.out);
           if (res.code !== 0 && res.err) feedback.push(res.err);
           if (res.code === 0) {
             const r2 = await runLab(['resolve-bots', '--state', stateFile(myRoom)]);
             if (r2.code !== 0) console.error('resolve-bots after action:', r2.err || r2.out);
-            else if (r2.out) feedback = feedback.concat(splitLines(r2.out));
+            else if (r2.out) {
+              const botPart = r2.out.trim();
+              if (botPart) {
+                scenarioTrace = scenarioTrace + (scenarioTrace ? '\n' : '') + botPart;
+              }
+              feedback = feedback.concat(splitLines(r2.out));
+            }
           }
         });
         socket.emit('feedback', { lines: feedback, who: myName });
@@ -492,7 +485,7 @@ io.on('connection', (socket) => {
             io.to('game:' + myRoom).emit('mapRevealed', { svg });
           } catch {}
         }
-        cb?.({ ok: true });
+        cb?.({ ok: true, scenarioTrace: { rawStdout: scenarioTrace } });
       } catch (e) {
         socket.emit('feedback', { lines: [e?.message || String(e)], who: myName });
         cb?.({ ok: false, error: e?.message || String(e) });

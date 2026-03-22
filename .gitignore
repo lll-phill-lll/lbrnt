@@ -1,7 +1,65 @@
+# ——— CMake / C++ ———
 build/
-frontend/node_modules/
+cmake-build-*/
+out/
+*.o
+*.obj
+*.a
+*.lib
+*.so
+*.dylib
+*.dll
+*.exe
+compile_commands.json
+
+# ——— Python ———
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
+dist/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.tox/
+htmlcov/
+.coverage
+coverage.xml
+*.cover
+.hypothesis/
+venv/
+.venv/
+env/
+
+# ——— Node / frontend ———
+node_modules/
+.npm/
+frontend/.cache/
+frontend/dist/
+frontend/build/
+
+# ——— Env & secrets (шаблоны вроде .env.example коммить можно) ———
+.env
+.env.local
+.env.*.local
+*.pem
+
+# ——— IDE / OS ———
+.idea/
+*.swp
+*~
+.DS_Store
+Thumbs.db
+
+# ——— Проект: локальные комнаты, state, логи ———
 rooms/
 *.log
 .labyrinth.pid
 *.svg
-.venv/
+state.txt
+*.state.txt
+
+# ——— Прочее ———
+*.bak
+*.tmp

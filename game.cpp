@@ -7,9 +7,9 @@
 #include "locations/Location.hpp"
 #include "generator.hpp"
 #include "locations/Hospital.hpp"
+#include "rng.hpp"
 #include <algorithm>
 #include <memory>
-#include <random>
 #include <queue>
 
 static size_t manhattan(std::pair<size_t,size_t> a, std::pair<size_t,size_t> b) {
@@ -21,11 +21,18 @@ static size_t manhattan(std::pair<size_t,size_t> a, std::pair<size_t,size_t> b) 
 static void ensure_turns_initialized(Game& g) {
 	if (!g.enforce_turns) return;
 	if (!g.turn_order.empty()) return;
+	if (g.turn_rng_state == 0)
+		g.turn_rng_state = game_rng::splitmix64(0xA5A5A5A5A5A5A5A5ull);
 	std::vector<std::string> names;
 	names.reserve(g.players.size());
 	for (const auto& kv : g.players) names.push_back(kv.first);
-	std::mt19937 gen{rand_u32()};
-	std::shuffle(names.begin(), names.end(), gen);
+	// Порядок обхода unordered_map не задан — фиксируем вход перестановки.
+	std::sort(names.begin(), names.end());
+	// Fisher–Yates с сохраняемым turn_rng_state (SplitMix64).
+	for (size_t i = names.size(); i > 1; --i) {
+		size_t j = game_rng::uniform_exclusive(g.turn_rng_state, i);
+		std::swap(names[j], names[i - 1]);
+	}
 	g.turn_order = std::move(names);
 	// Бот только в конце очереди — при turn_index=0 первым всегда живой игрок, не бот.
 	if (g.bot_enabled) g.turn_order.push_back("bot");
@@ -140,20 +147,21 @@ bool Game::add_player(const std::string& name, std::pair<size_t,size_t> at, cons
 	broken_knife.erase(name);
 	// initially only knife is available: 1 charge
 	inventories[name].setCharges("knife", 1);
-	// if turn order already exists, insert new player at random position
+	// if turn order already exists — случайная позиция среди людей (детерминированно от turn_rng_state)
 	if (enforce_turns && !turn_order.empty()) {
-		std::mt19937 gen{rand_u32()};
-		std::uniform_int_distribution<size_t> dist(0, turn_order.size());
-		size_t pos = dist(gen);
-		turn_order.insert(turn_order.begin() + pos, name);
-		// ensure bot remains last
-		if (bot_enabled) {
-			auto it = std::find(turn_order.begin(), turn_order.end(), std::string("bot"));
-			if (it != turn_order.end() && (it + 1) != turn_order.end()) {
-				turn_order.erase(it);
-				turn_order.push_back("bot");
-			}
+		if (turn_rng_state == 0)
+			turn_rng_state = game_rng::splitmix64(0xA5A5A5A5A5A5A5A5ull);
+		std::vector<std::string> human;
+		human.reserve(turn_order.size());
+		for (const auto& n : turn_order) {
+			if (n != "bot") human.push_back(n);
 		}
+		const size_t slots = human.size() + 1;
+		size_t pos = game_rng::uniform_exclusive(turn_rng_state, slots);
+		human.insert(human.begin() + static_cast<decltype(human)::difference_type>(pos), name);
+		turn_order.clear();
+		turn_order.insert(turn_order.end(), human.begin(), human.end());
+		if (bot_enabled) turn_order.push_back("bot");
 	}
 	// ensure bot present in order if enabled
 	if (enforce_turns && bot_enabled) {

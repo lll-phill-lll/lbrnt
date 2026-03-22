@@ -51,6 +51,8 @@ struct Game {
 
 	bool enforce_turns{false};
 	std::vector<std::string> turn_order;
+	/** Состояние SplitMix64 для перемешивания очереди и вставки игроков; сериализуется (TURNRNG). */
+	uint64_t turn_rng_state{0};
 	size_t turn_index{0};
 	int actions_per_turn{1};
 	int actions_left{1};
