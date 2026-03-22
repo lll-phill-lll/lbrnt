@@ -1,7 +1,7 @@
 #include "generator.hpp"
+#include "rng.hpp"
 #include <random>
 #include <stack>
-#include <algorithm>
 #include <unordered_set>
 #include <queue>
 #include "locations/Location.hpp"
@@ -61,7 +61,7 @@ void carve_maze(LabyrinthMap& map) {
 			st.pop();
 			continue;
 		}
-		std::shuffle(neighbors.begin(), neighbors.end(), rng());
+		game_rng::shuffle_portable(neighbors.begin(), neighbors.end(), rng());
 		auto [nx, ny] = neighbors.front();
 		// remove wall between cells
 		if (nx > cx) map.v_walls[cy][cx+1] = false;
@@ -81,7 +81,7 @@ void place_items(LabyrinthMap& map) {
 			if (map.get_cell(x, y) == CellContent::Empty) empties.emplace_back(x, y);
 		}
 	}
-	std::shuffle(empties.begin(), empties.end(), rng());
+	game_rng::shuffle_portable(empties.begin(), empties.end(), rng());
 	if (!empties.empty()) {
 		auto [tx, ty] = empties.back(); empties.pop_back();
 		map.set_cell(tx, ty, CellContent::Treasure);
@@ -106,7 +106,7 @@ void remove_extra_walls(LabyrinthMap& map, float openness) {
 			if (map.h_walls[y][x]) candidates.push_back({false, y, x});
 		}
 	}
-	std::shuffle(candidates.begin(), candidates.end(), rng());
+	game_rng::shuffle_portable(candidates.begin(), candidates.end(), rng());
 	size_t remove_count = static_cast<size_t>(candidates.size() * openness);
 	for (size_t i = 0; i < remove_count && i < candidates.size(); ++i) {
 		auto e = candidates[i];
@@ -143,7 +143,7 @@ void place_exit_edge(LabyrinthMap& map) {
 	for (size_t x = 0; x < map.width; ++x) candidates.emplace_back(false, 0, x);
 	// bottom border y=height
 	for (size_t x = 0; x < map.width; ++x) candidates.emplace_back(false, map.height, x);
-	std::shuffle(candidates.begin(), candidates.end(), rng());
+	game_rng::shuffle_portable(candidates.begin(), candidates.end(), rng());
 	for (auto& t : candidates) {
 		bool vert = std::get<0>(t);
 		size_t y = std::get<1>(t);
@@ -183,7 +183,7 @@ void place_arsenal_cluster(LabyrinthMap& map) {
 		{{0,0},{1,0},{2,0},{0,1},{1,1},{2,1},{0,2},{1,2},{2,2}},
 		{{1,0},{0,1},{1,1},{2,1},{1,2}},
 	};
-	std::shuffle(patterns.begin(), patterns.end(), rng());
+	game_rng::shuffle_portable(patterns.begin(), patterns.end(), rng());
 	std::vector<std::tuple<size_t,size_t,P>> candidates;
 	for (const auto& pat : patterns) {
 		int max_dx = 0, max_dy = 0;
@@ -195,7 +195,7 @@ void place_arsenal_cluster(LabyrinthMap& map) {
 		}
 	}
 	if (candidates.empty()) return;
-	std::shuffle(candidates.begin(), candidates.end(), rng());
+	game_rng::shuffle_portable(candidates.begin(), candidates.end(), rng());
 	for (auto& cand : candidates) {
 		size_t sx = std::get<0>(cand);
 		size_t sy = std::get<1>(cand);
@@ -224,7 +224,7 @@ void place_arsenal_cluster(LabyrinthMap& map) {
 			  if (border || !in.count(n)) { test.h_walls[y+1][x]=true; if(!border) perimeter.emplace_back(false,y+1,x); } }
 		}
 		if (perimeter.empty()) continue;
-		std::shuffle(perimeter.begin(), perimeter.end(), rng());
+		game_rng::shuffle_portable(perimeter.begin(), perimeter.end(), rng());
 		for (auto e : perimeter) {
 			LabyrinthMap test2 = test;
 			if (std::get<0>(e)) test2.v_walls[std::get<1>(e)][std::get<2>(e)] = false;
@@ -249,7 +249,7 @@ void place_hospital_cluster(LabyrinthMap& map) {
 		// plus shape (center + arms)
 		{{1,0},{0,1},{1,1},{2,1},{1,2}},
 	};
-	std::shuffle(patterns.begin(), patterns.end(), rng());
+	game_rng::shuffle_portable(patterns.begin(), patterns.end(), rng());
 
 	// Find all valid anchors for any pattern (keep away from map border by at least 1)
 	std::vector<std::tuple<size_t,size_t,P>> candidates;
@@ -265,7 +265,7 @@ void place_hospital_cluster(LabyrinthMap& map) {
 		}
 	}
 	if (candidates.empty()) return;
-	std::shuffle(candidates.begin(), candidates.end(), rng());
+	game_rng::shuffle_portable(candidates.begin(), candidates.end(), rng());
 
 	// Try candidates until placed without creating unreachable islands
 	for (auto& cand : candidates) {
@@ -333,7 +333,7 @@ void place_hospital_cluster(LabyrinthMap& map) {
 		}
 		if (perimeter.empty()) continue;
 		// Try entrances until connectivity preserved (single component)
-		std::shuffle(perimeter.begin(), perimeter.end(), rng());
+		game_rng::shuffle_portable(perimeter.begin(), perimeter.end(), rng());
 		for (auto e : perimeter) {
 			LabyrinthMap test2 = test;
 			if (std::get<0>(e)) test2.v_walls[std::get<1>(e)][std::get<2>(e)] = false;

@@ -1,8 +1,8 @@
 #include "LocationUtils.hpp"
 #include "../map.hpp"
+#include "../rng.hpp"
 #include <queue>
 #include <tuple>
-#include <algorithm>
 
 namespace LocationUtils {
 
@@ -45,7 +45,7 @@ bool pick_and_place_location_cluster(
 	if (patterns.empty()) return false;
 	std::vector<size_t> idx(patterns.size());
 	for (size_t i=0;i<idx.size();++i) idx[i]=i;
-	std::shuffle(idx.begin(), idx.end(), gen);
+	game_rng::shuffle_portable(idx.begin(), idx.end(), gen);
 	for (size_t pi : idx) {
 		const auto& pat = patterns[pi];
 		int max_dx = 0, max_dy = 0;
@@ -56,7 +56,7 @@ bool pick_and_place_location_cluster(
 				anchors.emplace_back(sx, sy);
 			}
 		}
-		std::shuffle(anchors.begin(), anchors.end(), gen);
+		game_rng::shuffle_portable(anchors.begin(), anchors.end(), gen);
 		for (auto [sx,sy] : anchors) {
 			LabyrinthMap test = map;
 			std::vector<std::pair<size_t,size_t>> cells;
@@ -82,7 +82,7 @@ bool pick_and_place_location_cluster(
 				if (y+1==test.height || !keyIn(cells,x,y+1)) { test.h_walls[y+1][x]=true; if (y+1<test.height) perimeter.emplace_back(false,y+1,x); }
 			}
 			if (perimeter.empty()) continue;
-			std::shuffle(perimeter.begin(), perimeter.end(), gen);
+			game_rng::shuffle_portable(perimeter.begin(), perimeter.end(), gen);
 			for (auto e : perimeter) {
 				LabyrinthMap test2 = test;
 				if (std::get<0>(e)) test2.v_walls[std::get<1>(e)][std::get<2>(e)] = false;
