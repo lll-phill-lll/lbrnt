@@ -3,6 +3,7 @@
  * Запуск: npm run dev:scenario → http://127.0.0.1:5174/
  */
 import express from 'express';
+import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { createScenarioApiRouter, scenarioCorsMiddleware } from './lib/scenarioHttpApi.js';
@@ -19,6 +20,23 @@ app.use('/api/sandbox', createSandboxApiRouter());
 app.get('/', (_req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'dev-sandbox.html'));
 });
+
+/** Игра с включённой записью сценария в сайдбаре (meta scenario-recording-ui=1). До static! */
+app.get('/game', (_req, res) => {
+  const p = path.join(__dirname, 'public', 'game.html');
+  fs.readFile(p, 'utf8', (err, html) => {
+    if (err) {
+      res.status(500).send(String(err?.message || err));
+      return;
+    }
+    const out = html.replace(
+      '<meta name="scenario-recording-ui" content="0"/>',
+      '<meta name="scenario-recording-ui" content="1"/>',
+    );
+    res.type('html').send(out);
+  });
+});
+
 app.use(express.static(path.join(__dirname, 'public')));
 
 const PORT = Number(process.env.PORT || 5174);

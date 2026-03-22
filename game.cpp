@@ -4,6 +4,7 @@
 #include "items/Shotgun.hpp"
 #include "items/Rifle.hpp"
 #include "items/Flashlight.hpp"
+#include "items/LootTreasure.hpp"
 #include "locations/Location.hpp"
 #include "generator.hpp"
 #include "locations/Hospital.hpp"
@@ -106,6 +107,11 @@ static void consume_action_or_advance(Game& g, LabyrinthMap& map) {
 	if (g.actions_left <= 0) advance_turn(g, map);
 }
 void Game::init_turns() {
+	if (!enforce_turns) return;
+	// Всегда пересобираем очередь (иначе повторный init-turns — no-op при непустом turn_order,
+	// и сценарий из «Зафиксировать начало» расходится с pytest по тому же scenario.json).
+	turn_order.clear();
+	turn_index = 0;
 	ensure_turns_initialized(*this);
 }
 
@@ -190,6 +196,16 @@ static long long key_xy(size_t x, size_t y) {
 	return (long long)y * 1000000LL + (long long)x;
 }
 
+/** Сбросить весь carried treasure в кучу loot_treasure на клетке. */
+static void drop_carried_treasure_on_ground(Game& g, const std::string& victim, size_t x, size_t y) {
+	auto itInv = g.inventories.find(victim);
+	if (itInv == g.inventories.end()) return;
+	int t = itInv->second.getCharges("treasure");
+	if (t <= 0) return;
+	itInv->second.removeItem("treasure");
+	g.loot_treasure[key_xy(x, y)] += t;
+}
+
 MoveOutcome Game::move_player(const std::string& name, Direction dir, LabyrinthMap& map) {
 	MoveOutcome out;
 	auto it = players.find(name);
@@ -228,7 +244,7 @@ MoveOutcome Game::move_player(const std::string& name, Direction dir, LabyrinthM
 			// Exit the maze
 			out.moved = true;
 			out.position = pos; // remain at border cell
-			if (players_with_treasure.count(name)) {
+			if (player_has_treasure(*this, name)) {
 				out.messages.push_back("Выход найден на внешней стене! Игрок вынес сокровище!");
 				finished = true;
 			} else {
@@ -280,7 +296,8 @@ MoveOutcome Game::move_player(const std::string& name, Direction dir, LabyrinthM
 	auto lk = key_xy(new_pos.first, new_pos.second);
 	auto itloot = loot_treasure.find(lk);
 	if (itloot != loot_treasure.end() && itloot->second > 0) {
-		players_with_treasure.insert(name);
+		int cur = inventories[name].getCharges("treasure");
+		inventories[name].setCharges("treasure", cur + 1);
 		itloot->second -= 1;
 		if (itloot->second <= 0) loot_treasure.erase(itloot);
 		out.messages.push_back("Поднято сокровище с земли.");
@@ -300,6 +317,7 @@ MoveOutcome Game::move_player(const std::string& name, Direction dir, LabyrinthM
 			else if (itemId == "shotgun") out.messages.push_back("Подобран дробовик");
 			else if (itemId == "knife") out.messages.push_back("Подобран нож");
 			else if (itemId == "armor") out.messages.push_back("Подобрана броня");
+			else if (itemId == "treasure") out.messages.push_back("Подобрано сокровище.");
 			else out.messages.push_back("Подобран предмет: " + itemId);
 		}
 		ground_items.erase(itItems);
@@ -365,6 +383,7 @@ UseOutcome Game::use_item(const std::string& name, const std::string& itemId, Di
 	else if (itemId == "shotgun") item = std::make_unique<Shotgun>();
 	else if (itemId == "rifle") item = std::make_unique<Rifle>();
 	else if (itemId == "flashlight") item = std::make_unique<Flashlight>();
+	else if (itemId == "treasure") item = std::make_unique<LootTreasure>();
 	else { out.messages.push_back("Неизвестный предмет"); return out; }
 	// Delegate charge logic to item
 	extern bool item_use(Game& game, Item& item, LabyrinthMap& map, const std::string& playerName, Direction dir, std::vector<std::string>& messages);
@@ -390,10 +409,7 @@ UseOutcome Game::use_item(const std::string& name, const std::string& itemId, Di
 void Game::apply_replay_bot_kill(const std::string& victim, LabyrinthMap& map) {
 	auto itp = players.find(victim);
 	if (itp == players.end()) return;
-	if (players_with_treasure.count(victim)) {
-		players_with_treasure.erase(victim);
-		loot_treasure[key_xy(itp->second.first, itp->second.second)] += 1;
-	}
+	drop_carried_treasure_on_ground(*this, victim, itp->second.first, itp->second.second);
 	if (auto* loc = getLocationFor(CellContent::Hospital)) {
 		if (auto* hosp = dynamic_cast<HospitalLocation*>(loc))
 			hosp->teleportToHospital(*this, map, victim);
@@ -452,10 +468,7 @@ void Game::run_bot_turn(LabyrinthMap& map, std::vector<std::string>& messages, s
 	auto try_kill_victim = [&](const std::string& victim) -> bool {
 		auto itp = players.find(victim);
 		if (itp == players.end()) return false;
-		if (players_with_treasure.count(victim)) {
-			players_with_treasure.erase(victim);
-			loot_treasure[key_xy(itp->second.first, itp->second.second)] += 1;
-		}
+		drop_carried_treasure_on_ground(*this, victim, itp->second.first, itp->second.second);
 		if (auto* loc = getLocationFor(CellContent::Hospital)) {
 			if (auto* hosp = dynamic_cast<HospitalLocation*>(loc)) {
 				if (hosp->teleportToHospital(*this, map, victim)) {
@@ -658,10 +671,7 @@ bool attempt_kill(Game& game, LabyrinthMap& map, const std::string& victim, std:
 	}
 
 	auto pos = itp->second;
-	if (game.players_with_treasure.count(victim)) {
-		game.players_with_treasure.erase(victim);
-		game.loot_treasure[key_xy(pos.first, pos.second)] += 1;
-	}
+	drop_carried_treasure_on_ground(game, victim, pos.first, pos.second);
 
 	bool sent = false;
 	if (auto* loc = getLocationFor(CellContent::Hospital)) {

@@ -13,14 +13,14 @@
     {
       "type": "add-player",
       "name": "Alice",
-      "x": 3,
-      "y": 2
+      "x": 2,
+      "y": 3
     },
     {
       "type": "add-player",
       "name": "Bob",
-      "x": 3,
-      "y": 2
+      "x": 2,
+      "y": 3
     },
     {
       "type": "set-turns",
@@ -33,8 +33,12 @@
   "script": [
     {
       "type": "player-status",
+      "name": "Bob"
+    },
+    {
+      "type": "player-status",
       "name": "Alice",
-      "expect_stdout": "{\"name\":\"Alice\",\"hasTreasure\":false,\"items\":[{\"id\":\"knife\",\"displayName\":\"Нож\",\"description\":\"Бьёт на 1 клетку в выбранном направлении. Убитый игрок телепортируется в больницу.\",\"rechargeHint\":\"Восстанавливается при посещении арсенала.\",\"charges\":1,\"broken\":false}],\"nearbyBreathing\":false,\"messages\":[]}"
+      "expect_stdout": "{\"name\":\"Bob\",\"hasTreasure\":false,\"items\":[{\"id\":\"knife\",\"displayName\":\"Нож\",\"description\":\"Бьёт на 1 клетку в выбранном направлении. Убитый игрок телепортируется в больницу.\",\"rechargeHint\":\"Восстанавливается при посещении арсенала.\",\"charges\":1,\"broken\":false}],\"nearbyBreathing\":false,\"messages\":[]}\n{\"name\":\"Alice\",\"hasTreasure\":false,\"items\":[{\"id\":\"knife\",\"displayName\":\"Нож\",\"description\":\"Бьёт на 1 клетку в выбранном направлении. Убитый игрок телепортируется в больницу.\",\"rechargeHint\":\"Восстанавливается при посещении арсенала.\",\"charges\":1,\"broken\":false}],\"nearbyBreathing\":false,\"messages\":[]}"
     }
   ]
 }

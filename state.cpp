@@ -3,6 +3,7 @@
 #include <fstream>
 #include <sstream>
 #include <random>
+#include <unordered_map>
 #include "locations/Location.hpp"
 
 static const char* dir_to_cstr(Direction d) {
@@ -85,7 +86,7 @@ bool AppState::save(const AppState& st, const std::string& path, std::string& er
 	f << "RNG " << st.random_seed << " " << st.random_nonce << "\n";
 	f << "PLAYERS " << st.game.players.size() << "\n";
 	for (const auto& kv : st.game.players) {
-		int has_t = st.game.players_with_treasure.count(kv.first) ? 1 : 0;
+		int has_t = player_has_treasure(st.game, kv.first) ? 1 : 0;
 		int broken = st.game.broken_knife.count(kv.first) ? 1 : 0;
 		f << kv.first << " " << kv.second.first << " " << kv.second.second << " " << has_t << " " << broken << "\n";
 	}
@@ -185,7 +186,7 @@ bool AppState::save(const AppState& st, const std::string& path, std::string& er
 		}
 		f << "BPLAYERS " << copy.base_game.players.size() << "\n";
 		for (const auto& kv : copy.base_game.players) {
-			int has_t = copy.base_game.players_with_treasure.count(kv.first) ? 1 : 0;
+			int has_t = player_has_treasure(copy.base_game, kv.first) ? 1 : 0;
 			int broken = copy.base_game.broken_knife.count(kv.first) ? 1 : 0;
 			f << kv.first << " " << kv.second.first << " " << kv.second.second << " " << has_t << " " << broken << "\n";
 		}
@@ -288,19 +289,23 @@ bool AppState::load(AppState& st, const std::string& path, std::string& err) {
 		st.random_nonce = 0;
 		st.game.turn_rng_state = game_rng::initial_turn_rng_state(st.random_seed);
 	}
+	/** Флаг has_t из старых сохранений; после ITEMS мигрируем в charges предмета `treasure`. */
+	std::unordered_map<std::string, bool> legacy_player_treasure;
+	std::unordered_map<std::string, bool> legacy_base_treasure;
 	size_t nplayers = 0;
 	if (token != "PLAYERS") { err = "Ожидался PLAYERS"; return false; }
 	if (!(f >> nplayers)) { err = "Некорректное число игроков"; return false; }
 	st.game.players.clear();
-	st.game.players_with_treasure.clear();
 	st.game.broken_knife.clear();
 	for (size_t i = 0; i < nplayers; ++i) {
 		std::string name; size_t px, py; int has_t; int broken = 0;
 		f >> name >> px >> py >> has_t >> broken;
 		st.game.players[name] = {px, py};
-		if (has_t) st.game.players_with_treasure.insert(name);
+		legacy_player_treasure[name] = (has_t != 0);
 		if (broken) st.game.broken_knife.insert(name);
 	}
+	// Очистить инвентари перед разбором optional-секций и миграцией legacy has_t.
+	st.game.inventories.clear();
 	// Optional turns/actions/items/colors sections
 	if (!(f >> token)) { err = "Ожидался FINISHED или PCOLORS/ITEMS"; return false; }
 	if (token == "TURNS") {
@@ -340,6 +345,11 @@ bool AppState::load(AppState& st, const std::string& path, std::string& err) {
 			st.game.inventories[pname].setCharges(item, c);
 		}
 		if (!(f >> token)) { err = "Ожидался FINISHED или PCOLORS/LOOT_T"; return false; }
+	}
+	for (const auto& kv : legacy_player_treasure) {
+		if (!kv.second) continue;
+		auto& inv = st.game.inventories[kv.first];
+		if (inv.getCharges("treasure") <= 0) inv.setCharges("treasure", 1);
 	}
 	if (token == "PCOLORS") {
 		size_t m = 0; if (!(f >> m)) { err = "Некорректный PCOLORS"; return false; }
@@ -428,7 +438,13 @@ bool AppState::load(AppState& st, const std::string& path, std::string& err) {
 			if (!(f >> btoken) || btoken != "BPLAYERS") { err = "Ожидался BPLAYERS"; return false; }
 			if (!(f >> bn)) { err = "Некорректный BPLAYERS"; return false; }
 			st.base_game = Game{};
-			for (size_t i = 0; i < bn; ++i) { std::string name; size_t px,py; int ht, br; f >> name >> px >> py >> ht >> br; st.base_game.players[name]={px,py}; if (ht) st.base_game.players_with_treasure.insert(name); if (br) st.base_game.broken_knife.insert(name); }
+			for (size_t i = 0; i < bn; ++i) {
+				std::string name; size_t px, py; int ht, br;
+				f >> name >> px >> py >> ht >> br;
+				st.base_game.players[name] = {px, py};
+				legacy_base_treasure[name] = (ht != 0);
+				if (br) st.base_game.broken_knife.insert(name);
+			}
 			if (!(f >> btoken)) { err = "Ожидался BTURNS или BPCOLORS"; return false; }
 			if (btoken == "BTURNS") {
 				int enf=0; size_t idx=0, cnt=0; if (!(f >> enf >> idx >> cnt)) { err = "Некорректный BTURNS"; return false; }
@@ -469,6 +485,11 @@ bool AppState::load(AppState& st, const std::string& path, std::string& err) {
 					std::string pname, item; int c; f >> pname >> item >> c; st.base_game.inventories[pname].setCharges(item, c);
 				}
 				if (!(f >> btoken)) { err = "Ожидался BLOOT_T"; return false; }
+			}
+			for (const auto& kv : legacy_base_treasure) {
+				if (!kv.second) continue;
+				auto& inv = st.base_game.inventories[kv.first];
+				if (inv.getCharges("treasure") <= 0) inv.setCharges("treasure", 1);
 			}
 			size_t bk=0;
 			if (btoken != "BLOOT_T") { err = "Ожидался BLOOT_T"; return false; }

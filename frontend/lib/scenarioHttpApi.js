@@ -6,7 +6,6 @@ import path from 'path';
 import express from 'express';
 import { readMeta, stateFile } from './roomFiles.js';
 import { validateRoomId, validateScenarioId, validateManifestAction } from './gameConstants.js';
-import { runLab } from './runLab.js';
 import { readStateSnapshot } from './stateParse.js';
 import { enqueueSandbox } from './sandboxHttpApi.js';
 import {
@@ -26,6 +25,7 @@ const SETUP_STEP_TYPES = new Set([
   'init-turns',
   'init-base',
   'give-item',
+  'give-treasure',
   'add-item',
   'add-item-random',
   'set-cell',
@@ -240,55 +240,65 @@ export function createScenarioApiRouter() {
     return res.json({ ok: true, scenario });
   });
 
-  /** Подготовка записи: папка + scenario.json, очерёдность ходов в комнате. */
-  router.post('/scenarios/:id/capture-initial', async (req, res) => {
+  /**
+   * Одно сохранение: setup + script + описание. Папка создаётся при необходимости, файл перезаписывается.
+   * В setup[] передаётся то, что накопила песочница (без set-turns/init-turns) — сервер добавит их при enableTurnsInSetup.
+   */
+  router.post('/scenarios/:id/save-scenario', (req, res) => {
     try {
       const sid = String(req.params.id || '').trim();
       if (!validateScenarioId(sid)) return res.status(400).json({ ok: false, error: 'bad id' });
       const v = verifyCapture(req, res);
       if (!v) return;
-      const d = scenarioRootDir(sid);
-      const scenarioPath = path.join(d, SCENARIO_FILE);
-      if (!fs.existsSync(scenarioPath)) {
-        const description = String(req.body?.description ?? '').trim() || sid;
-        fs.mkdirSync(d, { recursive: true });
-        fs.writeFileSync(
-          scenarioPath,
-          JSON.stringify({ description, setup: [], script: [] }, null, 2),
-          'utf8',
-        );
-      }
-      const enableTurns = req.body?.enableTurnsBeforeCapture !== false;
+
       const rawSetup = req.body?.setup;
       const errSetup = validateSetupArray(rawSetup);
       if (errSetup) {
         return res.status(400).json({ ok: false, error: errSetup });
       }
-      if (enableTurns) {
-        const r1 = await runLab(['set-turns', '--state', v.sf, '1']);
-        if (r1.code !== 0) {
+
+      const actions = req.body?.actions;
+      if (!Array.isArray(actions)) {
+        return res.status(400).json({ ok: false, error: 'нужен массив actions (можно [])' });
+      }
+      for (const a of actions) {
+        if (!validateManifestAction(a)) {
           return res.status(400).json({
             ok: false,
-            error: r1.err || r1.out || 'set-turns failed',
-          });
-        }
-        const r2 = await runLab(['init-turns', '--state', v.sf]);
-        if (r2.code !== 0) {
-          return res.status(400).json({
-            ok: false,
-            error: r2.err || r2.out || 'init-turns failed',
+            error: 'некорректное действие в actions (типы: move, attack, use-item, player-status)',
           });
         }
       }
+
+      const expectStdout =
+        typeof req.body?.expect_stdout === 'string' ? req.body.expect_stdout : '';
+      let expectContains = req.body?.expect_stdout_contains;
+      if (expectContains == null) expectContains = [];
+      if (!Array.isArray(expectContains)) expectContains = [];
+
       const description = String(req.body?.description ?? '').trim();
-      const scenario = JSON.parse(fs.readFileSync(scenarioPath, 'utf8'));
-      scenario.setup = buildSetupForScenario(rawSetup, enableTurns);
-      if (description) scenario.description = description;
-      fs.writeFileSync(scenarioPath, JSON.stringify(scenario, null, 2), 'utf8');
-      return res.json({
-        ok: true,
-        message: 'запись начата: в scenario.json записан setup (команды движка)',
+      const enableTurns = req.body?.enableTurnsInSetup !== false;
+
+      const d = scenarioRootDir(sid);
+      fs.mkdirSync(d, { recursive: true });
+
+      const script = actions.map((a, i) => {
+        const row = { ...a };
+        const last = i === actions.length - 1;
+        if (last) {
+          row.expect_stdout = expectStdout;
+          if (expectContains.length) row.expect_stdout_contains = expectContains;
+        }
+        return row;
       });
+
+      const scenario = {
+        description: description || sid,
+        setup: buildSetupForScenario(rawSetup, enableTurns),
+        script,
+      };
+      fs.writeFileSync(path.join(d, SCENARIO_FILE), JSON.stringify(scenario, null, 2), 'utf8');
+      return res.json({ ok: true, scenario });
     } catch (e) {
       return res.status(500).json({ ok: false, error: e?.message || String(e) });
     }

@@ -1,0 +1,61 @@
+{
+  "description": "Игрок не может ходить больше заданного числа раз",
+  "setup": [
+    {
+      "type": "generate",
+      "width": 8,
+      "height": 8,
+      "seed": 42,
+      "openness": 0.5,
+      "turns": true,
+      "turn_actions": 3
+    },
+    {
+      "type": "add-player",
+      "name": "Bob",
+      "x": 3,
+      "y": 6
+    },
+    {
+      "type": "add-player",
+      "name": "Alice",
+      "x": 3,
+      "y": 3
+    },
+    {
+      "type": "set-turns",
+      "on": true
+    },
+    {
+      "type": "init-turns"
+    }
+  ],
+  "script": [
+    {
+      "type": "move",
+      "name": "Alice",
+      "dir": "down"
+    },
+    {
+      "type": "move",
+      "name": "Alice",
+      "dir": "right"
+    },
+    {
+      "type": "move",
+      "name": "Alice",
+      "dir": "right"
+    },
+    {
+      "type": "move",
+      "name": "Alice",
+      "dir": "down"
+    },
+    {
+      "type": "move",
+      "name": "Alice",
+      "dir": "down",
+      "expect_stdout": "[Alice]:\n\tПрошёл вниз\n[Alice]:\n\tПрошёл вправо\n[Alice]:\n\tПрошёл вправо\n[Alice]:\n\tСейчас не ваш ход\n[Alice]:\n\tСейчас не ваш ход"
+    }
+  ]
+}

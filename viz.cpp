@@ -385,7 +385,7 @@ std::string render_svg(const AppState& st, float cell_px, float margin_px) {
 		draw_item(rx, "R", hasRifle,  get_ch("rifle") > 0,      icol);
 		draw_item(sx, "S", hasShot,   get_ch("shotgun") > 0,    icol);
 		draw_item(kx, "K", true,      get_ch("knife") > 0 && !broken, kcol);
-		bool hasT = st.game.players_with_treasure.count(name) > 0;
+		bool hasT = player_has_treasure(st.game, name);
 		if (hasT) {
 			float tx = panel_left + panel_w - cell_px * 0.9f;
 			oss << "<circle cx=\"" << tx << "\" cy=\"" << cy << "\" r=\"" << (cell_px*0.22f)

@@ -43,7 +43,8 @@ async function ensureSandbox() {
       '--openness', '0.5',
       '--seed', '42',
       '--turn-actions', '1',
-      '--turns', '0',
+      /* как в лобби по умолчанию — очередь и лимит действий за ход */
+      '--turns', '1',
     ]);
     if (res.code !== 0) throw new Error(res.err || res.out || 'generate failed');
   }
@@ -157,6 +158,8 @@ export function createSandboxApiRouter() {
         const seed = req.body?.seed != null ? Number(req.body.seed) : 42;
         const turnActions = Math.min(Math.max(Number(req.body?.turn_actions) || 1, 1), 10);
         const botSteps = Number(req.body?.bot_steps);
+        /** По умолчанию как в лобби; false — свободный режим (все ходят когда хотят). */
+        const enforceTurns = req.body?.enforce_turns !== false;
         const sf = stateFile(SANDBOX_ROOM_ID);
         const args = [
           'generate',
@@ -166,9 +169,8 @@ export function createSandboxApiRouter() {
           '--openness', String(openness),
           '--seed', String(seed),
           '--turn-actions', String(turnActions),
-          /* до «Зафиксировать начало» очерёдность не нужна — включается в capture-initial */
           '--turns',
-          '0',
+          enforceTurns ? '1' : '0',
         ];
         if (Number.isFinite(botSteps) && botSteps > 0) {
           args.push('--bot-steps', String(Math.min(Math.max(Math.floor(botSteps), 1), 5)));
@@ -210,6 +212,11 @@ export function createSandboxApiRouter() {
         }
         lastCli = { stdout: r.out || '', stderr: r.err || '' };
         if (r.code !== 0) throw new Error(r.err || r.out || 'add-player failed');
+        const snap0 = readStateSnapshot(sf);
+        if (snap0.turn?.enforce && snap0.players.length > 0) {
+          const r2 = await runLab(['init-turns', '--state', sf]);
+          if (r2.code !== 0) throw new Error(r2.err || r2.out || 'init-turns failed');
+        }
       });
       const sf = stateFile(SANDBOX_ROOM_ID);
       const snap = readStateSnapshot(sf);
@@ -355,7 +362,7 @@ export function createSandboxApiRouter() {
   router.post('/attack', (req, res) => handleMoveAttackUse(req, res, 'attack'));
   router.post('/use', (req, res) => handleMoveAttackUse(req, res, 'use'));
 
-  /** Только stdout JSON `player-status` (без resolve-bots) — для записи в сценарий. */
+  /** Только stdout JSON `player-status` (без resolve-bots) + scenarioTrace — для записи в сценарий. */
   router.post('/dump-status', async (req, res) => {
     try {
       const name = String(req.body?.name || '').trim();
@@ -383,6 +390,35 @@ export function createSandboxApiRouter() {
         stdout: out,
         stderr: err,
         scenarioTrace: { rawStdout: raw },
+      });
+    } catch (e) {
+      return res.status(400).json({ ok: false, error: e?.message || String(e) });
+    }
+  });
+
+  /** Один вызов CLI player-status (для пошагового play сценария). */
+  router.post('/player-status', async (req, res) => {
+    try {
+      const name = String(req.body?.name || '').trim();
+      if (!validatePlayerName(name)) {
+        return res.status(400).json({ ok: false, error: 'bad name' });
+      }
+      let cli;
+      await enqueueSandbox(async () => {
+        await ensureSandbox();
+        const sf = stateFile(SANDBOX_ROOM_ID);
+        cli = await runLab(['player-status', '--state', sf, '--name', name]);
+      });
+      if (!cli || cli.code !== 0) {
+        return res.status(400).json({
+          ok: false,
+          error: (cli && (cli.err || cli.out)) || 'player-status failed',
+        });
+      }
+      return res.json({
+        ok: true,
+        stdout: cli.out || '',
+        stderr: cli.err || '',
       });
     } catch (e) {
       return res.status(400).json({ ok: false, error: e?.message || String(e) });

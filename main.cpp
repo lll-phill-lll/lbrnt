@@ -7,6 +7,7 @@
 #include "items/Rifle.hpp"
 #include "items/Flashlight.hpp"
 #include "items/Armor.hpp"
+#include "items/LootTreasure.hpp"
 #include <iostream>
 #include <algorithm>
 #include <filesystem>
@@ -22,11 +23,12 @@ static std::unique_ptr<Item> makeItem(const std::string& id) {
 	if (id == "rifle") return std::make_unique<Rifle>();
 	if (id == "flashlight") return std::make_unique<Flashlight>();
 	if (id == "armor") return std::make_unique<Armor>();
+	if (id == "treasure") return std::make_unique<LootTreasure>();
 	return nullptr;
 }
 
 /** Реестр id предметов — один источник для CLI, list-items и внешних инструментов. */
-static const char* ITEM_REGISTRY_IDS[] = {"knife", "shotgun", "rifle", "flashlight", "armor"};
+static const char* ITEM_REGISTRY_IDS[] = {"knife", "shotgun", "rifle", "flashlight", "armor", "treasure"};
 static const size_t ITEM_REGISTRY_COUNT = sizeof(ITEM_REGISTRY_IDS) / sizeof(ITEM_REGISTRY_IDS[0]);
 /** Порядок размещения add-item-random при создании комнаты (как цикл на сервере). */
 static const char* ITEM_PLACE_ORDER[] = {"shotgun", "rifle", "flashlight", "armor", "knife"};
@@ -220,9 +222,9 @@ R"(labyrinth_cpp commands:
   set-hwall --state state.txt --x X --y Y (--present=0|1)
   set-knife --state state.txt --name NAME (--broken=0|1)
   set-turns --state state.txt (0|1)
-  add-item --state state.txt --item (knife|shotgun|rifle|flashlight|armor) --x X --y Y [--charges N]
-  add-item-random --state state.txt --item (knife|shotgun|rifle|flashlight|armor) [--charges N]
-  give-item --state state.txt --name NAME --item (knife|shotgun|rifle|flashlight|armor) [--charges N]
+  add-item --state state.txt --item (knife|shotgun|rifle|flashlight|armor|treasure) --x X --y Y [--charges N]
+  add-item-random --state state.txt --item (knife|shotgun|rifle|flashlight|armor|treasure) [--charges N]
+  give-item --state state.txt --name NAME --item (knife|shotgun|rifle|flashlight|armor|treasure) [--charges N]
   save-as --state state.txt --out other.txt
   export-svg --state state.txt --out maze.svg [--cell N] [--margin PX]
   export-html --state state.txt --out maze.html [--cell N] [--margin PX]
@@ -399,7 +401,7 @@ int main(int argc, char** argv) {
 		if (!AppState::load(st, state, err)) { std::cerr << err << "\n"; return 2; }
 		if (!st.game.players.count(name)) { std::cerr << "Игрок не найден\n"; return 3; }
 
-		bool hasTreasure = st.game.players_with_treasure.count(name) > 0;
+		bool hasTreasure = player_has_treasure(st.game, name);
 
 		std::ostringstream js;
 		js << "{";
@@ -407,7 +409,7 @@ int main(int argc, char** argv) {
 		js << "\"hasTreasure\":" << (hasTreasure ? "true" : "false") << ",";
 		js << "\"items\":[";
 
-		static const char* itemOrder[] = {"knife","shotgun","rifle","flashlight","armor"};
+		static const char* itemOrder[] = {"knife","shotgun","rifle","flashlight","armor","treasure"};
 		auto itInv = st.game.inventories.find(name);
 		bool first = true;
 		for (const char* iid : itemOrder) {
@@ -439,7 +441,7 @@ int main(int argc, char** argv) {
 		// extra items not in predefined order
 		if (itInv != st.game.inventories.end()) {
 			for (const auto& kv : itInv->second.item_charges) {
-				if (kv.first=="knife"||kv.first=="shotgun"||kv.first=="rifle"||kv.first=="flashlight"||kv.first=="armor") continue;
+				if (kv.first=="knife"||kv.first=="shotgun"||kv.first=="rifle"||kv.first=="flashlight"||kv.first=="armor"||kv.first=="treasure") continue;
 				auto item = makeItem(kv.first);
 				if (!first) js << ",";
 				first = false;
@@ -838,6 +840,9 @@ int main(int argc, char** argv) {
 		if (!get_arg(argc, argv, std::string("--state"), state)) { usage(); return 1; }
 		AppState st; std::string err;
 		if (!AppState::load(st, state, err)) { std::cerr << err << "\n"; return 2; }
+		// Один и тот же порядок при generate + init-turns из scenario.json и при записи в dev:
+		// перетасовка только от random_seed (RNG файла после сессии не используем).
+		st.game.turn_rng_state = game_rng::initial_turn_rng_state(st.random_seed);
 		st.game.init_turns();
 		if (!AppState::save(st, state, err)) { std::cerr << err << "\n"; return 2; }
 		// Output turn info so callers can read it
