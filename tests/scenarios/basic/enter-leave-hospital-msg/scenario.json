@@ -1,0 +1,40 @@
+{
+  "description": "При входе/выходе из больницы должно быть соответствующее сообщение",
+  "setup": [
+    {
+      "type": "generate",
+      "width": 8,
+      "height": 8,
+      "seed": 42,
+      "openness": 0.5,
+      "turns": true,
+      "turn_actions": 1
+    },
+    {
+      "type": "add-player",
+      "name": "Alice",
+      "x": 0,
+      "y": 4
+    },
+    {
+      "type": "set-turns",
+      "on": true
+    },
+    {
+      "type": "init-turns"
+    }
+  ],
+  "script": [
+    {
+      "type": "move",
+      "name": "Alice",
+      "dir": "down"
+    },
+    {
+      "type": "move",
+      "name": "Alice",
+      "dir": "up",
+      "expect_stdout": "[Alice]:\n\tПрошёл вниз\n\tВы нашли больницу.\n[Alice]:\n\tПрошёл вверх\n\tВы покинули больницу."
+    }
+  ]
+}

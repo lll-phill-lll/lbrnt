@@ -4,7 +4,7 @@
 
 void ExitLocation::onEnter(Game& game, LabyrinthMap& map, const std::string& playerName, size_t x, size_t y, std::vector<std::string>& messages) {
 	(void)map; (void)x; (void)y;
-	if (game.players_with_treasure.count(playerName)) {
+	if (player_has_treasure(game, playerName)) {
 		messages.push_back("Выход найден! Игрок вынес сокровище!");
 		game.finished = true;
 	} else {

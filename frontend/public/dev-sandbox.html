@@ -144,6 +144,20 @@
           <span class="inline-field" title="открытость 0…1"><label for="gO">O</label><input class="inp-num" type="number" id="gO" value="0.5" step="0.1" min="0" max="1"/></span>
           <span class="inline-field" title="seed"><label for="gS">S</label><input class="inp-num" type="number" id="gS" value="42" style="width:52px"/></span>
         </div>
+        <div class="row map-settings" title="параметры хода: бот и очередь">
+          <label class="opt-line" for="gEnforceTurns" style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px;color:#ced4da;width:100%;">
+            <input type="checkbox" id="gEnforceTurns" checked style="width:auto;"/>
+            <span>Очередь ходов и лимит действий</span>
+          </label>
+          <span class="inline-field" title="сколько клеток бот проходит за свой ход; 0 — без бота">
+            <label for="gBotSteps">бот</label>
+            <input class="inp-num" type="number" id="gBotSteps" value="0" min="0" max="5" style="width:40px"/>
+          </span>
+          <span class="inline-field" title="действий игрока за один ход (шаг/удар/предмет)">
+            <label for="gTurnActions">ход</label>
+            <input class="inp-num" type="number" id="gTurnActions" value="1" min="1" max="10" style="width:40px"/>
+          </span>
+        </div>
         <div class="row" style="margin-bottom:0;">
           <button type="button" id="btnGen">Сгенерировать</button>
           <button type="button" id="btnRefreshSvg">Обновить карту</button>
@@ -188,6 +202,7 @@
             <option value="rifle">rifle</option>
             <option value="flashlight">flashlight</option>
             <option value="armor">armor</option>
+            <option value="treasure" title="предмет в инвентаре (charges)">treasure</option>
           </select>
           <button type="button" id="btnGiveItem">Выдать</button>
         </div>
@@ -203,9 +218,6 @@
 
       <div class="card">
         <div class="title">Сценарий (tests/scenarios/…)</div>
-        <p class="muted" style="font-size:11px;line-height:1.35;margin:0 0 8px;">
-          Шаги <code>setup</code> (generate, игроки, предметы) накапливаются здесь при действиях слева; «Зафиксировать начало» записывает их в <code>scenario.json</code> (+ очередь ходов).
-        </p>
         <div class="row" style="flex-direction:column;align-items:stretch;">
           <label>id (категория/имя папки)</label>
           <input id="scId" placeholder="weapons/my_case" autocomplete="off"/>
@@ -215,8 +227,7 @@
           <textarea id="scDesc" placeholder="Что проверяет сценарий"></textarea>
         </div>
         <div class="row">
-          <button type="button" id="scBefore">Зафиксировать начало</button>
-          <button type="button" id="scAfter">Зафиксировать конец</button>
+          <button type="button" id="scSave">Сохранить сценарий</button>
         </div>
         <p class="muted" id="scStatus" style="margin:8px 0 0;"></p>
       </div>
