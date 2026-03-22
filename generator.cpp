@@ -49,7 +49,6 @@ void carve_maze(LabyrinthMap& map) {
 	std::stack<std::pair<size_t,size_t>> st;
 	visited[0][0] = true;
 	st.push({0,0});
-	std::uniform_int_distribution<int> dist;
 	while (!st.empty()) {
 		auto [cx, cy] = st.top();
 		std::vector<std::pair<size_t,size_t>> neighbors;

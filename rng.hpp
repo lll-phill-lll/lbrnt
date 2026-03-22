@@ -32,17 +32,33 @@ inline size_t uniform_exclusive(uint64_t& state, size_t maxExclusive) {
 }
 
 /**
+ * Равномерное целое в [0, span) только из вызовов g() и деления — без
+ * std::uniform_int_distribution (у него потребление бит от URBG зависит от реализации
+ * libstdc++/libc++, из‑за чего один seed давал разные карты на Linux и macOS).
+ */
+template <typename UniformRandomBitGenerator>
+inline uint32_t uniform_u32_below(UniformRandomBitGenerator& g, uint32_t span) {
+	if (span <= 1u) return 0u;
+	const uint32_t limit = (0xFFFFFFFFu / span) * span;
+	uint32_t r;
+	do {
+		r = static_cast<uint32_t>(g());
+	} while (r >= limit);
+	return r % span;
+}
+
+/**
  * Fisher–Yates shuffle. Переносимо между libstdc++ и libc++ — в отличие от std::shuffle,
- * у которого алгоритм зависит от реализации стандартной библиотеки (один и тот же seed
- * давал разные лабиринты на Linux и macOS).
+ * у которого алгоритм зависит от реализации стандартной библиотеки.
  */
 template <typename RandomIt, typename UniformRandomBitGenerator>
 void shuffle_portable(RandomIt first, RandomIt last, UniformRandomBitGenerator& g) {
 	using diff_t = typename std::iterator_traits<RandomIt>::difference_type;
 	diff_t n = last - first;
 	for (diff_t i = n - 1; i > 0; --i) {
-		std::uniform_int_distribution<diff_t> dist(0, i);
-		diff_t j = dist(g);
+		const uint32_t span = static_cast<uint32_t>(i) + 1u;
+		const uint32_t ju = uniform_u32_below(g, span);
+		const diff_t j = static_cast<diff_t>(ju);
 		using std::swap;
 		swap(first[j], first[i]);
 	}

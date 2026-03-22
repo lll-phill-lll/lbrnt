@@ -3,6 +3,7 @@
 #include "Flashlight.hpp"
 #include <sstream>
 #include "../generator.hpp"
+#include "../rng.hpp"
 #include <random>
 
 static bool step_forward_fl(const LabyrinthMap& map, size_t& x, size_t& y, Direction dir) {
@@ -55,8 +56,7 @@ void Flashlight::onDepleted(Game& game, LabyrinthMap& map, const std::string& /*
 	}
 	if (empties.empty()) return;
 	std::mt19937 gen{rand_u32()};
-	std::uniform_int_distribution<size_t> dist(0, empties.size()-1);
-	auto pos = empties[dist(gen)];
+	const auto pos = empties[game_rng::uniform_u32_below(gen, static_cast<uint32_t>(empties.size()))];
 	long long key = (long long)pos.second * 1000000LL + (long long)pos.first;
 	game.ground_items[key]["flashlight"] += 1;
 	messages.push_back("Фонарь выпал где-то неподалёку.");
