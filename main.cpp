@@ -1,4 +1,5 @@
 #include "generator.hpp"
+#include "rng.hpp"
 #include "state.hpp"
 #include "viz.hpp"
 #include "items/Knife.hpp"
@@ -13,6 +14,7 @@
 #include <random>
 #include <sstream>
 #include <memory>
+#include <vector>
 
 static std::unique_ptr<Item> makeItem(const std::string& id) {
 	if (id == "knife") return std::make_unique<Knife>();
@@ -173,6 +175,7 @@ R"(labyrinth_cpp commands:
   set-turns --state state.txt (0|1)
   add-item --state state.txt --item (knife|shotgun|rifle|flashlight|armor) --x X --y Y [--charges N]
   add-item-random --state state.txt --item (knife|shotgun|rifle|flashlight|armor) [--charges N]
+  give-item --state state.txt --name NAME --item (knife|shotgun|rifle|flashlight|armor) [--charges N]
   save-as --state state.txt --out other.txt
   export-svg --state state.txt --out maze.svg [--cell N] [--margin PX]
   export-html --state state.txt --out maze.html [--cell N] [--margin PX]
@@ -187,15 +190,9 @@ R"(labyrinth_cpp commands:
 }
 
 // Deterministic PRNG based on state RNG seed and nonce
-static uint64_t splitmix64(uint64_t x) {
-	x += 0x9e3779b97f4a7c15ull;
-	x = (x ^ (x >> 30)) * 0xbf58476d1ce4e5b9ull;
-	x = (x ^ (x >> 27)) * 0x94d049bb133111ebull;
-	return x ^ (x >> 31);
-}
 static size_t rng_pick(AppState& st, size_t maxExclusive) {
 	uint64_t key = (static_cast<uint64_t>(st.random_seed) << 32) ^ st.random_nonce;
-	uint64_t r = splitmix64(key);
+	uint64_t r = game_rng::splitmix64(key);
 	st.random_nonce += 1;
 	return static_cast<size_t>(r % static_cast<uint64_t>(maxExclusive));
 }
@@ -237,6 +234,7 @@ int main(int argc, char** argv) {
 		AppState st;
 		st.random_seed = seed;
 		st.random_nonce = 0;
+		st.game.turn_rng_state = game_rng::initial_turn_rng_state(seed);
 		// turns enabled by default
 		st.game.enforce_turns = true;
 		if (get_arg(argc, argv, std::string("--turns"), sturns)) {
@@ -612,6 +610,24 @@ int main(int argc, char** argv) {
 		if (!AppState::save(st, state, err)) { std::cerr << err << "\n"; return 2; }
 		std::cout << "Предмет '" << item << "' добавлен на " << pos.first << "," << pos.second << "\n";
 		return 0;
+	}
+	if (cmd == "give-item") {
+		std::string state, name, item, sch;
+		if (!get_arg(argc, argv, std::string("--state"), state) ||
+		    !get_arg(argc, argv, std::string("--name"), name) ||
+		    !get_arg(argc, argv, std::string("--item"), item)) { usage(); return 1; }
+		int charges = 1;
+		if (get_arg(argc, argv, std::string("--charges"), sch)) charges = std::stoi(sch);
+		if (item!="knife" && item!="shotgun" && item!="rifle" && item!="flashlight" && item!="armor") { usage(); return 1; }
+		AppState st; std::string err;
+		if (!AppState::load(st, state, err)) { std::cerr << err << "\n"; return 2; }
+		if (!st.game.players.count(name)) { std::cerr << "Игрок не найден\n"; return 3; }
+		auto& inv = st.game.inventories[name];
+		int cur = inv.getCharges(item);
+		inv.setCharges(item, cur + std::max(1, charges));
+		if (item == "knife" && inv.getCharges("knife") > 0) st.game.broken_knife.erase(name);
+		if (!AppState::save(st, state, err)) { std::cerr << err << "\n"; return 2; }
+		std::cout << "OK\n"; return 0;
 	}
 	if (cmd == "attack") {
 		std::string state, name, sdir;

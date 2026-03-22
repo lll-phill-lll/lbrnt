@@ -1,4 +1,5 @@
 #include "state.hpp"
+#include "rng.hpp"
 #include <fstream>
 #include <sstream>
 #include <random>
@@ -91,6 +92,7 @@ bool AppState::save(const AppState& st, const std::string& path, std::string& er
 	// Turns
 	f << "TURNS " << (st.game.enforce_turns ? 1 : 0) << " " << st.game.turn_index << " " << st.game.turn_order.size() << "\n";
 	for (const auto& n : st.game.turn_order) f << n << "\n";
+	f << "TURNRNG " << st.game.turn_rng_state << "\n";
 	// Actions
 	f << "ACTIONS " << st.game.actions_per_turn << " " << st.game.actions_left << "\n";
 	// Bot
@@ -189,6 +191,7 @@ bool AppState::save(const AppState& st, const std::string& path, std::string& er
 		}
 		f << "BTURNS " << (copy.base_game.enforce_turns ? 1 : 0) << " " << copy.base_game.turn_index << " " << copy.base_game.turn_order.size() << "\n";
 		for (const auto& n : copy.base_game.turn_order) f << n << "\n";
+		f << "BTURNRNG " << copy.base_game.turn_rng_state << "\n";
 		f << "BACTIONS " << copy.base_game.actions_per_turn << " " << copy.base_game.actions_left << "\n";
 		f << "BBOT " << (copy.base_game.bot_enabled?1:0) << " " << copy.base_game.bot_x << " " << copy.base_game.bot_y << " " << copy.base_game.bot_steps_per_turn << "\n";
 		f << "BPCOLORS " << copy.base_game.player_color.size() << "\n";
@@ -271,11 +274,19 @@ bool AppState::load(AppState& st, const std::string& path, std::string& err) {
 		unsigned int seed = 0; unsigned long long nonce = 0;
 		if (!(f >> seed >> nonce)) { err = "Некорректный RNG"; return false; }
 		st.random_seed = seed; st.random_nonce = nonce;
+		st.game.turn_rng_state = game_rng::initial_turn_rng_state(st.random_seed);
 		if (!(f >> token)) { err = "Ожидался PLAYERS"; return false; }
+		// Совместимость: старые файлы с необязательной строкой OPENNESS (игнорируем).
+		if (token == "OPENNESS") {
+			float skip_op = 0.f;
+			if (!(f >> skip_op)) { err = "Некорректный OPENNESS"; return false; }
+			if (!(f >> token)) { err = "Ожидался PLAYERS"; return false; }
+		}
 	} else {
 		// default RNG if absent
 		st.random_seed = std::random_device{}();
 		st.random_nonce = 0;
+		st.game.turn_rng_state = game_rng::initial_turn_rng_state(st.random_seed);
 	}
 	size_t nplayers = 0;
 	if (token != "PLAYERS") { err = "Ожидался PLAYERS"; return false; }
@@ -299,7 +310,13 @@ bool AppState::load(AppState& st, const std::string& path, std::string& err) {
 		st.game.turn_index = idx;
 		st.game.turn_order.clear();
 		for (size_t i=0;i<cnt;++i) { std::string n; f >> n; st.game.turn_order.push_back(n); }
-		if (!(f >> token)) { err = "Ожидался FINISHED или ACTIONS/PCOLORS/ITEMS"; return false; }
+		if (!(f >> token)) { err = "Ожидался FINISHED или TURNRNG/ACTIONS/PCOLORS/ITEMS"; return false; }
+		if (token == "TURNRNG") {
+			unsigned long long tr = 0;
+			if (!(f >> tr)) { err = "Некорректный TURNRNG"; return false; }
+			st.game.turn_rng_state = tr;
+			if (!(f >> token)) { err = "Ожидался FINISHED или ACTIONS/PCOLORS/ITEMS"; return false; }
+		}
 	}
 	if (token == "ACTIONS") {
 		int per=1, left=1;
@@ -417,8 +434,15 @@ bool AppState::load(AppState& st, const std::string& path, std::string& err) {
 				int enf=0; size_t idx=0, cnt=0; if (!(f >> enf >> idx >> cnt)) { err = "Некорректный BTURNS"; return false; }
 				st.base_game.enforce_turns = (enf!=0);
 				st.base_game.turn_index = idx;
+				st.base_game.turn_rng_state = game_rng::initial_turn_rng_state(st.random_seed);
 				for (size_t i=0;i<cnt;++i) { std::string n; f >> n; st.base_game.turn_order.push_back(n); }
-				if (!(f >> btoken)) { err = "Ожидался BACTIONS или BPCOLORS"; return false; }
+				if (!(f >> btoken)) { err = "Ожидался BTURNRNG или BACTIONS или BPCOLORS"; return false; }
+				if (btoken == "BTURNRNG") {
+					unsigned long long btr = 0;
+					if (!(f >> btr)) { err = "Некорректный BTURNRNG"; return false; }
+					st.base_game.turn_rng_state = btr;
+					if (!(f >> btoken)) { err = "Ожидался BACTIONS или BPCOLORS"; return false; }
+				}
 			}
 			if (btoken == "BACTIONS") {
 				int per=1, left=1; if (!(f >> per >> left)) { err = "Некорректный BACTIONS"; return false; }
