@@ -25,6 +25,22 @@ static std::unique_ptr<Item> makeItem(const std::string& id) {
 	return nullptr;
 }
 
+/** Реестр id предметов — один источник для CLI, list-items и внешних инструментов. */
+static const char* ITEM_REGISTRY_IDS[] = {"knife", "shotgun", "rifle", "flashlight", "armor"};
+static const size_t ITEM_REGISTRY_COUNT = sizeof(ITEM_REGISTRY_IDS) / sizeof(ITEM_REGISTRY_IDS[0]);
+/** Порядок размещения add-item-random при создании комнаты (как цикл на сервере). */
+static const char* ITEM_PLACE_ORDER[] = {"shotgun", "rifle", "flashlight", "armor", "knife"};
+static const size_t ITEM_PLACE_ORDER_COUNT = sizeof(ITEM_PLACE_ORDER) / sizeof(ITEM_PLACE_ORDER[0]);
+/** Снаряжение лобби (без обязательного ножа на карте). */
+static const char* ITEM_LOBBY_WEAPONS[] = {"shotgun", "rifle", "flashlight", "armor"};
+static const size_t ITEM_LOBBY_WEAPONS_COUNT = sizeof(ITEM_LOBBY_WEAPONS) / sizeof(ITEM_LOBBY_WEAPONS[0]);
+
+static bool item_id_is_valid(const std::string& id) {
+	for (size_t i = 0; i < ITEM_REGISTRY_COUNT; ++i)
+		if (id == ITEM_REGISTRY_IDS[i]) return true;
+	return false;
+}
+
 static std::string jsonEscape(const std::string& s) {
 	std::string out;
 	for (char c : s) {
@@ -34,6 +50,37 @@ static std::string jsonEscape(const std::string& s) {
 		else out += c;
 	}
 	return out;
+}
+
+static void emit_list_items_json() {
+	std::ostringstream js;
+	js << "{\"ids\":[";
+	for (size_t i = 0; i < ITEM_REGISTRY_COUNT; ++i) {
+		if (i) js << ",";
+		js << "\"" << ITEM_REGISTRY_IDS[i] << "\"";
+	}
+	js << "],\"placeOrder\":[";
+	for (size_t i = 0; i < ITEM_PLACE_ORDER_COUNT; ++i) {
+		if (i) js << ",";
+		js << "\"" << ITEM_PLACE_ORDER[i] << "\"";
+	}
+	js << "],\"lobbyWeapons\":[";
+	for (size_t i = 0; i < ITEM_LOBBY_WEAPONS_COUNT; ++i) {
+		if (i) js << ",";
+		js << "\"" << ITEM_LOBBY_WEAPONS[i] << "\"";
+	}
+	js << "],\"displayNames\":{";
+	bool first = true;
+	for (size_t i = 0; i < ITEM_REGISTRY_COUNT; ++i) {
+		const char* iid = ITEM_REGISTRY_IDS[i];
+		auto it = makeItem(iid);
+		if (!it) continue;
+		if (!first) js << ",";
+		first = false;
+		js << "\"" << iid << "\":\"" << jsonEscape(std::string(it->displayName())) << "\"";
+	}
+	js << "}}\n";
+	std::cout << js.str();
 }
 
 // Simple stderr logger for service messages
@@ -186,6 +233,7 @@ R"(labyrinth_cpp commands:
   init-base --state state.txt
   resolve-bots --state state.txt
   replay-export-one --state state.txt --out-dir frames --cell N --margin PX
+  list-items   (JSON: реестр id предметов, порядок размещения, имя для UI)
 )";
 }
 
@@ -211,6 +259,10 @@ static bool get_arg(int argc, char** argv, const std::string& key, std::string& 
 int main(int argc, char** argv) {
 	if (argc < 2) { usage(); return 1; }
 	std::string cmd = argv[1];
+	if (cmd == "list-items") {
+		emit_list_items_json();
+		return 0;
+	}
 	if (cmd == "generate") {
 		std::string sw, sh, out, so, sseed, sturns, sactions, sbot;
 		if (!get_arg(argc, argv, std::string("--width"), sw) ||
@@ -572,7 +624,7 @@ int main(int argc, char** argv) {
 		    !get_arg(argc, argv, std::string("--y"), sy)) { usage(); return 1; }
 		int charges = 1;
 		if (get_arg(argc, argv, std::string("--charges"), sch)) charges = std::stoi(sch);
-		if (item!="knife" && item!="shotgun" && item!="rifle" && item!="flashlight" && item!="armor") { usage(); return 1; }
+		if (!item_id_is_valid(item)) { usage(); return 1; }
 		AppState st; std::string err;
 		if (!AppState::load(st, state, err)) { std::cerr << err << "\n"; return 2; }
 		size_t x = static_cast<size_t>(std::stoul(sx));
@@ -590,7 +642,7 @@ int main(int argc, char** argv) {
 		    !get_arg(argc, argv, std::string("--item"), item)) { usage(); return 1; }
 		int charges = 1;
 		if (get_arg(argc, argv, std::string("--charges"), sch)) charges = std::stoi(sch);
-		if (item!="knife" && item!="shotgun" && item!="rifle" && item!="flashlight" && item!="armor") { usage(); return 1; }
+		if (!item_id_is_valid(item)) { usage(); return 1; }
 		AppState st; std::string err;
 		if (!AppState::load(st, state, err)) { std::cerr << err << "\n"; return 2; }
 		// collect empty cells without existing ground items or special content
@@ -618,7 +670,7 @@ int main(int argc, char** argv) {
 		    !get_arg(argc, argv, std::string("--item"), item)) { usage(); return 1; }
 		int charges = 1;
 		if (get_arg(argc, argv, std::string("--charges"), sch)) charges = std::stoi(sch);
-		if (item!="knife" && item!="shotgun" && item!="rifle" && item!="flashlight" && item!="armor") { usage(); return 1; }
+		if (!item_id_is_valid(item)) { usage(); return 1; }
 		AppState st; std::string err;
 		if (!AppState::load(st, state, err)) { std::cerr << err << "\n"; return 2; }
 		if (!st.game.players.count(name)) { std::cerr << "Игрок не найден\n"; return 3; }

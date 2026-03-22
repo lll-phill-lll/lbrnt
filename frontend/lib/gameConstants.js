@@ -1,7 +1,8 @@
 /**
- * Единый источник правил игры для сервера и scenario-dev-server.
- * Добавили предмет / направление — правим здесь (и при необходимости в CLI/Python тестах).
+ * Правила валидации для сервера и scenario-dev-server.
+ * Список предметов и подписи — из движка (`labyrinth list-items`), см. engineItems.js.
  */
+import { loadEngineItemRegistry } from './engineItems.js';
 
 export const SAFE_ROOM_ID_RE = /^[a-zA-Z0-9_-]{1,40}$/;
 
@@ -30,30 +31,28 @@ export function validatePlayerName(name) {
 /** Направления для move / attack / use-item */
 export const VALID_DIRS = new Set(['up', 'down', 'left', 'right']);
 
-/** Предметы для use-item (как в CLI use-item --item) */
-export const VALID_ITEMS = new Set(['knife', 'shotgun', 'rifle', 'flashlight', 'armor']);
+const _reg = loadEngineItemRegistry();
 
-export const DIR_RU = { up: 'вверх', down: 'вниз', left: 'влево', right: 'вправо' };
-export const ITEM_RU = {
-  knife: 'нож',
-  shotgun: 'дробовик',
-  rifle: 'ружьё',
-  flashlight: 'фонарь',
-  armor: 'броня',
-};
+/** Предметы для use-item / give-item / add-item (id из движка). */
+export const VALID_ITEMS = new Set(_reg.ids);
 
-/** Размещение предметов при создании комнаты (порядок — циклы add-item-random) */
-export const ITEM_IDS = ['shotgun', 'rifle', 'flashlight', 'armor', 'knife'];
+/** Короткие подписи для чата (displayName из классов Item в C++). */
+export const ITEM_RU = _reg.displayNames;
+
+/** Порядок размещения предметов при создании комнаты (циклы add-item-random). */
+export const ITEM_IDS = [..._reg.placeOrder];
 
 export const MAX_ITEM_PER_TYPE = 20;
 export const MAX_ITEMS_TOTAL = 80;
+
+/** Снаряжение лобби (без обязательного ножа на карте). */
+export const WEAPON_IDS_FOR_LOBBY = [..._reg.lobbyWeapons];
 
 /** Размер новой карты по умолчанию (лобби, песочница, серверные дефолты). */
 export const DEFAULT_MAP_WIDTH = 8;
 export const DEFAULT_MAP_HEIGHT = 8;
 
-/** Только «оружие» для legacy payload.weapons (без обязательного ножа на карте) */
-export const WEAPON_IDS_FOR_LOBBY = ['shotgun', 'rifle', 'flashlight', 'armor'];
+export const DIR_RU = { up: 'вверх', down: 'вниз', left: 'влево', right: 'вправо' };
 
 /**
  * Проверка действия для manifest (те же типы, что и сокет use / CLI).

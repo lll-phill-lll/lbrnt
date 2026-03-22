@@ -216,7 +216,7 @@ io.on('connection', (socket) => {
       const openness = Math.min(Math.max(Number(payload?.openness) || 0.5, 0), 1);
       const seed = payload?.seed != null ? Number(payload.seed) : Math.floor(Math.random() * 100000);
       const turnActions = Math.min(Math.max(Number(payload?.turnActions) || 1, 1), 10);
-      const itemCounts = { shotgun: 0, rifle: 0, flashlight: 0, armor: 0, knife: 0 };
+      const itemCounts = Object.fromEntries(ITEM_IDS.map((id) => [id, 0]));
       if (payload?.itemCounts && typeof payload.itemCounts === 'object') {
         for (const id of ITEM_IDS) {
           const v = Number(payload.itemCounts[id]);
