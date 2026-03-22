@@ -1,0 +1,40 @@
+{
+  "description": "Находясь на одной клетке игроки не чувствуют дыхание",
+  "setup": [
+    {
+      "type": "generate",
+      "width": 8,
+      "height": 8,
+      "seed": 42,
+      "openness": 0.5,
+      "turns": false,
+      "turn_actions": 1
+    },
+    {
+      "type": "add-player",
+      "name": "Alice",
+      "x": 3,
+      "y": 2
+    },
+    {
+      "type": "add-player",
+      "name": "Bob",
+      "x": 3,
+      "y": 2
+    },
+    {
+      "type": "set-turns",
+      "on": true
+    },
+    {
+      "type": "init-turns"
+    }
+  ],
+  "script": [
+    {
+      "type": "player-status",
+      "name": "Alice",
+      "expect_stdout": "{\"name\":\"Alice\",\"hasTreasure\":false,\"items\":[{\"id\":\"knife\",\"displayName\":\"Нож\",\"description\":\"Бьёт на 1 клетку в выбранном направлении. Убитый игрок телепортируется в больницу.\",\"rechargeHint\":\"Восстанавливается при посещении арсенала.\",\"charges\":1,\"broken\":false}],\"nearbyBreathing\":false,\"messages\":[]}"
+    }
+  ]
+}
