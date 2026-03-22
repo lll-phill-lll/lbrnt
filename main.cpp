@@ -152,11 +152,11 @@ static std::string logEntryDescription(const LogEntry& e) {
 	return "";
 }
 
-// User-facing formatted output: [Player]: then tab-indented messages (wire → русский)
+// Вывод wire-кодов как есть; русский текст собирает фронт (messageParse.js) или тесты по коду.
 static void print_user_messages(const std::string& player, const std::vector<std::string>& messages) {
 	std::cout << "[" << player << "]:" << "\n";
 	for (const auto& m : messages) {
-		std::cout << "\t" << wireToDisplayRu(m) << "\n";
+		std::cout << "\t" << m << "\n";
 	}
 }
 
@@ -191,7 +191,7 @@ static void run_pending_bot_turns(AppState& st) {
 		// В фиде одна строка на ход бота (без пошаговых координат)
 		for (const auto& line : botBlog.messages) {
 			if (line == messageWire(Message::BotMoved)) {
-				std::cout << wireToDisplayRu(line) << "\n";
+				std::cout << line << "\n";
 				break;
 			}
 		}

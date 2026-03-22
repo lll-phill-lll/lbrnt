@@ -34,7 +34,7 @@
       "type": "move",
       "name": "Alice",
       "dir": "left",
-      "expect_stdout": "[Alice]:\n\tВрезался в стену (вверх)\n[Alice]:\n\tВрезался в стену (влево)"
+      "expect_stdout": "[Alice]:\n\tINNER_WALL_CRASH:вверх\n[Alice]:\n\tINNER_WALL_CRASH:влево"
     }
   ]
 }

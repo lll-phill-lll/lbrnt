@@ -34,7 +34,7 @@
       "type": "move",
       "name": "Alice",
       "dir": "right",
-      "expect_stdout": "[Alice]:\n\tПрошёл влево\n\tВы нашли арсенал.\n[Alice]:\n\tПрошёл вправо\n\tВы покинули арсенал."
+      "expect_stdout": "[Alice]:\n\tMOVED:влево\n\tARSENAL_ENTER\n[Alice]:\n\tMOVED:вправо\n\tARSENAL_EXIT"
     }
   ]
 }

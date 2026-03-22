@@ -50,7 +50,7 @@
       "type": "move",
       "name": "Bob",
       "dir": "down",
-      "expect_stdout": "[Bob]:\n\tПрошёл вправо\n[Bob]:\n\tВрезался в стену (вниз)\n[Bob]:\n\tСейчас не ваш ход\n[Bob]:\n\tСейчас не ваш ход"
+      "expect_stdout": "[Bob]:\n\tMOVED:вправо\n[Bob]:\n\tINNER_WALL_CRASH:вниз\n[Bob]:\n\tNOT_YOUR_MOVE\n[Bob]:\n\tNOT_YOUR_MOVE"
     }
   ]
 }

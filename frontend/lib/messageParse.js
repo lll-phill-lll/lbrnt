@@ -1,5 +1,5 @@
 
-// Синхронизировано с message.hpp (MESSAGE_CODE_LIST). Concise — как formatMessage в C++; verbose — варианты для UI.
+// Синхронизировано с message.hpp (MESSAGE_CODE_LIST). Concise — канонический короткий текст; verbose — варианты для UI. Движок отдаёт только wire.
 
 const makeEnum = (...keys) => Object.fromEntries(keys.map(k => [k, k]));
 

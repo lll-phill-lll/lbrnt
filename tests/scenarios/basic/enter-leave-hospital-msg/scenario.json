@@ -34,7 +34,7 @@
       "type": "move",
       "name": "Alice",
       "dir": "up",
-      "expect_stdout": "[Alice]:\n\tПрошёл вниз\n\tВы нашли больницу.\n[Alice]:\n\tПрошёл вверх\n\tВы покинули больницу."
+      "expect_stdout": "[Alice]:\n\tMOVED:вниз\n\tHOSPITAL_ENTER\n[Alice]:\n\tMOVED:вверх\n\tHOSPITAL_EXIT"
     }
   ]
 }
