@@ -5,7 +5,7 @@
       "type": "generate",
       "width": 8,
       "height": 8,
-      "seed": 42,
+      "seed": 1,
       "openness": 0.5,
       "turns": true,
       "turn_actions": 3
@@ -13,14 +13,14 @@
     {
       "type": "add-player",
       "name": "Alice",
-      "x": 3,
-      "y": 3
+      "x": 5,
+      "y": 2
     },
     {
       "type": "add-player",
       "name": "Bob",
-      "x": 3,
-      "y": 6
+      "x": 2,
+      "y": 0
     },
     {
       "type": "set-turns",
@@ -33,24 +33,24 @@
   "script": [
     {
       "type": "move",
-      "name": "Alice",
+      "name": "Bob",
+      "dir": "right"
+    },
+    {
+      "type": "move",
+      "name": "Bob",
       "dir": "down"
     },
     {
       "type": "move",
-      "name": "Alice",
+      "name": "Bob",
       "dir": "down"
     },
     {
       "type": "move",
-      "name": "Alice",
-      "dir": "down"
-    },
-    {
-      "type": "move",
-      "name": "Alice",
+      "name": "Bob",
       "dir": "down",
-      "expect_stdout": "[Alice]:\n\tПрошёл вниз\n[Alice]:\n\tВрезался в стену (вниз)\n[Alice]:\n\tСейчас не ваш ход\n[Alice]:\n\tСейчас не ваш ход"
+      "expect_stdout": "[Bob]:\n\tПрошёл вправо\n[Bob]:\n\tВрезался в стену (вниз)\n[Bob]:\n\tСейчас не ваш ход\n[Bob]:\n\tСейчас не ваш ход"
     }
   ]
 }

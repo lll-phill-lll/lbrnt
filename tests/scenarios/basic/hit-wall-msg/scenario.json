@@ -5,16 +5,16 @@
       "type": "generate",
       "width": 8,
       "height": 8,
-      "seed": 42,
+      "seed": 1,
       "openness": 0.5,
-      "turns": false,
+      "turns": true,
       "turn_actions": 1
     },
     {
       "type": "add-player",
       "name": "Alice",
       "x": 1,
-      "y": 6
+      "y": 4
     },
     {
       "type": "set-turns",
@@ -28,18 +28,13 @@
     {
       "type": "move",
       "name": "Alice",
-      "dir": "left"
-    },
-    {
-      "type": "move",
-      "name": "Alice",
       "dir": "up"
     },
     {
       "type": "move",
       "name": "Alice",
-      "dir": "down",
-      "expect_stdout": "[Alice]:\n\tВрезался в стену (влево)\n[Alice]:\n\tВрезался в стену (вверх)\n[Alice]:\n\tВрезался в стену (вниз)"
+      "dir": "left",
+      "expect_stdout": "[Alice]:\n\tВрезался в стену (вверх)\n[Alice]:\n\tВрезался в стену (влево)"
     }
   ]
 }

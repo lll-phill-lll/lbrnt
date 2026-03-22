@@ -5,16 +5,16 @@
       "type": "generate",
       "width": 8,
       "height": 8,
-      "seed": 42,
+      "seed": 1,
       "openness": 0.5,
-      "turns": false,
+      "turns": true,
       "turn_actions": 1
     },
     {
       "type": "add-player",
       "name": "Alice",
-      "x": 7,
-      "y": 7
+      "x": 0,
+      "y": 3
     },
     {
       "type": "give-item",
@@ -34,7 +34,7 @@
     {
       "type": "move",
       "name": "Alice",
-      "dir": "right",
+      "dir": "left",
       "expect_stdout": "[Alice]:\n\tВыход найден на внешней стене! Игрок вынес сокровище!"
     }
   ]

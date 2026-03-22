@@ -7,14 +7,14 @@
       "height": 8,
       "seed": 42,
       "openness": 0.5,
-      "turns": false,
+      "turns": true,
       "turn_actions": 1
     },
     {
       "type": "add-player",
       "name": "Alice",
-      "x": 1,
-      "y": 1
+      "x": 0,
+      "y": 4
     },
     {
       "type": "set-turns",
@@ -28,13 +28,13 @@
     {
       "type": "move",
       "name": "Alice",
-      "dir": "left"
+      "dir": "down"
     },
     {
       "type": "move",
       "name": "Alice",
-      "dir": "right",
-      "expect_stdout": "[Alice]:\n\tПрошёл влево\n\tВы нашли больницу.\n[Alice]:\n\tПрошёл вправо\n\tВы покинули больницу."
+      "dir": "up",
+      "expect_stdout": "[Alice]:\n\tПрошёл вниз\n\tВы нашли больницу.\n[Alice]:\n\tПрошёл вверх\n\tВы покинули больницу."
     }
   ]
 }
