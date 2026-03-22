@@ -414,22 +414,35 @@
       const height = Number(document.getElementById('gH').value);
       const openness = Number(document.getElementById('gO').value);
       const seed = Number(document.getElementById('gS').value);
+      const botSteps = Number(document.getElementById('gBotSteps').value);
+      const turnActions = Number(document.getElementById('gTurnActions').value);
+      const genBody = {
+        width,
+        height,
+        openness,
+        seed,
+        enforce_turns: false,
+        turn_actions: Number.isFinite(turnActions) ? turnActions : 1,
+      };
+      if (Number.isFinite(botSteps) && botSteps > 0) genBody.bot_steps = botSteps;
       await jfetch(API + '/sandbox/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ width, height, openness, seed, enforce_turns: false }),
+        body: JSON.stringify(genBody),
       });
-      scenarioSetupSteps = [
-        {
-          type: 'generate',
-          width,
-          height,
-          seed,
-          openness,
-          turns: false,
-          turn_actions: 1,
-        },
-      ];
+      const setupGen = {
+        type: 'generate',
+        width,
+        height,
+        seed,
+        openness,
+        turns: false,
+        turn_actions: Number.isFinite(turnActions) ? Math.min(Math.max(Math.floor(turnActions), 1), 10) : 1,
+      };
+      if (Number.isFinite(botSteps) && botSteps > 0) {
+        setupGen.bot_steps = Math.min(Math.max(Math.floor(botSteps), 1), 5);
+      }
+      scenarioSetupSteps = [setupGen];
       scenarioRecording = false;
       scenarioActions = [];
       scenarioExpectStdout = '';

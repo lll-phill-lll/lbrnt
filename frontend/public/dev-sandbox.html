@@ -144,6 +144,16 @@
           <span class="inline-field" title="открытость 0…1"><label for="gO">O</label><input class="inp-num" type="number" id="gO" value="0.5" step="0.1" min="0" max="1"/></span>
           <span class="inline-field" title="seed"><label for="gS">S</label><input class="inp-num" type="number" id="gS" value="42" style="width:52px"/></span>
         </div>
+        <div class="row map-settings" title="параметры хода: бот и очередь">
+          <span class="inline-field" title="сколько клеток бот проходит за свой ход; 0 — без бота">
+            <label for="gBotSteps">бот</label>
+            <input class="inp-num" type="number" id="gBotSteps" value="0" min="0" max="5" style="width:40px"/>
+          </span>
+          <span class="inline-field" title="действий игрока за один ход (шаг/удар/предмет)">
+            <label for="gTurnActions">ход</label>
+            <input class="inp-num" type="number" id="gTurnActions" value="1" min="1" max="10" style="width:40px"/>
+          </span>
+        </div>
         <div class="row" style="margin-bottom:0;">
           <button type="button" id="btnGen">Сгенерировать</button>
           <button type="button" id="btnRefreshSvg">Обновить карту</button>
