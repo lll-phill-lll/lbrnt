@@ -168,9 +168,9 @@ static void run_pending_bot_turns(AppState& st) {
 		if (!st.game.enforce_turns || !st.game.bot_enabled || st.game.turn_order.empty()) break;
 		if (st.game.turn_index >= st.game.turn_order.size()) break;
 		if (st.game.turn_order[st.game.turn_index] != "bot") break;
-        Outcome botBlog;
+		Outcome botBlog;
 		std::vector<BotReplayStep> bot_replay;
-		st.game.run_bot_turn(st.map, blog, &bot_replay);
+		st.game.run_bot_turn(st.map, botBlog, &bot_replay);
 		for (const auto& s : bot_replay) {
 			if (s.kind == BotReplayStep::Kind::Move)
 				st.log.push_back(LogEntry{LogType::BotMove, "", Direction::Up, s.x, s.y, {}});
@@ -178,18 +178,17 @@ static void run_pending_bot_turns(AppState& st) {
 				st.log.push_back(LogEntry{LogType::BotKill, s.victim, Direction::Up, 0, 0, {}});
 		}
 		for (const auto& line : botBlog.messages) {
-            auto killedByBotMessage = toString(Message::KilledByBot);
-            if (line.rfind(killedByBotMessage, 0) == 0) {
-                auto killedByBotMessagePrefix = killedByBotMessage.length() + 1;
-				size_t p = line.find(':', killedByBotMessagePrefix);
+			if (line.rfind("PLAYER:", 0) == 0) {
+				size_t p = line.find(':', 7);
 				if (p != std::string::npos) {
-					std::string pname = line.substr(killedByBotMessagePrefix, p - killedByBotMessagePrefix);
-					print_user_messages(pname, std::vector<std::string>{killedByBotMessage});
+					std::string pname = line.substr(7, p - 7);
+					std::string pmsg = line.substr(p + 1);
+					print_user_messages(pname, std::vector<std::string>{pmsg});
 				}
 			}
 		}
 		// В фиде одна строка на ход бота (без пошаговых координат)
-		for (const auto& line : blog) {
+		for (const auto& line : botBlog.messages) {
 			if (line == "Бот походил") {
 				std::cout << "Бот походил\n";
 				break;
@@ -487,7 +486,7 @@ int main(int argc, char** argv) {
 		js << "\"nearbyBreathing\":" << (breathing ? "true" : "false") << ",";
 		js << "\"messages\":[";
 		if (breathing) {
-			js << "\"" << jsonEscape(std::string(game_message_nearby_breathing())) << "\"";
+			js << "\"" << jsonEscape(formatMessage(Message::Breathe)) << "\"";
 		}
 		js << "]}";
 		std::cout << js.str() << "\n";

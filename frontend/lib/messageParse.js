@@ -144,7 +144,7 @@ const messageMap = {
     [MESSAGE_CODES.UNKNOWN_ITEM]: {
         concise: () => 'Неизвестный предмет',
         verbose: () => [],
-    }
+    },
     [MESSAGE_CODES.BOT_STAYS]: {
         concise: () => 'Нет свободной клетки — бот остаётся на месте.',
         verbose: () => [],
@@ -169,12 +169,14 @@ export function parseMessage(messageCode) {
         throw `${code} is not supported by messsage map in frontend. Supported message codes: ${supportedCodes}`;
     }
 
-    const concise = def.concise(...args);
-    const verboseOptions = def.verbose(...args);
-    const randomVerbose = entry.verbose ? verboseOptions[Math.floor(Math.random() * verboseOptions.length)] : null;
+    const concise = messageEntry.concise(...args);
+    const verboseOptions = messageEntry.verbose(...args);
+    const arr = Array.isArray(verboseOptions) ? verboseOptions : [];
+    const randomVerbose =
+      arr.length > 0 ? arr[Math.floor(Math.random() * arr.length)] : null;
     return {
-        concise: messageEntry.concise,
-        verbose: randomVerbose,
+      concise,
+      verbose: randomVerbose,
     };
 }
 

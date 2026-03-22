@@ -11,11 +11,6 @@
 
 enum class Direction { Up, Down, Left, Right };
 
-/** Сообщение о соседнем дыхании: `Game::move_player`, CLI `player-status` (JSON `messages` / `player_status`). */
-inline const char* game_message_nearby_breathing() {
-	return "Вы чувствуете чьё-то дыхание поблизости.";
-}
-
 inline const char* dir_ru(Direction d) {
 	switch(d) {
 		case Direction::Up:    return "вверх";
@@ -27,19 +22,11 @@ inline const char* dir_ru(Direction d) {
 }
 
 struct Outcome {
-    std::vector<std::string> messages;
-    void logMessage(Message message) {
-        messages.push_back(toString(message)); 
-    }
-
-    void logMessage(Message message, std::initializer_list<std::string> args) {
-        auto loggedMessage = toString(message);
-        for (auto& arg : args) {
-            loggedMessage += ArgsSeparator;
-            loggedMessage += arg;
-        }
-        messages.push_back(loggedMessage);
-    }
+	std::vector<std::string> messages;
+	void logMessage(Message message) { messages.push_back(formatMessage(message)); }
+	void logMessage(Message message, std::initializer_list<std::string> args) {
+		messages.push_back(formatMessage(message, args));
+	}
 };
 struct MoveOutcome : Outcome {
 	bool moved{false};
@@ -53,7 +40,6 @@ struct AttackOutcome : Outcome {
 };
 struct UseOutcome : Outcome {
 	bool used{false};
-	std::vector<std::string> messages;
 	bool bot_respawn_for_log{false};
 	size_t bot_log_x{0}, bot_log_y{0};
 };

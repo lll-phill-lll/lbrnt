@@ -321,7 +321,7 @@ MoveOutcome Game::move_player(const std::string& name, Direction dir, LabyrinthM
 			else if (itemId == "shotgun") out.logMessage(Message::ShotgunFound);
 			else if (itemId == "knife") out.logMessage(Message::KnifeFound);
 			else if (itemId == "armor") out.logMessage(Message::ArmourFound);
-			else if (itemId == "treasure") out.messages.push_back("Подобрано сокровище."); //TODO:refactor
+			else if (itemId == "treasure") out.logMessage(Message::TreasurePicked);
             else out.logMessage(Message::ItemFound, {itemId});
 		}
 		ground_items.erase(itItems);
@@ -512,7 +512,7 @@ void Game::run_bot_turn(LabyrinthMap& map, Outcome& outcome, std::vector<BotRepl
 		for (size_t s = 0; s < n; ++s) {
 			if (!try_random_bot_step(*this, map, replay_log)) break;
 		}
-		messages.push_back("Бот походил");
+		outcome.logMessage(Message::BotMoved);
 		actions_left = 0;
 		advance_turn(*this, map);
 		return;
@@ -641,7 +641,7 @@ bool hit_bot_at(Game& game, LabyrinthMap& map, size_t tx, size_t ty, std::vector
 		}
 	}
 	if (spots.empty()) {
-		outcome.logMessage(Message::BotStays);
+		messages.push_back(formatMessage(Message::BotStays));
 		game.pending_bot_respawn_log = false;
 		return true;
 	}
