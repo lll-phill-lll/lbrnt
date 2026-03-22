@@ -25,6 +25,10 @@
 
   let isCreator = false;
 
+  /** Блок «Сценарий (dev)» и запись ходов — только на отдельном dev-сервере сценариев (см. scenario-dev-server.js). */
+  const scenarioRecordingUi =
+    document.querySelector('meta[name="scenario-recording-ui"]')?.content === '1';
+
   const scenarioApiBase = (document.querySelector('meta[name="scenario-api-base"]')?.content || 'http://127.0.0.1:5174').replace(/\/$/, '');
   let scenarioActions = [];
   let scenarioExpectStdout = '';
@@ -35,7 +39,7 @@
     return accum ? accum + '\n' + p : p;
   }
   function recordScenarioFromEmit(resp, payload, kind) {
-    if (!resp?.ok) return;
+    if (!scenarioRecordingUi || !resp?.ok) return;
     const raw = resp.scenarioTrace?.rawStdout ?? '';
     scenarioExpectStdout = appendScenarioPiece(scenarioExpectStdout, raw);
     if (kind === 'move') scenarioActions.push({ type: 'move', name: session.name, dir: payload.dir });
@@ -43,6 +47,7 @@
     else if (kind === 'use') scenarioActions.push({ type: 'use-item', name: session.name, item: payload.item, dir: payload.dir });
   }
   function setScenarioStatus(t) {
+    if (!scenarioRecordingUi) return;
     const el = $('scenarioDevStatus');
     if (el) el.textContent = t || '';
   }
@@ -146,7 +151,7 @@
         isCreator = !!resp.isCreator;
         if (isCreator) {
           creatorCard.classList.remove('hidden');
-          $('scenarioDevCard')?.classList.remove('hidden');
+          if (scenarioRecordingUi) $('scenarioDevCard')?.classList.remove('hidden');
         }
         if (resp.turn) updateTurn(resp.turn);
         if (resp.playerStatus) handlePlayerStatus(resp.playerStatus);
@@ -934,6 +939,7 @@
   }
 
   function bindScenarioDev() {
+    if (!scenarioRecordingUi) return;
     $('scenarioLoadFileBtn')?.addEventListener('click', async () => {
       const id = ($('scenarioIdInput')?.value || '').trim();
       if (!id) {
