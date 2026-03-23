@@ -210,11 +210,11 @@ MoveOutcome Game::move_player(const std::string& name, Direction dir, LabyrinthM
 	MoveOutcome out;
 	auto it = players.find(name);
 	if (it == players.end()) {
-		out.messages.push_back("Нет такого игрока");
+		out.logMessage(Message::InvalidTargetPlayer);
 		return out;
 	}
 	if (!is_players_turn(*this, name)) {
-		out.messages.push_back("Сейчас не ваш ход");
+		out.logMessage(Message::NotYourMove);
 		return out;
 	}
 	auto pos = it->second;
@@ -245,10 +245,10 @@ MoveOutcome Game::move_player(const std::string& name, Direction dir, LabyrinthM
 			out.moved = true;
 			out.position = pos; // remain at border cell
 			if (player_has_treasure(*this, name)) {
-				out.messages.push_back("Выход найден на внешней стене! Игрок вынес сокровище!");
+				out.logMessage(Message::ExitFoundWithTreasure);
 				finished = true;
 			} else {
-				out.messages.push_back("Выход найден на внешней стене, но без сокровища.");
+				out.logMessage(Message::ExitFoundWithoutTreasure);
 			}
 			consume_action_or_advance(*this, map);
 			return out;
@@ -264,7 +264,11 @@ MoveOutcome Game::move_player(const std::string& name, Direction dir, LabyrinthM
 			case Direction::Up:    outer = (pos.second == 0); break;
 			case Direction::Down:  outer = (pos.second + 1 >= map.height); break;
 		}
-		out.messages.push_back(std::string(outer ? "Врезался во внешнюю стену (" : "Врезался в стену (") + dir_ru(dir) + ")");
+        if (outer) {
+            out.logMessage(Message::OuterWallCrash, {dir_wire(dir)});
+        } else {
+            out.logMessage(Message::InnerWallCrash, {dir_wire(dir)});
+        }
 		if (enforce_turns) { actions_left = 0; advance_turn(*this, map); }
 		return out;
 	}
@@ -274,19 +278,19 @@ MoveOutcome Game::move_player(const std::string& name, Direction dir, LabyrinthM
 	players[name] = new_pos;
 	out.moved = true;
 	out.position = new_pos;
-	out.messages.push_back(std::string("Прошёл ") + dir_ru(dir));
+    out.logMessage(Message::Moved, {dir_wire(dir)});
 
 	CellContent newCell = map.get_cell(new_pos.first, new_pos.second);
 	// If moved between different location types, call onExit for previous
 	if (prevCell != newCell) {
 		auto* locPrev = getLocationFor(prevCell);
-		locPrev->onExit(*this, map, name, pos.first, pos.second, out.messages);
+		locPrev->onExit(*this, map, name, pos.first, pos.second, out);
 	}
 
 	// Generic onEnter for any cell
 	{
 		auto* locNew = getLocationFor(newCell);
-		locNew->onEnter(*this, map, name, new_pos.first, new_pos.second, out.messages);
+		locNew->onEnter(*this, map, name, new_pos.first, new_pos.second, out);
 	}
 
 	switch (newCell) {
@@ -300,7 +304,7 @@ MoveOutcome Game::move_player(const std::string& name, Direction dir, LabyrinthM
 		inventories[name].setCharges("treasure", cur + 1);
 		itloot->second -= 1;
 		if (itloot->second <= 0) loot_treasure.erase(itloot);
-		out.messages.push_back("Поднято сокровище с земли.");
+		out.logMessage(Message::TreasureFound);
 	}
 	// Pick up ground items if present
 	auto itItems = ground_items.find(lk);
@@ -312,13 +316,13 @@ MoveOutcome Game::move_player(const std::string& name, Direction dir, LabyrinthM
 			int cur = inventories[name].getCharges(itemId);
 			inventories[name].setCharges(itemId, cur + grant);
 			if (itemId == "knife" && inventories[name].getCharges("knife") > 0) broken_knife.erase(name);
-			if (itemId == "flashlight") out.messages.push_back("Подобран фонарь");
-			else if (itemId == "rifle") out.messages.push_back("Подобрано ружьё");
-			else if (itemId == "shotgun") out.messages.push_back("Подобран дробовик");
-			else if (itemId == "knife") out.messages.push_back("Подобран нож");
-			else if (itemId == "armor") out.messages.push_back("Подобрана броня");
-			else if (itemId == "treasure") out.messages.push_back("Подобрано сокровище.");
-			else out.messages.push_back("Подобран предмет: " + itemId);
+			if (itemId == "flashlight") out.logMessage(Message::FlashLightFound);
+			else if (itemId == "rifle") out.logMessage(Message::RifleFound);
+			else if (itemId == "shotgun") out.logMessage(Message::ShotgunFound);
+			else if (itemId == "knife") out.logMessage(Message::KnifeFound);
+			else if (itemId == "armor") out.logMessage(Message::ArmourFound);
+			else if (itemId == "treasure") out.logMessage(Message::TreasurePicked);
+            else out.logMessage(Message::ItemFound, {itemId});
 		}
 		ground_items.erase(itItems);
 	}
@@ -347,7 +351,7 @@ MoveOutcome Game::move_player(const std::string& name, Direction dir, LabyrinthM
 		size_t dy = (new_pos.second > by) ? (new_pos.second - by) : (by - new_pos.second);
 		if (dx + dy == 1 && adjacentBreathingVisible(bx, by)) feltBreathing = true;
 	}
-	if (feltBreathing) out.messages.push_back(game_message_nearby_breathing());
+	if (feltBreathing) out.logMessage(Message::Breathe);
 	consume_action_or_advance(*this, map);
 	return out;
 }
@@ -356,7 +360,7 @@ AttackOutcome Game::attack(const std::string& name, Direction dir, LabyrinthMap&
 	// Backward compatibility: attack = use knife
 	AttackOutcome out;
 	if (!is_players_turn(*this, name)) {
-		out.messages.push_back("Сейчас не ваш ход");
+        out.logMessage(Message::NotYourMove);
 		return out;
 	}
 	auto use = use_item(name, std::string("knife"), dir, map);
@@ -372,9 +376,9 @@ UseOutcome Game::use_item(const std::string& name, const std::string& itemId, Di
 	UseOutcome out;
 	pending_bot_respawn_log = false;
 	auto itp = players.find(name);
-	if (itp == players.end()) { out.messages.push_back("Нет такого игрока"); return out; }
+	if (itp == players.end()) { out.logMessage(Message::InvalidTargetPlayer); return out; }
 	if (!is_players_turn(*this, name)) {
-		out.messages.push_back("Сейчас не ваш ход");
+		out.logMessage(Message::NotYourMove);
 		return out;
 	}
 	// Create requested item
@@ -384,10 +388,9 @@ UseOutcome Game::use_item(const std::string& name, const std::string& itemId, Di
 	else if (itemId == "rifle") item = std::make_unique<Rifle>();
 	else if (itemId == "flashlight") item = std::make_unique<Flashlight>();
 	else if (itemId == "treasure") item = std::make_unique<LootTreasure>();
-	else { out.messages.push_back("Неизвестный предмет"); return out; }
+	else { out.logMessage(Message::UnknownItem); return out; }
 	// Delegate charge logic to item
-	extern bool item_use(Game& game, Item& item, LabyrinthMap& map, const std::string& playerName, Direction dir, std::vector<std::string>& messages);
-	out.used = item_use(*this, *item, map, name, dir, out.messages);
+	out.used = item_use(*this, *item, map, name, dir, out);
 	if (pending_bot_respawn_log) {
 		out.bot_respawn_for_log = true;
 		out.bot_log_x = pending_bot_log_x;
@@ -456,7 +459,7 @@ static bool try_random_bot_step(Game& g, LabyrinthMap& map, std::vector<BotRepla
 
 // Бот: n = bot_steps_per_turn шагов за ход. Удар возможен только если кратчайший путь к дистанции удара ≤ n−1;
 // если кратчайший путь ровно n — до цели дойти можно, удара нет. Удар до исчерпания n шагов — ход сразу кончается.
-void Game::run_bot_turn(LabyrinthMap& map, std::vector<std::string>& messages, std::vector<BotReplayStep>* replay_log) {
+void Game::run_bot_turn(LabyrinthMap& map, Outcome& outcome, std::vector<BotReplayStep>* replay_log) {
 	if (!bot_enabled) { advance_turn(*this, map); return; }
 	if (players.empty()) { advance_turn(*this, map); return; }
 	if (bot_x >= map.width || bot_y >= map.height) { advance_turn(*this, map); return; }
@@ -472,7 +475,7 @@ void Game::run_bot_turn(LabyrinthMap& map, std::vector<std::string>& messages, s
 		if (auto* loc = getLocationFor(CellContent::Hospital)) {
 			if (auto* hosp = dynamic_cast<HospitalLocation*>(loc)) {
 				if (hosp->teleportToHospital(*this, map, victim)) {
-					messages.push_back(std::string("PLAYER:") + victim + ": Вас убил бот. Вы в больнице.");
+					outcome.logPlayerMessage(victim, Message::KilledByBot, {victim});
 					if (replay_log) {
 						BotReplayStep ks;
 						ks.kind = BotReplayStep::Kind::Kill;
@@ -508,7 +511,7 @@ void Game::run_bot_turn(LabyrinthMap& map, std::vector<std::string>& messages, s
 		for (size_t s = 0; s < n; ++s) {
 			if (!try_random_bot_step(*this, map, replay_log)) break;
 		}
-		messages.push_back("Бот походил");
+		outcome.logMessage(Message::BotMoved);
 		actions_left = 0;
 		advance_turn(*this, map);
 		return;
@@ -565,7 +568,7 @@ void Game::run_bot_turn(LabyrinthMap& map, std::vector<std::string>& messages, s
 		for (size_t s = 0; s < n; ++s) {
 			if (!try_random_bot_step(*this, map, replay_log)) break;
 		}
-		messages.push_back("Бот походил");
+        outcome.logMessage(Message::BotMoved);
 		actions_left = 0;
 		advance_turn(*this, map);
 		return;
@@ -574,7 +577,7 @@ void Game::run_bot_turn(LabyrinthMap& map, std::vector<std::string>& messages, s
 	// d = 0: уже в зоне удара; удар только если 0 ≤ n−1 (n ≥ 1)
 	if (bestD == 0 && bestD <= n - 1) {
 		try_kill_adjacent();
-		messages.push_back("Бот походил");
+        outcome.logMessage(Message::BotMoved);
 		actions_left = 0;
 		advance_turn(*this, map);
 		return;
@@ -606,19 +609,19 @@ void Game::run_bot_turn(LabyrinthMap& map, std::vector<std::string>& messages, s
 		}
 		if (moves_used == bestD && bestD <= n - 1) {
 			try_kill_adjacent();
-			messages.push_back("Бот походил");
+            outcome.logMessage(Message::BotMoved);
 			actions_left = 0;
 			advance_turn(*this, map);
 			return;
 		}
 	}
 
-	messages.push_back("Бот походил");
+    outcome.logMessage(Message::BotMoved);
 	actions_left = 0;
 	advance_turn(*this, map);
 }
 
-bool hit_bot_at(Game& game, LabyrinthMap& map, size_t tx, size_t ty, std::vector<std::string>& messages) {
+bool hit_bot_at(Game& game, LabyrinthMap& map, size_t tx, size_t ty, Outcome& out) {
 	if (!game.bot_enabled) return false;
 	if (tx != game.bot_x || ty != game.bot_y) return false;
 	std::vector<std::pair<size_t, size_t>> spots;
@@ -637,21 +640,21 @@ bool hit_bot_at(Game& game, LabyrinthMap& map, size_t tx, size_t ty, std::vector
 		}
 	}
 	if (spots.empty()) {
-		messages.push_back("Нет свободной клетки — бот остаётся на месте.");
+		out.logMessage(Message::BotStays);
 		game.pending_bot_respawn_log = false;
 		return true;
 	}
 	const size_t pick = static_cast<size_t>(rand_u32() % spots.size());
 	game.bot_x = spots[pick].first;
 	game.bot_y = spots[pick].second;
-	messages.push_back("Бот уничтожен и появляется в другом месте.");
+	out.logMessage(Message::BotDestroyedRelocated);
 	game.pending_bot_respawn_log = true;
 	game.pending_bot_log_x = game.bot_x;
 	game.pending_bot_log_y = game.bot_y;
 	return true;
 }
 
-bool attempt_kill(Game& game, LabyrinthMap& map, const std::string& victim, std::vector<std::string>& messages) {
+bool attempt_kill(Game& game, LabyrinthMap& map, const std::string& victim, Outcome& out) {
 	auto itp = game.players.find(victim);
 	if (itp == game.players.end()) return false;
 
@@ -665,7 +668,7 @@ bool attempt_kill(Game& game, LabyrinthMap& map, const std::string& victim, std:
 				itInv->second.removeItem("armor");
 			else
 				itInv->second.setCharges("armor", armor);
-			messages.push_back("Игрок " + victim + " защищён бронёй! Броня уничтожена.");
+			out.logMessage(Message::ArmorAbsorbedHit, {victim});
 			return false;
 		}
 	}
@@ -679,6 +682,6 @@ bool attempt_kill(Game& game, LabyrinthMap& map, const std::string& victim, std:
 			sent = hosp->teleportToHospital(game, map, victim);
 		}
 	}
-	if (!sent) messages.push_back("Больница не найдена");
+	if (!sent) out.logMessage(Message::HospitalNotFound);
 	return sent;
 }
