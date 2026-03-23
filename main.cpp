@@ -1,4 +1,5 @@
 #include "generator.hpp"
+#include "message.hpp"
 #include "rng.hpp"
 #include "state.hpp"
 #include "viz.hpp"
@@ -113,8 +114,8 @@ static void applyLogEntry(const LogEntry& e, AppState& cur) {
 			else if (e.item == "rifle") itm = std::make_unique<Rifle>();
 			else if (e.item == "flashlight") itm = std::make_unique<Flashlight>();
 			if (itm) {
-				std::vector<std::string> msgs;
-				itm->apply(cur.game, cur.map, e.name, e.dir, msgs);
+				Outcome scratch;
+				itm->apply(cur.game, cur.map, e.name, e.dir, scratch);
 			}
 			break;
 		}
@@ -151,10 +152,10 @@ static std::string logEntryDescription(const LogEntry& e) {
 	return "";
 }
 
-// User-facing formatted output: [Player]: then tab-indented messages
-static void print_user_messages(const std::string& player, const std::vector<std::string>& messages) {
+// Вывод wire как есть (локализация только в messageParse.js).
+static void print_user_messages(const std::string& player, const Outcome& o) {
 	std::cout << "[" << player << "]:" << "\n";
-	for (const auto& m : messages) {
+	for (const auto& m : o.messages) {
 		std::cout << "\t" << m << "\n";
 	}
 }
@@ -168,29 +169,31 @@ static void run_pending_bot_turns(AppState& st) {
 		if (!st.game.enforce_turns || !st.game.bot_enabled || st.game.turn_order.empty()) break;
 		if (st.game.turn_index >= st.game.turn_order.size()) break;
 		if (st.game.turn_order[st.game.turn_index] != "bot") break;
-		std::vector<std::string> blog;
+		Outcome botBlog;
 		std::vector<BotReplayStep> bot_replay;
-		st.game.run_bot_turn(st.map, blog, &bot_replay);
+		st.game.run_bot_turn(st.map, botBlog, &bot_replay);
 		for (const auto& s : bot_replay) {
 			if (s.kind == BotReplayStep::Kind::Move)
 				st.log.push_back(LogEntry{LogType::BotMove, "", Direction::Up, s.x, s.y, {}});
 			else
 				st.log.push_back(LogEntry{LogType::BotKill, s.victim, Direction::Up, 0, 0, {}});
 		}
-		for (const auto& line : blog) {
+		for (const auto& line : botBlog.messages) {
 			if (line.rfind("PLAYER:", 0) == 0) {
 				size_t p = line.find(':', 7);
 				if (p != std::string::npos) {
 					std::string pname = line.substr(7, p - 7);
 					std::string pmsg = line.substr(p + 1);
-					print_user_messages(pname, std::vector<std::string>{pmsg});
+					Outcome victimOut;
+					victimOut.messages.push_back(pmsg);
+					print_user_messages(pname, victimOut);
 				}
 			}
 		}
 		// В фиде одна строка на ход бота (без пошаговых координат)
-		for (const auto& line : blog) {
-			if (line == "Бот походил") {
-				std::cout << "Бот походил\n";
+		for (const auto& line : botBlog.messages) {
+			if (line == messageWire(Message::BotMoved)) {
+				std::cout << line << "\n";
 				break;
 			}
 		}
@@ -353,7 +356,9 @@ int main(int argc, char** argv) {
 			}
 		}
 		// print global turn info
-		print_user_messages("TURN", std::vector<std::string>{std::string("Next: ") + nextActor});
+		Outcome turnOut;
+		turnOut.messages.push_back(std::string("Next: ") + nextActor);
+		print_user_messages("TURN", turnOut);
 		// build player listing order
 		std::vector<std::string> names;
 		if (st.game.enforce_turns && !st.game.turn_order.empty()) {
@@ -389,7 +394,9 @@ int main(int argc, char** argv) {
 				}
 				if (lines.empty()) lines.push_back("Inventory: (empty)");
 			}
-			print_user_messages(name, lines);
+			Outcome invOut;
+			invOut.messages = std::move(lines);
+			print_user_messages(name, invOut);
 		}
 		return 0;
 	}
@@ -486,7 +493,7 @@ int main(int argc, char** argv) {
 		js << "\"nearbyBreathing\":" << (breathing ? "true" : "false") << ",";
 		js << "\"messages\":[";
 		if (breathing) {
-			js << "\"" << jsonEscape(std::string(game_message_nearby_breathing())) << "\"";
+			js << "\"" << jsonEscape(messageWire(Message::Breathe)) << "\"";
 		}
 		js << "]}";
 		std::cout << js.str() << "\n";
@@ -586,7 +593,7 @@ int main(int argc, char** argv) {
 			log_err(std::string("MOVE ") + name + " (no previous position)");
 		}
 		// stdout user messages
-		print_user_messages(name, out.messages);
+		print_user_messages(name, out);
 		run_pending_bot_turns(st);
 		if (!AppState::save(st, state, err)) { std::cerr << err << "\n"; return 2; }
 		return 0;
@@ -617,7 +624,7 @@ int main(int argc, char** argv) {
 			log_err(es.str());
 		}
 		// stdout user messages
-		print_user_messages(name, out.messages);
+		print_user_messages(name, out);
 		run_pending_bot_turns(st);
 		if (!AppState::save(st, state, err)) { std::cerr << err << "\n"; return 2; }
 		return 0;
@@ -712,7 +719,7 @@ int main(int argc, char** argv) {
 			log_err(es.str());
 		}
 		// stdout user messages
-		print_user_messages(name, out.messages);
+		print_user_messages(name, out);
 		run_pending_bot_turns(st);
 		if (!AppState::save(st, state, err)) { std::cerr << err << "\n"; return 2; }
 		return 0;

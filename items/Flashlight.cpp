@@ -1,7 +1,6 @@
 #include "../game.hpp"
 #include "../map.hpp"
 #include "Flashlight.hpp"
-#include <sstream>
 #include "../generator.hpp"
 #include "../rng.hpp"
 #include <random>
@@ -16,38 +15,41 @@ static bool step_forward_fl(const LabyrinthMap& map, size_t& x, size_t& y, Direc
 	return false;
 }
 
-static const char* cell_name(CellContent c) {
+static const char* cell_wire(CellContent c) {
 	switch (c) {
-		case CellContent::Empty: return "пусто";
-		case CellContent::Treasure: return "сокровище";
-		case CellContent::Hospital: return "больница";
-		case CellContent::Arsenal: return "арсенал";
-		case CellContent::Exit: return "выход";
+		case CellContent::Empty: return "empty";
+		case CellContent::Treasure: return "treasure";
+		case CellContent::Hospital: return "hospital";
+		case CellContent::Arsenal: return "arsenal";
+		case CellContent::Exit: return "exit";
 	}
-	return "пусто";
+	return "empty";
 }
 
-void Flashlight::apply(Game& game, LabyrinthMap& map, const std::string& playerName, Direction dir, std::vector<std::string>& messages) {
+void Flashlight::apply(Game& game, LabyrinthMap& map, const std::string& playerName, Direction dir, Outcome& out) {
 	auto ita = game.players.find(playerName);
-	if (ita == game.players.end()) { messages.push_back("Нет такого игрока"); return; }
+	if (ita == game.players.end()) { out.logMessage(Message::InvalidTargetPlayer); return; }
 
 	size_t cx = ita->second.first, cy = ita->second.second;
 	for (int i = 1; i <= 3; ++i) {
-		if (!step_forward_fl(map, cx, cy, dir)) { messages.push_back(std::string("Фонарь ") + dir_ru(dir) + ": путь закрыт стеной"); break; }
-		std::ostringstream os;
-		os << "Фонарь " << dir_ru(dir) << " " << i << ": " << cell_name(map.get_cell(cx, cy));
-		// check players
+		if (!step_forward_fl(map, cx, cy, dir)) {
+			out.logMessage(Message::FlashlightBlocked, {dir_wire(dir)});
+			break;
+		}
 		bool found_player = false;
 		for (const auto& kv : game.players) {
 			if (kv.first == playerName) continue;
 			if (kv.second.first == cx && kv.second.second == cy) { found_player = true; break; }
 		}
-		if (found_player) os << " + игрок";
-		messages.push_back(os.str());
+		const std::string cellTok = cell_wire(map.get_cell(cx, cy));
+		if (found_player)
+			out.logMessage(Message::FlashlightBeam, {dir_wire(dir), std::to_string(i), cellTok, "player"});
+		else
+			out.logMessage(Message::FlashlightBeam, {dir_wire(dir), std::to_string(i), cellTok});
 	}
 }
 
-void Flashlight::onDepleted(Game& game, LabyrinthMap& map, const std::string& /*playerName*/, std::vector<std::string>& messages) {
+void Flashlight::onDepleted(Game& game, LabyrinthMap& map, const std::string& /*playerName*/, Outcome& out) {
 	std::vector<std::pair<size_t,size_t>> empties;
 	for (size_t y = 0; y < map.height; ++y) {
 		for (size_t x = 0; x < map.width; ++x) {
@@ -59,7 +61,6 @@ void Flashlight::onDepleted(Game& game, LabyrinthMap& map, const std::string& /*
 	const auto pos = empties[game_rng::uniform_u32_below(gen, static_cast<uint32_t>(empties.size()))];
 	long long key = (long long)pos.second * 1000000LL + (long long)pos.first;
 	game.ground_items[key]["flashlight"] += 1;
-	messages.push_back("Фонарь выпал где-то неподалёку.");
+	out.logMessage(Message::FlashlightDropped);
 }
-
 

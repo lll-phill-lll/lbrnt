@@ -1,6 +1,8 @@
 #pragma once
 #include "map.hpp"
+#include "message.hpp"
 #include "items.hpp"
+
 #include <cstdint>
 #include <string>
 #include <unordered_map>
@@ -9,36 +11,40 @@
 
 enum class Direction { Up, Down, Left, Right };
 
-/** Сообщение о соседнем дыхании: `Game::move_player`, CLI `player-status` (JSON `messages` / `player_status`). */
-inline const char* game_message_nearby_breathing() {
-	return "Вы чувствуете чьё-то дыхание поблизости.";
-}
-
-inline const char* dir_ru(Direction d) {
-	switch(d) {
-		case Direction::Up:    return "вверх";
-		case Direction::Down:  return "вниз";
-		case Direction::Left:  return "влево";
-		case Direction::Right: return "вправо";
+/** Токен направления для wire (совпадает с ключами в messageParse.js). */
+inline const char* dir_wire(Direction d) {
+	switch (d) {
+		case Direction::Up:    return "up";
+		case Direction::Down:  return "down";
+		case Direction::Left:  return "left";
+		case Direction::Right: return "right";
 	}
 	return "";
 }
 
-struct MoveOutcome {
+struct Outcome {
+	std::vector<std::string> messages;
+	void logMessage(Message message) { messages.push_back(messageWire(message)); }
+	void logMessage(Message message, std::initializer_list<std::string> args) {
+		messages.push_back(messageWire(message, args));
+	}
+	/** Сообщение конкретному игроку (жертве бота): `PLAYER:имя:WIRE…` */
+	void logPlayerMessage(const std::string& victim, Message message, std::initializer_list<std::string> args = {}) {
+		messages.push_back(std::string("PLAYER:") + victim + ":" + messageWire(message, args));
+	}
+};
+struct MoveOutcome : Outcome {
 	bool moved{false};
 	std::pair<size_t,size_t> position{0,0};
-	std::vector<std::string> messages;
 };
-struct AttackOutcome {
+struct AttackOutcome : Outcome {
 	bool attacked{false};
-	std::vector<std::string> messages;
 	/** Для записи в лог replay: бот перенесён после удара игрока */
 	bool bot_respawn_for_log{false};
 	size_t bot_log_x{0}, bot_log_y{0};
 };
-struct UseOutcome {
+struct UseOutcome : Outcome {
 	bool used{false};
-	std::vector<std::string> messages;
 	bool bot_respawn_for_log{false};
 	size_t bot_log_x{0}, bot_log_y{0};
 };
@@ -67,8 +73,7 @@ struct Game {
 	size_t bot_y{0};
 	int bot_steps_per_turn{1};
 
-	void run_bot_turn(LabyrinthMap& map, std::vector<std::string>& messages,
-		std::vector<BotReplayStep>* replay_log = nullptr);
+	void run_bot_turn(LabyrinthMap& map, Outcome& outcome, std::vector<BotReplayStep>* replay_log = nullptr);
 	/** Только для replay: убийство ботом (как в run_bot_turn, без проверки брони). */
 	void apply_replay_bot_kill(const std::string& victim, LabyrinthMap& map);
 	// inventory: broken knife set; if name is in set -> knife broken, else active
@@ -103,9 +108,9 @@ inline bool player_has_treasure(const Game& g, const std::string& name) {
 
 // Attempt to kill a victim (weapon attack). Returns true if hospitalized.
 // If victim has armor, the armor absorbs the hit and the player survives.
-bool attempt_kill(Game& game, LabyrinthMap& map, const std::string& victim, std::vector<std::string>& messages);
+bool attempt_kill(Game& game, LabyrinthMap& map, const std::string& victim, Outcome& out);
 
 /** Удар по клетке (tx,ty): если там бот — перенос на случайную пустую клетку. */
-bool hit_bot_at(Game& game, LabyrinthMap& map, size_t tx, size_t ty, std::vector<std::string>& messages);
+bool hit_bot_at(Game& game, LabyrinthMap& map, size_t tx, size_t ty, Outcome& out);
 
 

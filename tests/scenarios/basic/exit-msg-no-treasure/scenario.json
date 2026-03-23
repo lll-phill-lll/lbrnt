@@ -29,7 +29,7 @@
       "type": "move",
       "name": "Alice",
       "dir": "left",
-      "expect_stdout": "[Alice]:\n\tВыход найден на внешней стене, но без сокровища."
+      "expect_stdout": "[Alice]:\n\tEXIT_FOUND_WITHOUT_TREASURE"
     }
   ]
 }

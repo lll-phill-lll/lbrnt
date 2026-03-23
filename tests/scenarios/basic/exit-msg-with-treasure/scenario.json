@@ -35,7 +35,7 @@
       "type": "move",
       "name": "Alice",
       "dir": "left",
-      "expect_stdout": "[Alice]:\n\tВыход найден на внешней стене! Игрок вынес сокровище!"
+      "expect_stdout": "[Alice]:\n\tEXIT_FOUND_WITH_TREASURE"
     }
   ]
 }

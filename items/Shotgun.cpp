@@ -12,12 +12,12 @@ static bool step_forward_sg(const LabyrinthMap& map, size_t& x, size_t& y, Direc
 	return false;
 }
 
-void Shotgun::apply(Game& game, LabyrinthMap& map, const std::string& playerName, Direction dir, std::vector<std::string>& messages) {
+void Shotgun::apply(Game& game, LabyrinthMap& map, const std::string& playerName, Direction dir, Outcome& out) {
 	auto ita = game.players.find(playerName);
-	if (ita == game.players.end()) { messages.push_back("Нет такого игрока"); return; }
+	if (ita == game.players.end()) { out.logMessage(Message::InvalidTargetPlayer); return; }
 
 	size_t fx = ita->second.first, fy = ita->second.second;
-	if (!step_forward_sg(map, fx, fy, dir)) { messages.push_back(std::string("Дробовик ") + dir_ru(dir) + ": стена перед вами"); return; }
+	if (!step_forward_sg(map, fx, fy, dir)) { out.logMessage(Message::ShotgunWall, {dir_wire(dir)}); return; }
 
 	std::vector<std::pair<size_t,size_t>> targets;
 	switch (dir) {
@@ -43,18 +43,17 @@ void Shotgun::apply(Game& game, LabyrinthMap& map, const std::string& playerName
 		for (const auto& kv : game.players) {
 			if (kv.first == playerName) continue;
 			if (kv.second.first == tx && kv.second.second == ty) {
-				if (attempt_kill(game, map, kv.first, messages))
-					messages.push_back(std::string("Дробовик ") + dir_ru(dir) + ": игрок " + kv.first + " отправлен в больницу");
+				if (attempt_kill(game, map, kv.first, out))
+					out.logMessage(Message::ShotgunHitPlayer, {dir_wire(dir), kv.first});
 				any = true;
 				cell_hit = true;
 			}
 		}
-		if (!cell_hit && hit_bot_at(game, map, tx, ty, messages)) {
-			messages.push_back(std::string("Дробовик ") + dir_ru(dir) + ": бот уничтожен");
+		if (!cell_hit && hit_bot_at(game, map, tx, ty, out)) {
+			out.logMessage(Message::ShotgunHitBot, {dir_wire(dir)});
 			any = true;
 		}
 	}
-	if (!any) messages.push_back(std::string("Дробовик ") + dir_ru(dir) + ": промах");
+	if (!any) out.logMessage(Message::ShotgunMiss, {dir_wire(dir)});
 }
-
 
